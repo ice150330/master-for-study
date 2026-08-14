@@ -22,7 +22,7 @@ export function BranchFan({
   const hidden = branches.slice(3);
 
   return (
-    <div className="absolute right-4 top-3 z-30 flex items-start gap-1.5">
+    <div className="absolute right-4 top-3 z-30 flex items-start gap-1.5 max-[1100px]:hidden">
       {shown.map((b, i) => (
         <button
           key={b.id}

@@ -11,10 +11,12 @@ export function Term({
   name,
   definition,
   onAction,
+  sourceMessageId,
 }: {
   name: string;
   definition?: string;
-  onAction?: (action: TermAction, name: string) => void;
+  onAction?: (action: TermAction, name: string, messageId: string) => void;
+  sourceMessageId: string;
 }) {
   return (
     <span className="group relative inline-flex">
@@ -31,19 +33,19 @@ export function Term({
         <div className="flex gap-1.5">
           <ActionButton
             className="bg-primary text-primary-foreground"
-            onClick={() => onAction?.('branch', name)}
+            onClick={() => onAction?.('branch', name, sourceMessageId)}
           >
             分支会话
           </ActionButton>
           <ActionButton
             className="bg-accent text-accent-foreground"
-            onClick={() => onAction?.('new', name)}
+            onClick={() => onAction?.('new', name, sourceMessageId)}
           >
             新会话
           </ActionButton>
           <ActionButton
             className="bg-pink text-pink-foreground"
-            onClick={() => onAction?.('followup', name)}
+            onClick={() => onAction?.('followup', name, sourceMessageId)}
           >
             追问
           </ActionButton>

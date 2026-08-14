@@ -121,12 +121,14 @@ export function Chat() {
     parentId: string | null,
     title?: string,
     previousIdempotencyKey?: string,
+    forkedFromMessageId?: string,
   ): Promise<string | null> {
     const data = await requestJson<{ session: { id: string } }>('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        parentId,
+        parentId: forkedFromMessageId ? undefined : parentId,
+        forkedFromMessageId,
         title,
         idempotencyKey: previousIdempotencyKey ?? createIdempotencyKey('session'),
       }),
@@ -151,12 +153,13 @@ export function Chat() {
     retry = false,
     previousIdempotencyKey?: string,
     baseOverride?: ChatMsg[],
+    targetSessionId?: string,
   ) {
     const text = (textOverride ?? input).trim();
     if (!text || isStreaming) return;
 
     const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('chat');
-    let sid = currentSessionId;
+    let sid = targetSessionId ?? currentSessionId;
     try {
       if (!sid) {
         sid = await createSession(null, undefined, `${idempotencyKey}:session`);
@@ -208,7 +211,7 @@ export function Chat() {
       const res = await request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, sessionId: sid, model, idempotencyKey }),
+        body: JSON.stringify({ message: text, sessionId: sid, model, idempotencyKey }),
         signal: controller.signal,
         timeoutMs: 45_000,
       });
@@ -299,20 +302,44 @@ export function Chat() {
     setTermDefs((prev) => ({ ...prev, ...map }));
   }
 
-  async function handleTermAction(action: TermAction, name: string) {
+  async function createSemanticBranch(
+    messageId: string,
+    title: string,
+    firstQuestion: string,
+  ) {
+    if (!currentSessionId) return;
+    stopStreaming(false);
+    const parentId = currentSessionId;
+    try {
+      const id = await createSession(parentId, title, undefined, messageId);
+      if (!id) return;
+      await openSession(id);
+      await send(firstQuestion, false, undefined, [], id);
+    } catch (error) {
+      setRequestError({ message: getErrorMessage(error, '创建语义分支失败') });
+    }
+  }
+
+  async function handleTermAction(action: TermAction, name: string, messageId: string) {
     if (action === 'branch') {
-      stopStreaming(false);
-      try {
-        const id = await createSession(currentSessionId, `术语：${name}`);
-        if (id) await openSession(id);
-      } catch (error) {
-        setRequestError({ message: getErrorMessage(error, '创建术语分支失败') });
-      }
+      await createSemanticBranch(
+        messageId,
+        `术语：${name}`,
+        `结合刚才的上下文，解释「${name}」在这里的具体含义，并给出一个贴近原问题的例子。`,
+      );
     } else if (action === 'new') {
       await newSession();
     } else if (action === 'followup') {
       await send(`请再详细解释一下「${name}」，并举一个例子。`);
     }
+  }
+
+  function branchFromMessage(messageId: string) {
+    void createSemanticBranch(
+      messageId,
+      '从消息继续',
+      '请从这条消息继续深入，先概括我们已经确认的上下文，再展开一个最值得追问的方向。',
+    );
   }
 
   async function updateCurrentSession(
@@ -481,6 +508,7 @@ export function Chat() {
         onPin={(pinned) => updateCurrentSession({ action: 'pin', pinned })}
         onArchive={() => updateCurrentSession({ action: 'archive', archived: true })}
         onDelete={deleteCurrentSession}
+        onBranchFromMessage={branchFromMessage}
       />
     </div>
   );

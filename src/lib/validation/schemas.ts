@@ -8,6 +8,7 @@ const nullableId = id.nullable().optional();
 export const sessionsCreateSchema = z
   .object({
     parentId: nullableId,
+    forkedFromMessageId: nullableId,
     title: z.string().trim().min(1).max(120).optional(),
     idempotencyKey,
   })
@@ -31,15 +32,7 @@ export const sessionDeleteSchema = z.object({ idempotencyKey }).strict();
 
 export const chatRequestSchema = z
   .object({
-    messages: z
-      .array(
-        z.object({
-          role: z.enum(['user', 'assistant']),
-          content: z.string().min(1).max(20_000),
-        }),
-      )
-      .min(1)
-      .max(200),
+    message: z.string().trim().min(1).max(20_000),
     model: z.enum(['fast', 'pro']).optional(),
     sessionId: id,
     idempotencyKey,

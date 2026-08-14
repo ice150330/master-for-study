@@ -109,6 +109,11 @@ export function findMessageByIdempotencyKey(idempotencyKey: string): Message | u
     .get();
 }
 
+/** 按 id 查询消息，供分支接口由锚点反推父会话。 */
+export function getMessage(id: string): Message | undefined {
+  return getDb().select().from(schema.messages).where(eq(schema.messages.id, id)).limit(1).get();
+}
+
 /** 按 id 查询单条面试记录。 */
 export function getInterview(id: string): Interview | undefined {
   return getDb()
@@ -194,6 +199,7 @@ export function listSessions(options: { archived?: boolean } = {}): Session[] {
 /** 新建会话（parentId 为空则为根会话）。 */
 export function createSession(input: {
   parentId?: string | null;
+  forkedFromMessageId?: string | null;
   title?: string;
   idempotencyKey: string;
 }): Session {
@@ -205,10 +211,26 @@ export function createSession(input: {
 
   const ws = ensureWorkspace();
   const now = new Date();
+  const id = randomUUID();
+  const parent = input.parentId ? getSession(input.parentId) : undefined;
+  const forkMessage = input.forkedFromMessageId
+    ? getDb()
+        .select()
+        .from(schema.messages)
+        .where(eq(schema.messages.id, input.forkedFromMessageId))
+        .limit(1)
+        .get()
+    : undefined;
+  if (input.parentId && !parent) throw new Error(`父会话不存在：${input.parentId}`);
+  if (input.forkedFromMessageId && forkMessage?.sessionId !== input.parentId) {
+    throw new Error('分支锚点不属于父会话');
+  }
   const session = {
-    id: randomUUID(),
+    id,
     workspaceId: ws.id,
     parentId: input.parentId ?? null,
+    rootSessionId: parent ? (parent.rootSessionId ?? parent.id) : id,
+    forkedFromMessageId: input.forkedFromMessageId ?? null,
     title: input.title?.trim() || DEFAULT_TITLE,
     teacherStyle: null,
     pinnedAt: null,
@@ -227,7 +249,11 @@ export function createSession(input: {
           objectType: 'session',
           objectId: session.id,
           result: { title: session.title },
-          context: { parentId: session.parentId },
+          context: {
+            parentId: session.parentId,
+            rootSessionId: session.rootSessionId,
+            forkedFromMessageId: session.forkedFromMessageId,
+          },
           idempotencyKey: input.idempotencyKey,
         }),
       )
@@ -297,7 +323,7 @@ export function deleteSession(id: string, idempotencyKey: string): boolean {
 
   getDb().transaction((tx) => {
     tx.update(schema.sessions)
-      .set({ parentId: null })
+      .set({ parentId: null, forkedFromMessageId: null })
       .where(eq(schema.sessions.parentId, id))
       .run();
     tx.update(schema.notes).set({ sessionId: null }).where(eq(schema.notes.sessionId, id)).run();
@@ -391,6 +417,40 @@ export function listMessages(sessionId: string): Message[] {
     .where(eq(schema.messages.sessionId, sessionId))
     .orderBy(asc(schema.messages.createdAt))
     .all();
+}
+
+/**
+ * 沿会话祖先链组装模型上下文：祖先只取到下一层分支锚点，当前会话取完整消息。
+ * 数据仍只存一份，分支不会复制父会话消息。
+ */
+export function listSessionContextMessages(sessionId: string): Message[] {
+  const current = getSession(sessionId);
+  if (!current) return [];
+
+  const lineage: Session[] = [];
+  const visited = new Set<string>();
+  let cursor: Session | undefined = current;
+  while (cursor && !visited.has(cursor.id)) {
+    visited.add(cursor.id);
+    lineage.unshift(cursor);
+    cursor = cursor.parentId ? getSession(cursor.parentId) : undefined;
+  }
+
+  const context: Message[] = [];
+  for (let index = 0; index < lineage.length; index += 1) {
+    const session = lineage[index];
+    const child = lineage[index + 1];
+    const ownMessages = listMessages(session.id);
+    if (!child?.forkedFromMessageId) {
+      context.push(...ownMessages);
+      continue;
+    }
+    const anchorIndex = ownMessages.findIndex(
+      (message) => message.id === child.forkedFromMessageId,
+    );
+    context.push(...ownMessages.slice(0, anchorIndex >= 0 ? anchorIndex + 1 : ownMessages.length));
+  }
+  return context;
 }
 
 export type HistoricalTerm = {

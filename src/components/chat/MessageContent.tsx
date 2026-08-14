@@ -8,10 +8,12 @@ export function MessageContent({
   text,
   termDefs,
   onTermAction,
+  messageId,
 }: {
   text: string;
   termDefs: Record<string, string>;
-  onTermAction?: (action: TermAction, name: string) => void;
+  onTermAction?: (action: TermAction, name: string, messageId: string) => void;
+  messageId: string;
 }) {
   const segments = parseTermMarkers(text);
 
@@ -24,6 +26,7 @@ export function MessageContent({
             name={seg.value}
             definition={termDefs[seg.value]}
             onAction={onTermAction}
+            sourceMessageId={messageId}
           />
         ) : (
           seg.value

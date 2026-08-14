@@ -27,6 +27,13 @@ export const sessions = sqliteTable('sessions', {
     .notNull()
     .references(() => workspaces.id),
   parentId: text('parent_id').references((): AnySQLiteColumn => sessions.id),
+  rootSessionId: text('root_session_id').references((): AnySQLiteColumn => sessions.id, {
+    onDelete: 'set null',
+  }),
+  forkedFromMessageId: text('forked_from_message_id').references(
+    (): AnySQLiteColumn => messages.id,
+    { onDelete: 'set null' },
+  ),
   title: text('title').notNull(),
   teacherStyle: text('teacher_style'),
   pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }),

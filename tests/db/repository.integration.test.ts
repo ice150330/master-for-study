@@ -211,4 +211,76 @@ describe('SQLite 仓库事务与幂等性', () => {
       objectId: session.id,
     });
   });
+
+  it('语义分支只继承锚点之前的祖先消息', () => {
+    const root = repository.createSession({
+      title: 'HTTP 根会话',
+      idempotencyKey: 'session:test:branch-root',
+    });
+    const rootQuestion = repository.saveMessage({
+      sessionId: root.id,
+      role: 'user',
+      content: '缓存是什么？',
+      idempotencyKey: 'message:test:branch-root-question',
+    });
+    const rootAnswer = repository.saveMessage({
+      sessionId: root.id,
+      role: 'assistant',
+      content: '缓存复用已有响应。',
+      idempotencyKey: 'message:test:branch-root-answer',
+    });
+    repository.saveMessage({
+      sessionId: root.id,
+      role: 'user',
+      content: '这条消息位于分叉点之后，不应继承。',
+      idempotencyKey: 'message:test:branch-after-anchor',
+    });
+
+    const branch = repository.createSession({
+      parentId: root.id,
+      forkedFromMessageId: rootAnswer.id,
+      title: '缓存分支',
+      idempotencyKey: 'session:test:semantic-branch',
+    });
+    const branchQuestion = repository.saveMessage({
+      sessionId: branch.id,
+      role: 'user',
+      content: '那浏览器如何复用？',
+      idempotencyKey: 'message:test:branch-question',
+    });
+
+    expect(branch.rootSessionId).toBe(root.id);
+    expect(branch.forkedFromMessageId).toBe(rootAnswer.id);
+    expect(repository.listMessages(root.id)).toHaveLength(3);
+    expect(repository.listSessionContextMessages(branch.id).map((message) => message.id)).toEqual([
+      rootQuestion.id,
+      rootAnswer.id,
+      branchQuestion.id,
+    ]);
+  });
+
+  it('拒绝使用其他会话的消息作为分支锚点', () => {
+    const parent = repository.createSession({
+      title: '合法父会话',
+      idempotencyKey: 'session:test:anchor-parent',
+    });
+    const other = repository.createSession({
+      title: '其他会话',
+      idempotencyKey: 'session:test:anchor-other',
+    });
+    const otherMessage = repository.saveMessage({
+      sessionId: other.id,
+      role: 'assistant',
+      content: '不属于父会话',
+      idempotencyKey: 'message:test:anchor-other',
+    });
+
+    expect(() =>
+      repository.createSession({
+        parentId: parent.id,
+        forkedFromMessageId: otherMessage.id,
+        idempotencyKey: 'session:test:invalid-anchor',
+      }),
+    ).toThrow('分支锚点不属于父会话');
+  });
 });

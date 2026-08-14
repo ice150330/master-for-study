@@ -32,13 +32,14 @@ export function SessionDeck({
   onPin,
   onArchive,
   onDelete,
+  onBranchFromMessage,
 }: {
   sessions: ChatSession[];
   currentSessionId: string | null;
   messages: ChatMsg[];
   isStreaming: boolean;
   termDefs: Record<string, string>;
-  onTermAction: (action: TermAction, name: string) => void;
+  onTermAction: (action: TermAction, name: string, messageId: string) => void;
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
@@ -59,6 +60,7 @@ export function SessionDeck({
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
   onDelete: () => void;
+  onBranchFromMessage: (messageId: string) => void;
 }) {
   const nodeById = useMemo(() => {
     const map = new Map<string, ChatSession>();
@@ -88,37 +90,80 @@ export function SessionDeck({
   const current = currentSessionId ? nodeById.get(currentSessionId) : undefined;
   const lineage = ancestors.length > 0 ? `承自 · ${ancestors[0].title}` : null;
 
-  return (
-    <div className="flex min-h-0 flex-1 items-stretch gap-2">
-      {/* 左：祖先堆（竖条卡片，向左后方层叠） */}
-      <AncestorStack ancestors={ancestors} onSelect={onSelect} />
+  const path = [...ancestors].reverse();
 
-      {/* 右：当前会话大卡片 + 右上角分支扇 */}
-      <div className="relative min-w-0 flex-1">
-        <SessionCard
-          session={current ?? null}
-          title={current?.title ?? '新对话'}
-          lineage={lineage}
-          hasBranches={branches.length > 0}
-          messages={messages}
-          isStreaming={isStreaming}
-          termDefs={termDefs}
-          onTermAction={onTermAction}
-          input={input}
-          onInputChange={onInputChange}
-          onSend={onSend}
-          onStop={onStop}
-          onRegenerate={onRegenerate}
-          onContinue={onContinue}
-          requestError={requestError}
-          model={model}
-          onModelChange={onModelChange}
-          onRename={onRename}
-          onPin={onPin}
-          onArchive={onArchive}
-          onDelete={onDelete}
-        />
-        <BranchFan branches={branches} onSelect={onSelect} />
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <nav
+        aria-label="会话分支路径"
+        className="hidden h-9 shrink-0 items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card px-2 max-[1100px]:flex"
+      >
+        {path.map((session) => (
+          <button
+            key={session.id}
+            type="button"
+            onClick={() => onSelect(session.id)}
+            className="shrink-0 text-xs text-muted transition-colors hover:text-foreground"
+          >
+            {session.title}
+            <span aria-hidden="true" className="ml-1 text-border">/</span>
+          </button>
+        ))}
+        <span className="shrink-0 text-xs font-medium text-foreground">
+          {current?.title ?? '新对话'}
+        </span>
+        {branches.length > 0 ? (
+          <select
+            aria-label="选择子分支"
+            defaultValue=""
+            onChange={(event) => {
+              if (event.target.value) onSelect(event.target.value);
+            }}
+            className="ml-auto max-w-48 shrink-0 rounded-lg border border-border bg-card-soft px-2 py-1 text-xs"
+          >
+            <option value="">子分支 ({branches.length})</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>{branch.title}</option>
+            ))}
+          </select>
+        ) : null}
+      </nav>
+      <div className="flex min-h-0 flex-1 items-stretch gap-2">
+        {/* 左：祖先堆（竖条卡片，向左后方层叠） */}
+        <div className="contents max-[1100px]:hidden">
+          <AncestorStack ancestors={ancestors} onSelect={onSelect} />
+        </div>
+
+        {/* 右：当前会话大卡片 + 右上角分支扇 */}
+        <div className="relative min-w-0 flex-1">
+          <div key={currentSessionId ?? 'empty'} className="h-full animate-session-enter">
+            <SessionCard
+              session={current ?? null}
+              title={current?.title ?? '新对话'}
+              lineage={lineage}
+              hasBranches={branches.length > 0}
+              messages={messages}
+              isStreaming={isStreaming}
+              termDefs={termDefs}
+              onTermAction={onTermAction}
+              input={input}
+              onInputChange={onInputChange}
+              onSend={onSend}
+              onStop={onStop}
+              onRegenerate={onRegenerate}
+              onContinue={onContinue}
+              requestError={requestError}
+              model={model}
+              onModelChange={onModelChange}
+              onRename={onRename}
+              onPin={onPin}
+              onArchive={onArchive}
+              onDelete={onDelete}
+              onBranchFromMessage={onBranchFromMessage}
+            />
+          </div>
+          <BranchFan branches={branches} onSelect={onSelect} />
+        </div>
       </div>
     </div>
   );

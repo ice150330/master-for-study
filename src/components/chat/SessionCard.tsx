@@ -3,6 +3,7 @@
 import {
   Archive,
   CornerDownRight,
+  GitBranch,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -62,6 +63,7 @@ export function SessionCard({
   onPin,
   onArchive,
   onDelete,
+  onBranchFromMessage,
 }: {
   session: ChatSession | null;
   title: string;
@@ -72,7 +74,7 @@ export function SessionCard({
   messages: ChatMsg[];
   isStreaming: boolean;
   termDefs: Record<string, string>;
-  onTermAction: (action: TermAction, name: string) => void;
+  onTermAction: (action: TermAction, name: string, messageId: string) => void;
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
@@ -91,6 +93,7 @@ export function SessionCard({
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
   onDelete: () => void;
+  onBranchFromMessage: (messageId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -160,7 +163,15 @@ export function SessionCard({
           </p>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div
+            key={m.id}
+            className={`group/message flex items-start gap-1.5 ${
+              m.role === 'user' ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            {m.role === 'user' && m.status === 'complete' && !isStreaming ? (
+              <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
+            ) : null}
             <div
               className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md ${
                 m.role === 'user'
@@ -169,7 +180,12 @@ export function SessionCard({
               } ${m.status === 'error' ? 'border border-danger/35' : ''}`}
             >
               {m.content ? (
-                <MessageContent text={m.content} termDefs={termDefs} onTermAction={onTermAction} />
+                <MessageContent
+                  text={m.content}
+                  termDefs={termDefs}
+                  onTermAction={onTermAction}
+                  messageId={m.id}
+                />
               ) : m.status === 'error' ? (
                 <span className="text-danger">回答未完成</span>
               ) : null}
@@ -177,6 +193,9 @@ export function SessionCard({
                 <p className="mt-1 text-xs text-danger">{m.error}</p>
               ) : null}
             </div>
+            {m.role === 'assistant' && m.status === 'complete' && !isStreaming ? (
+              <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
+            ) : null}
           </div>
         ))}
         {isStreaming && (
@@ -293,6 +312,24 @@ export function SessionCard({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function MessageBranchButton({
+  messageId,
+  onBranch,
+}: {
+  messageId: string;
+  onBranch: (messageId: string) => void;
+}) {
+  return (
+    <IconButton
+      className="mt-1 opacity-0 transition-opacity group-hover/message:opacity-100 focus-visible:opacity-100"
+      label="从这里分支"
+      onClick={() => onBranch(messageId)}
+    >
+      <GitBranch aria-hidden="true" />
+    </IconButton>
   );
 }
 

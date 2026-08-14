@@ -5,6 +5,8 @@
 export type ChatSession = {
   id: string;
   parentId: string | null;
+  rootSessionId?: string | null;
+  forkedFromMessageId?: string | null;
   title: string;
   pinnedAt: string | null;
   archivedAt: string | null;
