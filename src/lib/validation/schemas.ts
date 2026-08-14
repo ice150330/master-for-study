@@ -224,6 +224,10 @@ export const knowledgeLayoutSchema = z.object({
   idempotencyKey,
 }).strict();
 
+export const analyticsQuerySchema = z.object({
+  days: z.coerce.number().pipe(z.union([z.literal(7), z.literal(30)])).default(7),
+}).strict();
+
 export const publicEventSchema = z
   .object({
     action: z.enum(PUBLIC_EVENT_ACTIONS),

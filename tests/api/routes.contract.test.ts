@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 type PostHandler = (request: Request) => Promise<Response>;
+type GetHandler = (request: Request) => Promise<Response>;
 
 let tempDir: string;
 let repository: typeof import('../../src/lib/db');
@@ -17,6 +18,7 @@ let interviewPost: PostHandler;
 let chatPost: PostHandler;
 let termsPost: PostHandler;
 let knowledgePatch: PostHandler;
+let analyticsGet: GetHandler;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -42,6 +44,7 @@ beforeAll(async () => {
   chatPost = (await import('../../src/app/api/chat/route')).POST;
   termsPost = (await import('../../src/app/api/terms/route')).POST;
   knowledgePatch = (await import('../../src/app/api/knowledge-graph/route')).PATCH;
+  analyticsGet = (await import('../../src/app/api/analytics/route')).GET;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -97,6 +100,18 @@ describe('Route Handler zod 合同', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: { code: 'INVALID_JSON', message: '请求体必须是有效 JSON' },
+    });
+  });
+
+  it('分析接口只接受 7 天或 30 天范围', async () => {
+    const invalid = await analyticsGet(new Request('http://localhost/api/analytics?days=14'));
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
+
+    const valid = await analyticsGet(new Request('http://localhost/api/analytics?days=7'));
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toMatchObject({
+      analytics: { rangeDays: 7, trend: expect.any(Array), metrics: expect.any(Array) },
     });
   });
 

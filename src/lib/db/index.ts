@@ -24,6 +24,7 @@ import {
 } from '../learning-events';
 import {
   adaptInterviewDifficulty,
+  interviewOverallScore,
   type InterviewEvaluation,
   type InterviewQuestionDraft,
   type InterviewSettings,
@@ -38,6 +39,24 @@ import type {
   KnowledgeGraphNode,
   KnowledgeRelation,
 } from '../knowledge/types';
+import { SQL_CHALLENGES } from '../practice/challenges';
+import {
+  analyticsCategory,
+  buildActivityTrend,
+  buildAnalyticsMetrics,
+  localDateKey,
+  rankWeakSkills,
+} from '../analytics/projection';
+import type {
+  AnalyticsActivity,
+  AnalyticsEventInput,
+  AnalyticsInterviewInput,
+  AnalyticsPracticeInput,
+  AnalyticsProgress,
+  AnalyticsRange,
+  AnalyticsReviewInput,
+  LearningAnalytics,
+} from '../analytics/types';
 
 /**
  * SQLite 连接与仓库层（服务端 only，勿在客户端引用）。
@@ -551,7 +570,7 @@ export function listMessagesWithResources(sessionId: string): MessageWithResourc
       .where(eq(schema.messageResources.messageId, message.id))
       .orderBy(asc(schema.messageResources.position))
       .all()
-      .map(({ position: _position, ...resource }) => resource),
+      .map(({ id, title, url, type }) => ({ id, title, url, type })),
   }));
 }
 
@@ -1540,18 +1559,8 @@ function previewValues(card: StoredReviewCard, now: Date): ReviewItem['preview']
 /** 到期队列投影：卡片、来源、四档预计间隔与今日工作量。 */
 export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
   const db = getDb();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const due = db
-    .select({ c: count() })
-    .from(schema.reviewCards)
-    .where(lte(schema.reviewCards.dueAt, now))
-    .get()?.c ?? 0;
-  const overdue = db
-    .select({ c: count() })
-    .from(schema.reviewCards)
-    .where(lte(schema.reviewCards.dueAt, startOfDay))
-    .get()?.c ?? 0;
+  const ws = ensureWorkspace();
+  const summary = getReviewLoadSummary(now);
   const rows = db
     .select({
       card: schema.reviewCards,
@@ -1560,7 +1569,10 @@ export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
     })
     .from(schema.reviewCards)
     .innerJoin(schema.terms, eq(schema.reviewCards.termId, schema.terms.id))
-    .where(lte(schema.reviewCards.dueAt, now))
+    .where(and(
+      eq(schema.reviewCards.workspaceId, ws.id),
+      lte(schema.reviewCards.dueAt, now),
+    ))
     .orderBy(asc(schema.reviewCards.dueAt))
     .limit(limit)
     .all();
@@ -1597,11 +1609,30 @@ export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
 
   return {
     reviews,
-    summary: {
-      due,
-      overdue,
-      estimatedMinutes: due === 0 ? 0 : Math.max(1, Math.ceil(due * 0.75)),
-    },
+    summary,
+  };
+}
+
+/** 只统计当前工作区负荷，不触发 FSRS 预览，供首页和分析投影复用。 */
+function getReviewLoadSummary(now = new Date()): ReviewQueue['summary'] {
+  const db = getDb();
+  const ws = ensureWorkspace();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  const due = db.select({ c: count() }).from(schema.reviewCards)
+    .where(and(
+      eq(schema.reviewCards.workspaceId, ws.id),
+      lte(schema.reviewCards.dueAt, now),
+    )).get()?.c ?? 0;
+  const overdue = db.select({ c: count() }).from(schema.reviewCards)
+    .where(and(
+      eq(schema.reviewCards.workspaceId, ws.id),
+      lte(schema.reviewCards.dueAt, startOfDay),
+    )).get()?.c ?? 0;
+  return {
+    due,
+    overdue,
+    estimatedMinutes: due === 0 ? 0 : Math.max(1, Math.ceil(due * 0.75)),
   };
 }
 
@@ -1930,6 +1961,295 @@ export function getRecentEvents(limit = 20): LearningEvent[] {
     .limit(limit)
     .all();
 }
+
+/**
+ * 成长分析投影：所有比率来自不可变事件或 Attempt / ReviewLog，
+ * 小样本阈值与趋势填充由纯函数统一处理。
+ */
+export function getLearningAnalytics(rangeDays: AnalyticsRange = 7, now = new Date()): LearningAnalytics {
+  const db = getDb();
+  const workspace = ensureWorkspace();
+  const rangeStart = new Date(now);
+  rangeStart.setHours(0, 0, 0, 0);
+  rangeStart.setDate(rangeStart.getDate() - rangeDays + 1);
+
+  const eventRows = db.select().from(schema.learningEvents)
+    .where(eq(schema.learningEvents.workspaceId, workspace.id))
+    .orderBy(desc(schema.learningEvents.createdAt)).all();
+  const events = eventRows.filter((event) => event.createdAt >= rangeStart && event.createdAt <= now)
+    .map((event) => ({
+      id: event.id,
+      action: event.action,
+      objectType: event.objectType,
+      objectId: event.objectId,
+      sessionId: event.sessionId,
+      result: event.result,
+      context: event.context,
+      createdAt: event.createdAt,
+    } satisfies AnalyticsEventInput));
+
+  const practiceAttempts = db.select().from(schema.practiceAttempts)
+    .where(eq(schema.practiceAttempts.workspaceId, workspace.id))
+    .orderBy(desc(schema.practiceAttempts.createdAt)).all();
+  const practicesInRange: AnalyticsPracticeInput[] = practiceAttempts
+    .filter((attempt) => attempt.createdAt >= rangeStart && attempt.createdAt <= now)
+    .map((attempt) => ({
+      id: attempt.id,
+      conceptId: attempt.conceptId,
+      challengeId: attempt.challengeId,
+      status: attempt.status,
+      hintCount: attempt.hintCount,
+      skills: attempt.skills,
+      createdAt: attempt.createdAt,
+    }));
+
+  const interviewRows = db.select({
+    attempt: schema.interviewAttempts,
+    termId: schema.interviews.termId,
+    skill: schema.interviews.skill,
+  }).from(schema.interviewAttempts)
+    .innerJoin(schema.interviews, eq(schema.interviewAttempts.interviewId, schema.interviews.id))
+    .where(eq(schema.interviews.workspaceId, workspace.id))
+    .orderBy(desc(schema.interviewAttempts.createdAt)).all();
+  const interviewsInRange: AnalyticsInterviewInput[] = interviewRows
+    .filter(({ attempt }) => attempt.createdAt >= rangeStart && attempt.createdAt <= now)
+    .map(({ attempt, termId, skill }) => ({
+      id: attempt.id,
+      interviewId: attempt.interviewId,
+      termId,
+      skill,
+      correct: attempt.correct,
+      score: interviewOverallScore(attempt.scores),
+      nextStrategy: attempt.nextStrategy,
+      createdAt: attempt.createdAt,
+    }));
+
+  const reviewLogs = db.select().from(schema.reviewLogs)
+    .where(eq(schema.reviewLogs.workspaceId, workspace.id))
+    .orderBy(desc(schema.reviewLogs.reviewAt)).all();
+  const reviewsInRange: AnalyticsReviewInput[] = reviewLogs
+    .filter((log) => log.reviewAt >= rangeStart && log.reviewAt <= now)
+    .map((log) => ({ id: log.id, termId: log.termId, rating: log.rating, reviewAt: log.reviewAt }));
+
+  const concepts = db.select({
+    id: schema.terms.id,
+    name: schema.terms.canonicalName,
+    state: schema.termMasteries.state,
+    difficulty: schema.termMasteries.difficulty,
+    dueAt: schema.termMasteries.dueAt,
+  }).from(schema.termMasteries)
+    .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id)).all();
+  const weakSkills = rankWeakSkills({
+    concepts,
+    practiceAttempts: practicesInRange,
+    interviewAttempts: interviewsInRange,
+    reviewLogs: reviewsInRange,
+    now,
+  });
+
+  const reviewSummary = getReviewLoadSummary(now);
+  const activities = enrichAnalyticsActivities({
+    events,
+    practiceAttempts,
+    interviewAttempts: interviewsInRange,
+    reviewLogs,
+  });
+  const progress = buildAnalyticsProgress(activities);
+  const todayKey = localDateKey(now);
+  const completedActions = events.filter((event) => (
+    localDateKey(event.createdAt) === todayKey && analyticsCategory(event.action)
+  )).length;
+  const recommendation = reviewSummary.due > 0
+    ? {
+        eyebrow: '优先处理记忆负荷',
+        title: `${reviewSummary.due} 个概念已到复习时间`,
+        description: reviewSummary.overdue > 0
+          ? `其中 ${reviewSummary.overdue} 个已逾期，先主动回忆再继续新内容。`
+          : '先完成短时主动回忆，避免未来几天负荷继续堆积。',
+        href: '/review',
+        actionLabel: '开始复习',
+      }
+    : weakSkills[0]
+      ? {
+          eyebrow: '来自最近证据的建议',
+          title: `巩固「${weakSkills[0].name}」`,
+          description: weakSkills[0].evidence.join('；'),
+          href: weakSkills[0].actionHref,
+          actionLabel: weakSkills[0].actionLabel,
+        }
+      : {
+          eyebrow: '当前没有积压',
+          title: '继续一个真实问题',
+          description: '新的对话会继续形成概念、练习和复习证据。',
+          href: '/',
+          actionLabel: '继续学习',
+        };
+
+  return {
+    rangeDays,
+    generatedAt: now.toISOString(),
+    today: {
+      dueReviews: reviewSummary.due,
+      overdueReviews: reviewSummary.overdue,
+      estimatedMinutes: reviewSummary.estimatedMinutes,
+      completedActions,
+    },
+    recommendation,
+    trend: buildActivityTrend(events, rangeDays, now),
+    metrics: buildAnalyticsMetrics({
+      events,
+      practiceAttempts: practicesInRange,
+      interviewAttempts: interviewsInRange,
+      reviewLogs: reviewsInRange,
+    }),
+    weakSkills,
+    progress,
+    recentActivities: activities.slice(0, 80),
+  };
+}
+
+function enrichAnalyticsActivities(input: {
+  events: AnalyticsEventInput[];
+  practiceAttempts: PracticeAttempt[];
+  interviewAttempts: AnalyticsInterviewInput[];
+  reviewLogs: ReviewLog[];
+}): AnalyticsActivity[] {
+  const db = getDb();
+  const terms = new Map(db.select().from(schema.terms).all().map((term) => [term.id, term]));
+  const sessions = new Map(db.select().from(schema.sessions).all().map((session) => [session.id, session]));
+  const messages = new Map(db.select().from(schema.messages).all().map((message) => [message.id, message]));
+  const notes = new Map(db.select().from(schema.notes).all().map((note) => [note.id, note]));
+  const resources = new Map(db.select().from(schema.resources).all().map((resource) => [resource.id, resource]));
+  const practices = new Map(input.practiceAttempts.map((attempt) => [attempt.id, attempt]));
+  const interviews = new Map(input.interviewAttempts.map((attempt) => [attempt.id, attempt]));
+  const reviews = new Map(input.reviewLogs.map((log) => [log.id, log]));
+  const challengeTitles = new Map(SQL_CHALLENGES.map((challenge) => [challenge.id, challenge.title]));
+
+  return input.events.flatMap((event) => {
+    const category = analyticsCategory(event.action);
+    if (!category) return [];
+    const objectId = event.objectId ?? '';
+    const practice = practices.get(objectId);
+    const interview = interviews.get(objectId);
+    const review = reviews.get(objectId);
+    const message = messages.get(objectId);
+    const termId = event.objectType === 'term'
+      ? objectId
+      : review?.termId ?? practice?.conceptId ?? interview?.termId ?? stringValue(event.context?.termId);
+    const term = termId ? terms.get(termId) : undefined;
+    const session = event.sessionId ? sessions.get(event.sessionId) : undefined;
+    const note = notes.get(objectId);
+    const resource = resources.get(objectId);
+    const objectTitle = term?.canonicalName
+      || note?.title
+      || resource?.title
+      || (practice ? challengeTitles.get(practice.challengeId) : null)
+      || interview?.skill
+      || session?.title
+      || message?.content.slice(0, 72)
+      || ANALYTICS_OBJECT_LABELS[event.objectType]
+      || '学习记录';
+    const href = activityHref({ event, termId, practice, interview, review });
+    return [{
+      id: event.id,
+      category,
+      actionLabel: ANALYTICS_ACTION_LABELS[event.action] ?? event.action,
+      objectTitle,
+      resultLabel: activityResult({ event, practice, interview, review }),
+      createdAt: event.createdAt.toISOString(),
+      date: localDateKey(event.createdAt),
+      href,
+    } satisfies AnalyticsActivity];
+  });
+}
+
+function buildAnalyticsProgress(activities: AnalyticsActivity[]): AnalyticsProgress[] {
+  return activities.filter((activity) => (
+    activity.resultLabel.includes('通过')
+      || activity.resultLabel.includes('取回')
+      || activity.resultLabel.includes('进阶')
+      || activity.resultLabel.includes('已读')
+  )).slice(0, 3).map((activity) => ({
+    id: activity.id,
+    title: activity.objectTitle,
+    detail: `${activity.actionLabel} · ${activity.resultLabel}`,
+    createdAt: activity.createdAt,
+    href: activity.href,
+  }));
+}
+
+function activityHref(input: {
+  event: AnalyticsEventInput;
+  termId: string | null;
+  practice?: PracticeAttempt;
+  interview?: AnalyticsInterviewInput;
+  review?: ReviewLog;
+}) {
+  const { event, termId, practice, interview, review } = input;
+  if (practice) return `/practice?attempt=${practice.id}${termId ? `&concept=${termId}` : ''}`;
+  if (interview) return `/interview?attempt=${interview.id}${termId ? `&concept=${termId}` : ''}`;
+  if (review) return `/review?log=${review.id}&concept=${review.termId}`;
+  if (event.objectType === 'note' && event.objectId) return `/notes?note=${event.objectId}`;
+  if (event.objectType === 'resource' && event.objectId) return `/resources?resource=${event.objectId}`;
+  if (termId) return `/?concept=${termId}`;
+  if (event.sessionId) return `/?session=${event.sessionId}${event.objectId ? `&message=${event.objectId}` : ''}`;
+  return '/today';
+}
+
+function activityResult(input: {
+  event: AnalyticsEventInput;
+  practice?: PracticeAttempt;
+  interview?: AnalyticsInterviewInput;
+  review?: ReviewLog;
+}) {
+  const { event, practice, interview, review } = input;
+  if (practice) return practice.status === 'success'
+    ? '任务通过'
+    : `未通过${practice.errorType ? ` · ${practice.errorType}` : ''}`;
+  if (interview) {
+    const strategy = interview.nextStrategy === 'advance' ? '进阶' : interview.nextStrategy === 'downgrade' ? '降级巩固' : '保持难度';
+    return `${interview.score} 分 · ${strategy}`;
+  }
+  if (review) return review.rating === 'again' ? '未取回 · Again' : `成功取回 · ${review.rating}`;
+  const status = stringValue(event.result?.status);
+  if (status) return status;
+  if (event.action === 'message_sent') return '回答已完成';
+  if (event.action === 'term_seen') return '进入概念库';
+  if (event.action === 'note_created') return '知识已沉淀';
+  if (event.action === 'resource_highlight_created') return '摘录已保存';
+  return '已记录';
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' && value ? value : null;
+}
+
+const ANALYTICS_ACTION_LABELS: Record<string, string> = {
+  session_created: '开始会话',
+  message_sent: '完成对话',
+  term_seen: '发现概念',
+  note_created: '生成笔记',
+  note_updated: '更新笔记',
+  practice_attempted: 'SQL 评测',
+  interview_answered: '面试作答',
+  reviewed: '主动复习',
+  resource_created: '添加资料',
+  resource_updated: '更新资料',
+  resource_status_changed: '阅读进度',
+  resource_highlight_created: '保存摘录',
+};
+
+const ANALYTICS_OBJECT_LABELS: Record<string, string> = {
+  session: '学习会话',
+  message: '对话回答',
+  term: '知识概念',
+  note: '学习笔记',
+  resource: '学习资料',
+  resource_highlight: '资料摘录',
+  practice_attempt: '练习尝试',
+  interview_attempt: '面试尝试',
+  review_log: '复习记录',
+};
 
 /**
  * 今日行动投影：只从已有状态表和事件构建，不生成虚假的日程或精确时长。
