@@ -72,8 +72,27 @@ export const noteUpdateSchema = z
 export const interviewRequestSchema = z.discriminatedUnion('action', [
   z
     .object({
-      action: z.literal('question'),
-      context: z.string().trim().max(8_000).optional(),
+      action: z.literal('start'),
+      role: z.enum(['backend', 'frontend', 'fullstack', 'data']),
+      topic: z.enum(['system-design', 'database', 'engineering', 'behavioral']),
+      difficulty: z.enum(['foundation', 'standard', 'advanced']),
+      totalRounds: z.union([z.literal(3), z.literal(5)]),
+      teacherStyle: z.enum(['guided', 'rigorous', 'concise']),
+      idempotencyKey,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('next'),
+      interviewSessionId: id,
+      idempotencyKey,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('followup'),
+      id,
+      answerDraft: z.string().trim().max(20_000).optional(),
       idempotencyKey,
     })
     .strict(),
@@ -82,6 +101,7 @@ export const interviewRequestSchema = z.discriminatedUnion('action', [
       action: z.literal('answer'),
       id,
       answer: z.string().trim().min(1).max(20_000),
+      durationMs: z.number().int().min(0).max(3_600_000),
       idempotencyKey,
     })
     .strict(),

@@ -32,10 +32,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (input: ToastInput) => {
       const id = ++nextId.current;
       const item: ToastItem = { ...input, id, tone: input.tone ?? 'info' };
-      setToasts((items) => [
-        ...items.filter((toast) => toast.title !== item.title || toast.description !== item.description),
-        item,
-      ].slice(-3));
+      // 学习动作反馈使用单通道，避免连续操作时通知堆叠遮挡右侧上下文。
+      setToasts([item]);
       window.setTimeout(() => dismiss(id), input.duration ?? 3600);
     },
     [dismiss],

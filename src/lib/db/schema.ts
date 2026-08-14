@@ -4,9 +4,20 @@ import {
   real,
   sqliteTable,
   text,
+  uniqueIndex,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import { LEARNING_EVENT_ACTIONS, LEARNING_OBJECT_TYPES } from '../learning-events';
+import type {
+  InterviewDimension,
+  InterviewDimensionScore,
+  InterviewDifficulty,
+  InterviewEvidence,
+  InterviewRole,
+  InterviewStrategy,
+  InterviewTeacherStyle,
+  InterviewTopic,
+} from '../interview/types';
 
 /**
  * 数据模型（Drizzle + SQLite）。
@@ -266,16 +277,85 @@ export const noteSources = sqliteTable('note_sources', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-/** 面试问答记录。 */
+/** 一次结构化面试练习：设置、轮次和自适应难度的单一状态源。 */
+export const interviewSessions = sqliteTable('interview_sessions', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  role: text('role').$type<InterviewRole>().notNull(),
+  topic: text('topic').$type<InterviewTopic>().notNull(),
+  initialDifficulty: text('initial_difficulty').$type<InterviewDifficulty>().notNull(),
+  currentDifficulty: text('current_difficulty').$type<InterviewDifficulty>().notNull(),
+  totalRounds: integer('total_rounds').notNull(),
+  currentRound: integer('current_round').notNull().default(1),
+  teacherStyle: text('teacher_style').$type<InterviewTeacherStyle>().notNull(),
+  status: text('status', { enum: ['active', 'completed'] }).notNull().default('active'),
+  lastStrategy: text('last_strategy').$type<InterviewStrategy>(),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
+}, (table) => [
+  index('interview_sessions_workspace_status_idx').on(table.workspaceId, table.status, table.updatedAt),
+]);
+
+/** 面试题目及最近一次作答投影，保留原字段供现有分析兼容读取。 */
 export const interviews = sqliteTable('interviews', {
   id: text('id').primaryKey(),
   sessionId: text('session_id').references(() => sessions.id),
+  workspaceId: text('workspace_id').references(() => workspaces.id),
+  interviewSessionId: text('interview_session_id').references(() => interviewSessions.id, {
+    onDelete: 'cascade',
+  }),
+  termId: text('term_id').references(() => terms.id, { onDelete: 'set null' }),
+  roundIndex: integer('round_index').notNull().default(1),
+  skill: text('skill').notNull().default('通用技术能力'),
+  difficulty: text('difficulty').$type<InterviewDifficulty>().notNull().default('standard'),
+  rubric: text('rubric', { mode: 'json' })
+    .$type<Record<InterviewDimension, string>>()
+    .notNull()
+    .default({
+      correctness: '技术判断正确',
+      structure: '回答结构清晰',
+      evidence: '有事实或权衡依据',
+      communication: '表达准确简洁',
+    }),
+  followUp: text('follow_up'),
   question: text('question').notNull(),
   answer: text('answer'),
   feedback: text('feedback'),
   correct: integer('correct', { mode: 'boolean' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-});
+}, (table) => [
+  index('interviews_session_round_idx').on(table.interviewSessionId, table.roundIndex),
+]);
+
+/** 每次答案都是不可变版本；同题重答只追加，不覆盖历史反馈。 */
+export const interviewAttempts = sqliteTable('interview_attempts', {
+  id: text('id').primaryKey(),
+  interviewId: text('interview_id')
+    .notNull()
+    .references(() => interviews.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  answer: text('answer').notNull(),
+  durationMs: integer('duration_ms').notNull(),
+  scores: text('scores', { mode: 'json' })
+    .$type<Record<InterviewDimension, InterviewDimensionScore>>()
+    .notNull(),
+  evidence: text('evidence', { mode: 'json' }).$type<InterviewEvidence[]>().notNull().default([]),
+  summary: text('summary').notNull(),
+  strengths: text('strengths', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  improvements: text('improvements', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  modelAnswer: text('model_answer').notNull(),
+  correct: integer('correct', { mode: 'boolean' }).notNull(),
+  nextStrategy: text('next_strategy').$type<InterviewStrategy>().notNull(),
+  prerequisite: text('prerequisite'),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('interview_attempts_interview_version_idx').on(table.interviewId, table.version),
+]);
 
 /** 学习资源：教程 / 文档 / 书籍等，可关联术语（单源卡片）。 */
 export const resources = sqliteTable('resources', {

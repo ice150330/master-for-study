@@ -22,6 +22,12 @@ import {
   type LearningEventAction,
   type LearningObjectType,
 } from '../learning-events';
+import {
+  adaptInterviewDifficulty,
+  type InterviewEvaluation,
+  type InterviewQuestionDraft,
+  type InterviewSettings,
+} from '../interview/types';
 import { DEFAULT_TITLE, deriveSessionTitle } from '../session-title';
 import { parseTermMarkers } from '../term-parse';
 
@@ -42,6 +48,8 @@ export type Note = typeof schema.notes.$inferSelect;
 export type NoteVersion = typeof schema.noteVersions.$inferSelect;
 export type NoteSource = typeof schema.noteSources.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
+export type InterviewSession = typeof schema.interviewSessions.$inferSelect;
+export type InterviewAttempt = typeof schema.interviewAttempts.$inferSelect;
 export type TermMastery = typeof schema.termMasteries.$inferSelect;
 export type ReviewCard = typeof schema.reviewCards.$inferSelect;
 export type ReviewLog = typeof schema.reviewLogs.$inferSelect;
@@ -51,6 +59,12 @@ export type LearningEvent = typeof schema.learningEvents.$inferSelect;
 export type Resource = typeof schema.resources.$inferSelect;
 export type ResourceType = Resource['type'];
 export type ResourceStatus = Resource['status'];
+
+export type InterviewQuestionWithAttempts = Interview & { attempts: InterviewAttempt[] };
+export type InterviewSessionDetail = {
+  session: InterviewSession;
+  questions: InterviewQuestionWithAttempts[];
+};
 
 export type ConceptDetail = {
   concept: Term;
@@ -176,6 +190,15 @@ export function getInterview(id: string): Interview | undefined {
     .select()
     .from(schema.interviews)
     .where(eq(schema.interviews.id, id))
+    .limit(1)
+    .get();
+}
+
+export function getInterviewSession(id: string): InterviewSession | undefined {
+  return getDb()
+    .select()
+    .from(schema.interviewSessions)
+    .where(eq(schema.interviewSessions.id, id))
     .limit(1)
     .get();
 }
@@ -1060,93 +1083,299 @@ export function listNotes(): Note[] {
     .all();
 }
 
-/** 新建一条面试问答（只含问题）。 */
-export function createInterview(input: {
-  question: string;
-  sessionId?: string | null;
+/** 开始一次结构化面试，并在同一事务中建立第一题。 */
+export function startInterviewSession(input: {
+  settings: InterviewSettings;
+  question: InterviewQuestionDraft;
+  termId?: string | null;
+  idempotencyKey: string;
+}): InterviewSessionDetail {
+  const existing = getDb().select().from(schema.interviewSessions)
+    .where(eq(schema.interviewSessions.idempotencyKey, input.idempotencyKey)).limit(1).get();
+  if (existing) return getInterviewSessionDetail(existing.id) as InterviewSessionDetail;
+  const ws = ensureWorkspace();
+  const now = new Date();
+  const session = {
+    id: randomUUID(),
+    workspaceId: ws.id,
+    role: input.settings.role,
+    topic: input.settings.topic,
+    initialDifficulty: input.settings.difficulty,
+    currentDifficulty: input.settings.difficulty,
+    totalRounds: input.settings.totalRounds,
+    currentRound: 1,
+    teacherStyle: input.settings.teacherStyle,
+    status: 'active' as const,
+    lastStrategy: null,
+    idempotencyKey: input.idempotencyKey,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+  } satisfies InterviewSession;
+  const interview = questionValues({
+    workspaceId: ws.id,
+    interviewSessionId: session.id,
+    termId: input.termId,
+    roundIndex: 1,
+    difficulty: input.settings.difficulty,
+    question: input.question,
+  });
+  getDb().transaction((tx) => {
+    tx.insert(schema.interviewSessions).values(session).run();
+    tx.insert(schema.interviews).values(interview).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: ws.id,
+      action: 'interview_session_started',
+      objectType: 'interview_session',
+      objectId: session.id,
+      result: { questionId: interview.id },
+      context: { ...input.settings, skill: input.question.skill },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return { session, questions: [{ ...interview, attempts: [] }] };
+}
+
+/** 根据已持久化的难度策略创建下一题。 */
+export function createNextInterviewQuestion(input: {
+  interviewSessionId: string;
+  question: InterviewQuestionDraft;
+  termId?: string | null;
+  idempotencyKey: string;
+}): InterviewSessionDetail {
+  const previous = findEventByIdempotencyKey(input.idempotencyKey);
+  if (previous?.objectId) {
+    const interview = getInterview(previous.objectId);
+    if (interview?.interviewSessionId) {
+      return getInterviewSessionDetail(interview.interviewSessionId) as InterviewSessionDetail;
+    }
+  }
+  const session = getInterviewSession(input.interviewSessionId);
+  if (!session) throw new Error(`面试场次不存在：${input.interviewSessionId}`);
+  if (session.status === 'completed' || session.currentRound >= session.totalRounds) {
+    throw new Error('当前面试已经完成');
+  }
+  const now = new Date();
+  const interview = questionValues({
+    workspaceId: session.workspaceId,
+    interviewSessionId: session.id,
+    termId: input.termId,
+    roundIndex: session.currentRound + 1,
+    difficulty: session.currentDifficulty,
+    question: input.question,
+  });
+  getDb().transaction((tx) => {
+    tx.insert(schema.interviews).values(interview).run();
+    tx.update(schema.interviewSessions)
+      .set({ currentRound: interview.roundIndex, updatedAt: now })
+      .where(eq(schema.interviewSessions.id, session.id)).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: session.workspaceId,
+      action: 'interview_question_created',
+      objectType: 'interview',
+      objectId: interview.id,
+      result: { roundIndex: interview.roundIndex, difficulty: interview.difficulty },
+      context: { interviewSessionId: session.id, skill: interview.skill },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return getInterviewSessionDetail(session.id) as InterviewSessionDetail;
+}
+
+/** 追问只补充题面，不泄漏评分结果，并单独留下事件。 */
+export function saveInterviewFollowUp(input: {
+  interviewId: string;
+  followUp: string;
   idempotencyKey: string;
 }): Interview {
-  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
-  if (existingEvent?.objectId) {
-    const existingInterview = getInterview(existingEvent.objectId);
-    if (existingInterview) return existingInterview;
+  const interview = getInterview(input.interviewId);
+  if (!interview) throw new Error(`面试记录不存在：${input.interviewId}`);
+  const previous = findEventByIdempotencyKey(input.idempotencyKey);
+  if (previous) return interview.followUp ? interview : { ...interview, followUp: input.followUp };
+  const workspaceId = interview.workspaceId ?? ensureWorkspace().id;
+  getDb().transaction((tx) => {
+    tx.update(schema.interviews).set({ followUp: input.followUp })
+      .where(eq(schema.interviews.id, interview.id)).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId,
+      action: 'interview_followup_created',
+      objectType: 'interview',
+      objectId: interview.id,
+      context: { interviewSessionId: interview.interviewSessionId },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return { ...interview, followUp: input.followUp };
+}
+
+/** 追加一次作答版本，同时更新题目兼容投影和场次难度。 */
+export function finishInterview(
+  id: string,
+  input: {
+    answer: string;
+    durationMs: number;
+    evaluation: InterviewEvaluation;
+    prerequisiteTermId?: string | null;
+    idempotencyKey: string;
+  },
+): { session: InterviewSession | null; interview: Interview; attempt: InterviewAttempt; attempts: InterviewAttempt[] } {
+  const existingAttempt = getDb().select().from(schema.interviewAttempts)
+    .where(eq(schema.interviewAttempts.idempotencyKey, input.idempotencyKey)).limit(1).get();
+  if (existingAttempt) {
+    const existingInterview = getInterview(id);
+    if (!existingInterview) throw new Error(`面试记录不存在：${id}`);
+    return {
+      session: existingInterview.interviewSessionId
+        ? getInterviewSession(existingInterview.interviewSessionId) ?? null
+        : null,
+      interview: existingInterview,
+      attempt: existingAttempt,
+      attempts: listInterviewAttempts(id),
+    };
   }
-  const ws = ensureWorkspace();
-  const interview = {
+  const interview = getInterview(id);
+  if (!interview) throw new Error(`面试记录不存在：${id}`);
+  const session = interview.interviewSessionId ? getInterviewSession(interview.interviewSessionId) : undefined;
+  const existingAttempts = listInterviewAttempts(id);
+  const now = new Date();
+  const attempt = {
     id: randomUUID(),
-    sessionId: input.sessionId ?? null,
-    question: input.question,
+    interviewId: id,
+    version: existingAttempts.length + 1,
+    answer: input.answer,
+    durationMs: input.durationMs,
+    scores: input.evaluation.scores,
+    evidence: input.evaluation.evidence,
+    summary: input.evaluation.summary,
+    strengths: input.evaluation.strengths,
+    improvements: input.evaluation.improvements,
+    modelAnswer: input.evaluation.modelAnswer,
+    correct: input.evaluation.correct,
+    nextStrategy: input.evaluation.nextStrategy,
+    prerequisite: input.evaluation.prerequisite,
+    idempotencyKey: input.idempotencyKey,
+    createdAt: now,
+  } satisfies InterviewAttempt;
+  const nextDifficulty = session
+    ? adaptInterviewDifficulty(session.currentDifficulty, input.evaluation.nextStrategy)
+    : interview.difficulty;
+  const completed = Boolean(session && session.currentRound >= session.totalRounds);
+  const workspaceId = interview.workspaceId ?? session?.workspaceId ?? ensureWorkspace().id;
+  getDb().transaction((tx) => {
+    tx.insert(schema.interviewAttempts).values(attempt).run();
+    tx.update(schema.interviews).set({
+      answer: input.answer,
+      feedback: input.evaluation.summary,
+      correct: input.evaluation.correct,
+      termId: input.prerequisiteTermId ?? interview.termId,
+    }).where(eq(schema.interviews.id, id)).run();
+    if (session) {
+      tx.update(schema.interviewSessions).set({
+        currentDifficulty: nextDifficulty,
+        lastStrategy: input.evaluation.nextStrategy,
+        status: completed ? 'completed' : 'active',
+        updatedAt: now,
+        completedAt: completed ? now : null,
+      }).where(eq(schema.interviewSessions.id, session.id)).run();
+    }
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId,
+      action: 'interview_answered',
+      objectType: 'interview_attempt',
+      objectId: attempt.id,
+      result: {
+        correct: attempt.correct,
+        level: attempt.nextStrategy,
+        scores: attempt.scores,
+        version: attempt.version,
+      },
+      context: {
+        interviewId: id,
+        interviewSessionId: interview.interviewSessionId,
+        termId: input.prerequisiteTermId ?? interview.termId,
+        difficulty: interview.difficulty,
+        durationMs: attempt.durationMs,
+      },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  const updatedInterview = {
+    ...interview,
+    answer: input.answer,
+    feedback: input.evaluation.summary,
+    correct: input.evaluation.correct,
+    termId: input.prerequisiteTermId ?? interview.termId,
+  };
+  return {
+    session: session ? {
+      ...session,
+      currentDifficulty: nextDifficulty,
+      lastStrategy: input.evaluation.nextStrategy,
+      status: completed ? 'completed' : 'active',
+      updatedAt: now,
+      completedAt: completed ? now : null,
+    } : null,
+    interview: updatedInterview,
+    attempt,
+    attempts: [...existingAttempts, attempt],
+  };
+}
+
+export function listInterviewAttempts(interviewId: string): InterviewAttempt[] {
+  return getDb().select().from(schema.interviewAttempts)
+    .where(eq(schema.interviewAttempts.interviewId, interviewId))
+    .orderBy(asc(schema.interviewAttempts.version)).all();
+}
+
+export function getInterviewSessionDetail(id: string): InterviewSessionDetail | undefined {
+  const session = getInterviewSession(id);
+  if (!session) return undefined;
+  const questions = getDb().select().from(schema.interviews)
+    .where(eq(schema.interviews.interviewSessionId, id))
+    .orderBy(asc(schema.interviews.roundIndex)).all()
+    .map((question) => ({ ...question, attempts: listInterviewAttempts(question.id) }));
+  return { session, questions };
+}
+
+export function listInterviewSessionDetails(limit = 12): InterviewSessionDetail[] {
+  const ws = ensureWorkspace();
+  return getDb().select().from(schema.interviewSessions)
+    .where(eq(schema.interviewSessions.workspaceId, ws.id))
+    .orderBy(desc(schema.interviewSessions.updatedAt)).limit(limit).all()
+    .map((session) => getInterviewSessionDetail(session.id))
+    .filter((detail): detail is InterviewSessionDetail => Boolean(detail));
+}
+
+/** 列出全部面试题目（按时间倒序），保留给现有分析投影。 */
+export function listInterviews(): Interview[] {
+  return getDb().select().from(schema.interviews).orderBy(desc(schema.interviews.createdAt)).all();
+}
+
+function questionValues(input: {
+  workspaceId: string;
+  interviewSessionId: string;
+  termId?: string | null;
+  roundIndex: number;
+  difficulty: Interview['difficulty'];
+  question: InterviewQuestionDraft;
+}): Interview {
+  return {
+    id: randomUUID(),
+    sessionId: null,
+    workspaceId: input.workspaceId,
+    interviewSessionId: input.interviewSessionId,
+    termId: input.termId ?? null,
+    roundIndex: input.roundIndex,
+    skill: input.question.skill,
+    difficulty: input.difficulty,
+    rubric: input.question.rubric,
+    followUp: null,
+    question: input.question.question,
     answer: null,
     feedback: null,
     correct: null,
     createdAt: new Date(),
   };
-  getDb().transaction((tx) => {
-    tx.insert(schema.interviews).values(interview).run();
-    tx.insert(schema.learningEvents)
-      .values(
-        eventValues({
-          workspaceId: ws.id,
-          sessionId: interview.sessionId,
-          action: 'interview_question_created',
-          objectType: 'interview',
-          objectId: interview.id,
-          idempotencyKey: input.idempotencyKey,
-        }),
-      )
-      .run();
-  });
-  return interview;
-}
-
-/** 回填面试问答的作答与判分。 */
-export function finishInterview(
-  id: string,
-  input: {
-    answer: string;
-    feedback: string;
-    correct: boolean;
-    level: 'advance' | 'stay' | 'downgrade';
-    idempotencyKey: string;
-  },
-): Interview {
-  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
-  if (existingEvent) {
-    const existingInterview = getInterview(id);
-    if (existingInterview) return existingInterview;
-  }
-  const interview = getInterview(id);
-  if (!interview) throw new Error(`面试记录不存在：${id}`);
-  const ws = ensureWorkspace();
-  getDb().transaction((tx) => {
-    tx.update(schema.interviews)
-      .set({ answer: input.answer, feedback: input.feedback, correct: input.correct })
-      .where(eq(schema.interviews.id, id))
-      .run();
-    tx.insert(schema.learningEvents)
-      .values(
-        eventValues({
-          workspaceId: ws.id,
-          sessionId: interview.sessionId,
-          action: 'interview_answered',
-          objectType: 'interview',
-          objectId: id,
-          result: { correct: input.correct, level: input.level },
-          idempotencyKey: input.idempotencyKey,
-        }),
-      )
-      .run();
-  });
-  return { ...interview, answer: input.answer, feedback: input.feedback, correct: input.correct };
-}
-
-/** 列出全部面试记录（按时间倒序）。 */
-export function listInterviews(): Interview[] {
-  return getDb()
-    .select()
-    .from(schema.interviews)
-    .orderBy(desc(schema.interviews.createdAt))
-    .all();
 }
 
 function reviewCardValues(

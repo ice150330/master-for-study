@@ -230,6 +230,85 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
   });
 
+  it('结构化面试按评分策略调整三题难度，并保留重答版本', () => {
+    const skill = repository.upsertTerm({
+      name: '索引设计',
+      definition: '根据查询模式设计索引。',
+      idempotencyKey: 'interview:skill:index',
+    });
+    const first = repository.startInterviewSession({
+      settings: {
+        role: 'backend',
+        topic: 'database',
+        difficulty: 'standard',
+        totalRounds: 3,
+        teacherStyle: 'rigorous',
+      },
+      question: interviewQuestion('如何为订单查询设计索引？', '索引设计'),
+      termId: skill.id,
+      idempotencyKey: 'interview:session:adaptive',
+    });
+    const firstQuestion = first.questions[0];
+    const firstAnswer = repository.finishInterview(firstQuestion.id, {
+      answer: '先按用户和时间的查询模式设计联合索引，并核对选择性。',
+      durationMs: 42_000,
+      evaluation: interviewEvaluation('advance'),
+      idempotencyKey: 'interview:answer:first',
+    });
+    expect(firstAnswer.session).toMatchObject({ currentDifficulty: 'advanced', lastStrategy: 'advance' });
+    const retried = repository.finishInterview(firstQuestion.id, {
+      answer: '补充说明覆盖索引和写放大权衡。',
+      durationMs: 31_000,
+      evaluation: interviewEvaluation('advance'),
+      idempotencyKey: 'interview:answer:first:retry',
+    });
+    expect(retried.attempt.version).toBe(2);
+    expect(retried.attempts).toHaveLength(2);
+
+    const second = repository.createNextInterviewQuestion({
+      interviewSessionId: first.session.id,
+      question: interviewQuestion('索引失效时如何定位？', '执行计划'),
+      idempotencyKey: 'interview:question:second',
+    });
+    const secondQuestion = second.questions.at(-1)!;
+    expect(secondQuestion.difficulty).toBe('advanced');
+    const prerequisite = repository.upsertTerm({
+      name: '执行计划',
+      definition: '数据库对查询的执行步骤。',
+      idempotencyKey: 'interview:skill:plan',
+    });
+    const secondAnswer = repository.finishInterview(secondQuestion.id, {
+      answer: '只看 SQL 文本。',
+      durationMs: 18_000,
+      evaluation: interviewEvaluation('downgrade', '执行计划'),
+      prerequisiteTermId: prerequisite.id,
+      idempotencyKey: 'interview:answer:second',
+    });
+    expect(secondAnswer.session).toMatchObject({ currentDifficulty: 'standard', lastStrategy: 'downgrade' });
+    expect(secondAnswer.interview.termId).toBe(prerequisite.id);
+
+    const third = repository.createNextInterviewQuestion({
+      interviewSessionId: first.session.id,
+      question: interviewQuestion('执行计划中重点观察哪些字段？', '执行计划'),
+      idempotencyKey: 'interview:question:third',
+    });
+    const thirdQuestion = third.questions.at(-1)!;
+    expect(thirdQuestion.difficulty).toBe('standard');
+    const thirdAnswer = repository.finishInterview(thirdQuestion.id, {
+      answer: '观察扫描行数、访问方式和实际耗时。',
+      durationMs: 25_000,
+      evaluation: interviewEvaluation('stay'),
+      idempotencyKey: 'interview:answer:third',
+    });
+    expect(thirdAnswer.session).toMatchObject({ status: 'completed', currentRound: 3 });
+    expect(repository.findEventByIdempotencyKey('interview:answer:second')).toMatchObject({
+      action: 'interview_answered',
+      objectType: 'interview_attempt',
+      result: { level: 'downgrade', version: 1 },
+      context: { termId: prerequisite.id, difficulty: 'advanced' },
+    });
+  });
+
   it('事件写入失败时回滚同事务内的资源状态', () => {
     const raw = new Database(dbPath);
     raw.exec(`
@@ -552,3 +631,38 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
   });
 });
+
+function interviewQuestion(question: string, skill: string) {
+  return {
+    question,
+    skill,
+    rubric: {
+      correctness: '技术结论正确',
+      structure: '先结论后依据',
+      evidence: '说明查询或数据依据',
+      communication: '表达简洁准确',
+    },
+  };
+}
+
+function interviewEvaluation(
+  nextStrategy: 'advance' | 'stay' | 'downgrade',
+  prerequisite: string | null = null,
+) {
+  return {
+    correct: nextStrategy !== 'downgrade',
+    scores: {
+      correctness: { score: nextStrategy === 'downgrade' ? 2 : 4, note: '结论评分' },
+      structure: { score: 4, note: '结构评分' },
+      evidence: { score: 3, note: '证据评分' },
+      communication: { score: 4, note: '表达评分' },
+    },
+    summary: '结构化面试反馈。',
+    strengths: ['结论清楚'],
+    improvements: ['补充权衡'],
+    evidence: [{ dimension: 'correctness' as const, quote: '索引', note: '原文证据' }],
+    modelAnswer: '先识别查询模式，再比较索引收益与写入成本。',
+    nextStrategy,
+    prerequisite,
+  };
+}

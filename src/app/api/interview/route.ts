@@ -1,25 +1,25 @@
-import { generateQuestion, judgeAnswer } from '@/lib/ai/interview';
+import { generateFollowUp, generateQuestion, judgeAnswer } from '@/lib/ai/interview';
 import {
-  createInterview,
+  createNextInterviewQuestion,
   findEventByIdempotencyKey,
   finishInterview,
   getInterview,
-  listInterviews,
+  getInterviewSession,
+  getInterviewSessionDetail,
+  listInterviewAttempts,
+  listInterviewSessionDetails,
+  saveInterviewFollowUp,
+  startInterviewSession,
+  upsertTerm,
+  type InterviewAttempt,
 } from '@/lib/db';
+import type { InterviewEvaluation, InterviewSettings } from '@/lib/interview/types';
 import { DomainError, parseJson, withApiErrors } from '@/lib/validation/api';
 import { interviewRequestSchema } from '@/lib/validation/schemas';
 
-/**
- * 模拟面试接口。
- *
- * GET  /api/interview —— 列出面试历史
- * POST /api/interview —— 出题 / 判分
- *    { action: 'question', context? }       → 返回 { interview }
- *    { action: 'answer', id, answer }       → 返回 { correct, feedback, level }
- */
-
+/** 结构化模拟面试：场次设置、追问、评分和自适应下一题均由服务端状态驱动。 */
 export async function GET() {
-  return withApiErrors(() => Response.json({ interviews: listInterviews() }));
+  return withApiErrors(() => Response.json({ sessions: listInterviewSessionDetails() }));
 }
 
 export async function POST(req: Request) {
@@ -29,37 +29,151 @@ export async function POST(req: Request) {
     const body = parsed.data;
     const previous = findEventByIdempotencyKey(body.idempotencyKey);
 
-    if (body.action === 'question') {
+    if (body.action === 'start') {
       if (previous?.objectId) {
-        const interview = getInterview(previous.objectId);
-        if (interview) return Response.json({ interview });
+        const detail = getInterviewSessionDetail(previous.objectId);
+        if (detail) return Response.json({ detail });
       }
-      const question = await generateQuestion(body.context);
-      const interview = createInterview({
+      const settings: InterviewSettings = {
+        role: body.role,
+        topic: body.topic,
+        difficulty: body.difficulty,
+        totalRounds: body.totalRounds,
+        teacherStyle: body.teacherStyle,
+      };
+      const question = await generateQuestion({ settings, roundIndex: 1 });
+      const term = upsertInterviewSkill(question.skill, body.idempotencyKey);
+      const detail = startInterviewSession({
+        settings,
         question,
+        termId: term.id,
         idempotencyKey: body.idempotencyKey,
       });
-      return Response.json({ interview }, { status: 201 });
+      return Response.json({ detail }, { status: 201 });
+    }
+
+    if (body.action === 'next') {
+      if (previous?.objectId) {
+        const priorQuestion = getInterview(previous.objectId);
+        if (priorQuestion?.interviewSessionId) {
+          const detail = getInterviewSessionDetail(priorQuestion.interviewSessionId);
+          if (detail) return Response.json({ detail });
+        }
+      }
+      const detail = getInterviewSessionDetail(body.interviewSessionId);
+      if (!detail) throw new DomainError('INTERVIEW_SESSION_NOT_FOUND', '面试场次不存在', 404);
+      if (detail.session.status === 'completed' || detail.session.currentRound >= detail.session.totalRounds) {
+        throw new DomainError('INTERVIEW_SESSION_COMPLETED', '当前面试已经完成', 409);
+      }
+      const previousQuestion = detail.questions.at(-1);
+      const previousAttempt = previousQuestion?.attempts.at(-1);
+      if (!previousAttempt) {
+        throw new DomainError('INTERVIEW_ANSWER_REQUIRED', '请先完成当前题目', 409);
+      }
+      const settings: InterviewSettings = {
+        role: detail.session.role,
+        topic: detail.session.topic,
+        difficulty: detail.session.currentDifficulty,
+        totalRounds: detail.session.totalRounds as 3 | 5,
+        teacherStyle: detail.session.teacherStyle,
+      };
+      const question = await generateQuestion({
+        settings,
+        roundIndex: detail.session.currentRound + 1,
+        previousSummary: previousAttempt.summary,
+        prerequisite: previousAttempt.nextStrategy === 'downgrade' ? previousAttempt.prerequisite : null,
+      });
+      const term = upsertInterviewSkill(question.skill, body.idempotencyKey);
+      const nextDetail = createNextInterviewQuestion({
+        interviewSessionId: detail.session.id,
+        question,
+        termId: term.id,
+        idempotencyKey: body.idempotencyKey,
+      });
+      return Response.json({ detail: nextDetail }, { status: 201 });
     }
 
     const interview = getInterview(body.id);
-    if (!interview) throw new DomainError('INTERVIEW_NOT_FOUND', '面试记录不存在', 404);
-    if (previous?.result) {
+    if (!interview) throw new DomainError('INTERVIEW_NOT_FOUND', '面试题目不存在', 404);
+
+    if (body.action === 'followup') {
+      if (previous && interview.followUp) return Response.json({ interview });
+      const session = interview.interviewSessionId
+        ? getInterviewSession(interview.interviewSessionId)
+        : undefined;
+      const followUp = await generateFollowUp({
+        question: interview.question,
+        answerDraft: body.answerDraft,
+        teacherStyle: session?.teacherStyle ?? 'guided',
+      });
       return Response.json({
-        correct: interview.correct,
-        feedback: interview.feedback,
-        level: previous.result.level,
+        interview: saveInterviewFollowUp({
+          interviewId: interview.id,
+          followUp,
+          idempotencyKey: body.idempotencyKey,
+        }),
       });
     }
 
-    const result = await judgeAnswer(interview.question, body.answer);
-    finishInterview(body.id, {
+    const priorAttempt = previous?.objectId
+      ? listInterviewAttempts(interview.id).find((attempt) => attempt.id === previous.objectId)
+      : undefined;
+    if (priorAttempt) return Response.json(answerResponse(interview.id, priorAttempt));
+    const evaluation = await judgeAnswer({
+      question: interview.question,
       answer: body.answer,
-      feedback: result.feedback,
-      correct: result.correct,
-      level: result.level,
+      difficulty: interview.difficulty,
+      rubric: interview.rubric,
+      followUp: interview.followUp,
+    });
+    const prerequisiteTerm = evaluation.nextStrategy === 'downgrade' && evaluation.prerequisite
+      ? upsertInterviewSkill(evaluation.prerequisite, `${body.idempotencyKey}:prerequisite`)
+      : null;
+    const result = finishInterview(interview.id, {
+      answer: body.answer,
+      durationMs: body.durationMs,
+      evaluation,
+      prerequisiteTermId: prerequisiteTerm?.id,
       idempotencyKey: body.idempotencyKey,
     });
-    return Response.json(result);
+    return Response.json({ ...result, evaluation });
   });
+}
+
+function upsertInterviewSkill(name: string, idempotencyKey: string) {
+  return upsertTerm({
+    name,
+    canonicalName: name,
+    definition: `模拟面试中正在验证的能力点：${name}。`,
+    confidence: 0.3,
+    idempotencyKey: `${idempotencyKey}:skill`,
+  });
+}
+
+function answerResponse(interviewId: string, attempt: InterviewAttempt) {
+  const interview = getInterview(interviewId) as NonNullable<ReturnType<typeof getInterview>>;
+  const session = interview.interviewSessionId
+    ? getInterviewSession(interview.interviewSessionId) ?? null
+    : null;
+  return {
+    session,
+    interview,
+    attempt,
+    attempts: listInterviewAttempts(interviewId),
+    evaluation: attemptEvaluation(attempt),
+  };
+}
+
+function attemptEvaluation(attempt: InterviewAttempt): InterviewEvaluation {
+  return {
+    correct: attempt.correct,
+    scores: attempt.scores,
+    summary: attempt.summary,
+    strengths: attempt.strengths,
+    improvements: attempt.improvements,
+    evidence: attempt.evidence,
+    modelAnswer: attempt.modelAnswer,
+    nextStrategy: attempt.nextStrategy,
+    prerequisite: attempt.prerequisite,
+  };
 }
