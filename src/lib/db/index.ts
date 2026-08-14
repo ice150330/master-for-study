@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { asc, desc, eq, lte } from 'drizzle-orm';
+import { asc, count, desc, eq, isNotNull, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -22,6 +22,7 @@ export type Message = typeof schema.messages.$inferSelect;
 export type Note = typeof schema.notes.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
 export type TermMastery = typeof schema.termMasteries.$inferSelect;
+export type LearningEvent = typeof schema.learningEvents.$inferSelect;
 
 /** 待复习术语（术语表 + 掌握度合并）。 */
 export type ReviewItem = {
@@ -344,4 +345,73 @@ export function reviewTerm(termId: string, grade: ReviewGrade) {
 
   recordEvent({ type: 'reviewed', entityId: termId, metadata: { grade } });
   return result;
+}
+
+export type TermStats = {
+  total: number;
+  new: number;
+  learning: number;
+  reviewing: number;
+  relearning: number;
+  due: number;
+};
+
+/** 术语掌握度统计（按状态分布 + 待复习数）。 */
+export function getTermStats(): TermStats {
+  const db = getDb();
+  const total = db.select({ c: count() }).from(schema.terms).get()?.c ?? 0;
+  const byState = db
+    .select({ state: schema.termMasteries.state, c: count() })
+    .from(schema.termMasteries)
+    .groupBy(schema.termMasteries.state)
+    .all();
+
+  const stats: TermStats = { total, new: 0, learning: 0, reviewing: 0, relearning: 0, due: 0 };
+  for (const r of byState) stats[r.state] = r.c;
+  stats.due =
+    db
+      .select({ c: count() })
+      .from(schema.termMasteries)
+      .where(lte(schema.termMasteries.dueAt, new Date()))
+      .get()?.c ?? 0;
+  return stats;
+}
+
+/** 学习事件类型分布（type → 计数）。 */
+export function getEventBreakdown(): Record<string, number> {
+  const rows = getDb()
+    .select({ type: schema.learningEvents.type, c: count() })
+    .from(schema.learningEvents)
+    .groupBy(schema.learningEvents.type)
+    .all();
+  return Object.fromEntries(rows.map((r) => [r.type, r.c]));
+}
+
+/** 面试统计：出题数 / 已作答数 / 正确数。 */
+export function getInterviewStats() {
+  const db = getDb();
+  const total = db.select({ c: count() }).from(schema.interviews).get()?.c ?? 0;
+  const answered =
+    db
+      .select({ c: count() })
+      .from(schema.interviews)
+      .where(isNotNull(schema.interviews.answer))
+      .get()?.c ?? 0;
+  const correct =
+    db
+      .select({ c: count() })
+      .from(schema.interviews)
+      .where(eq(schema.interviews.correct, true))
+      .get()?.c ?? 0;
+  return { total, answered, correct };
+}
+
+/** 最近的学习事件流（按时间倒序）。 */
+export function getRecentEvents(limit = 20): LearningEvent[] {
+  return getDb()
+    .select()
+    .from(schema.learningEvents)
+    .orderBy(desc(schema.learningEvents.createdAt))
+    .limit(limit)
+    .all();
 }

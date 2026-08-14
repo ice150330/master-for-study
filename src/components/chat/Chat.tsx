@@ -202,6 +202,12 @@ export function Chat() {
             >
               复习
             </Link>
+            <Link
+              href="/analytics"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              成长分析
+            </Link>
           </nav>
         </header>
 
