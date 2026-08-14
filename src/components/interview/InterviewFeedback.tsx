@@ -35,7 +35,11 @@ export function InterviewFeedback({
   const score = interviewOverallScore(attempt.scores);
   const completed = detail.session.status === 'completed';
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-card">
+    <div
+      data-context-focus={`interview:${attempt.id}`}
+      tabIndex={-1}
+      className="overflow-hidden rounded-md border border-border bg-card outline-none"
+    >
       <div className="grid min-h-[650px] min-[1100px]:grid-cols-[minmax(0,1fr)_19rem]">
         <section className="min-w-0 p-7" aria-labelledby="interview-feedback-title">
           <div className="flex items-start justify-between gap-5 border-b border-border pb-5">

@@ -260,6 +260,16 @@ export function getResource(id: string): Resource | undefined {
   return getDb().select().from(schema.resources).where(eq(schema.resources.id, id)).limit(1).get();
 }
 
+export function getPracticeAttempt(id: string): PracticeAttempt | undefined {
+  return getDb().select().from(schema.practiceAttempts)
+    .where(eq(schema.practiceAttempts.id, id)).limit(1).get();
+}
+
+export function getReviewLog(id: string): ReviewLog | undefined {
+  return getDb().select().from(schema.reviewLogs)
+    .where(eq(schema.reviewLogs.id, id)).limit(1).get();
+}
+
 /** 按幂等键读取已经完成的事件。 */
 export function findEventByIdempotencyKey(idempotencyKey: string): LearningEvent | undefined {
   return getDb()
@@ -2186,13 +2196,13 @@ function activityHref(input: {
   review?: ReviewLog;
 }) {
   const { event, termId, practice, interview, review } = input;
-  if (practice) return `/practice?attempt=${practice.id}${termId ? `&concept=${termId}` : ''}`;
-  if (interview) return `/interview?attempt=${interview.id}${termId ? `&concept=${termId}` : ''}`;
-  if (review) return `/review?log=${review.id}&concept=${review.termId}`;
-  if (event.objectType === 'note' && event.objectId) return `/notes?note=${event.objectId}`;
-  if (event.objectType === 'resource' && event.objectId) return `/resources?resource=${event.objectId}`;
+  if (practice) return `/practice?attempt=practice%3A${practice.id}${termId ? `&concept=${termId}` : ''}`;
+  if (interview) return `/interview?attempt=interview%3A${interview.id}${termId ? `&concept=${termId}` : ''}`;
+  if (review) return `/review?attempt=review%3A${review.id}&concept=${review.termId}`;
+  if (event.objectType === 'note' && event.objectId) return `/notes?note=${event.objectId}&source=note%3A${event.objectId}`;
+  if (event.objectType === 'resource' && event.objectId) return `/resources?resource=${event.objectId}&source=resource%3A${event.objectId}`;
   if (termId) return `/?concept=${termId}`;
-  if (event.sessionId) return `/?session=${event.sessionId}${event.objectId ? `&message=${event.objectId}` : ''}`;
+  if (event.sessionId) return `/?session=${event.sessionId}${event.objectId ? `&message=${event.objectId}&source=message%3A${event.sessionId}%3A${event.objectId}` : ''}`;
   return '/today';
 }
 

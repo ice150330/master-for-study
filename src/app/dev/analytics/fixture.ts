@@ -85,9 +85,9 @@ export function analyticsFixture(mode: FixtureMode, rangeDays: AnalyticsRange = 
       { conceptId: 'index', name: '复合索引', state: 'reviewing', priority: 48, evidence: ['1 次主动回忆失败', 'FSRS 难度偏高'], sampleSize: 5, href: '/?concept=index', actionHref: '/review?concept=index', actionLabel: '开始复习' },
     ],
     progress: [
-      { id: 'progress-1', title: '筛出高分学员', detail: 'SQL 评测 · 任务通过', createdAt: '2026-08-15T08:40:00.000Z', href: '/practice?attempt=practice-1' },
-      { id: 'progress-2', title: '事务隔离与并发控制', detail: '面试作答 · 84 分 · 进阶', createdAt: '2026-08-14T11:20:00.000Z', href: '/interview?attempt=interview-1' },
-      { id: 'progress-3', title: 'B+ 树索引', detail: '主动复习 · 成功取回 · good', createdAt: '2026-08-13T09:10:00.000Z', href: '/review?log=review-1' },
+      { id: 'progress-1', title: '筛出高分学员', detail: 'SQL 评测 · 任务通过', createdAt: '2026-08-15T08:40:00.000Z', href: '/practice?attempt=practice%3Apractice-1' },
+      { id: 'progress-2', title: '事务隔离与并发控制', detail: '面试作答 · 84 分 · 进阶', createdAt: '2026-08-14T11:20:00.000Z', href: '/interview?attempt=interview%3Ainterview-1' },
+      { id: 'progress-3', title: 'B+ 树索引', detail: '主动复习 · 成功取回 · good', createdAt: '2026-08-13T09:10:00.000Z', href: '/review?attempt=review%3Areview-1' },
     ],
     recentActivities: activities,
   };
@@ -137,16 +137,16 @@ function metric(
 
 function normalActivities(): AnalyticsActivity[] {
   return [
-    activity('a1', 'assessment', 'SQL 评测', '筛出高分学员', '任务通过', '2026-08-15T08:40:00.000Z', '/practice?attempt=practice-1'),
-    activity('a2', 'review', '主动复习', 'B+ 树索引', '成功取回 · good', '2026-08-15T07:10:00.000Z', '/review?log=review-1&concept=index'),
-    activity('a3', 'learning', '完成对话', '事务隔离级别如何选择', '回答已完成', '2026-08-15T06:50:00.000Z', '/?session=session-1&message=message-1'),
+    activity('a1', 'assessment', 'SQL 评测', '筛出高分学员', '任务通过', '2026-08-15T08:40:00.000Z', '/practice?attempt=practice%3Apractice-1'),
+    activity('a2', 'review', '主动复习', 'B+ 树索引', '成功取回 · good', '2026-08-15T07:10:00.000Z', '/review?attempt=review%3Areview-1&concept=index'),
+    activity('a3', 'learning', '完成对话', '事务隔离级别如何选择', '回答已完成', '2026-08-15T06:50:00.000Z', '/?session=session-1&message=message-1&source=message%3Asession-1%3Amessage-1'),
     activity('a4', 'learning', '发现概念', '可重复读', '进入概念库', '2026-08-15T06:49:00.000Z', '/?concept=repeatable-read'),
-    activity('a5', 'assessment', '面试作答', '事务隔离与并发控制', '84 分 · 进阶', '2026-08-14T11:20:00.000Z', '/interview?attempt=interview-1'),
-    activity('a6', 'review', '主动复习', 'MVCC', '未取回 · Again', '2026-08-14T08:00:00.000Z', '/review?log=review-2&concept=mvcc'),
+    activity('a5', 'assessment', '面试作答', '事务隔离与并发控制', '84 分 · 进阶', '2026-08-14T11:20:00.000Z', '/interview?attempt=interview%3Ainterview-1'),
+    activity('a6', 'review', '主动复习', 'MVCC', '未取回 · Again', '2026-08-14T08:00:00.000Z', '/review?attempt=review%3Areview-2&concept=mvcc'),
     activity('a7', 'learning', '更新笔记', '数据库并发控制笔记', '知识已沉淀', '2026-08-13T12:00:00.000Z', '/notes?note=note-1'),
-    activity('a8', 'assessment', 'SQL 评测', '统计部门均分', '未通过 · validation', '2026-08-13T09:30:00.000Z', '/practice?attempt=practice-2'),
+    activity('a8', 'assessment', 'SQL 评测', '统计部门均分', '未通过 · validation', '2026-08-13T09:30:00.000Z', '/practice?attempt=practice%3Apractice-2'),
     activity('a9', 'learning', '保存摘录', 'PostgreSQL 事务文档', '摘录已保存', '2026-08-12T14:20:00.000Z', '/resources?resource=resource-1'),
-    activity('a10', 'review', '主动复习', 'GROUP BY', '成功取回 · hard', '2026-08-11T07:30:00.000Z', '/review?log=review-3&concept=group-by'),
+    activity('a10', 'review', '主动复习', 'GROUP BY', '成功取回 · hard', '2026-08-11T07:30:00.000Z', '/review?attempt=review%3Areview-3&concept=group-by'),
   ];
 }
 

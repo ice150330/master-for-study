@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
+import { contextFocusRef, withLearningContext, type LearningContext } from '@/lib/learning-context';
 
 export type ConceptDetail = {
   concept: {
@@ -51,6 +52,7 @@ export function ConceptRail({
   onClose,
   onFollowup,
   onOpenSource,
+  learningContext,
 }: {
   name: string;
   detail: ConceptDetail | null;
@@ -59,10 +61,15 @@ export function ConceptRail({
   onClose: () => void;
   onFollowup: () => void;
   onOpenSource: (source: ConceptDetail['mentions'][number]) => void;
+  learningContext: LearningContext;
 }) {
   const concept = detail?.concept;
   return (
-    <div className="flex h-full min-h-0 flex-col bg-card">
+    <div
+      data-context-focus={contextFocusRef(learningContext) ?? undefined}
+      tabIndex={-1}
+      className="flex h-full min-h-0 flex-col bg-card outline-none"
+    >
       <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-muted">知识对象</p>
@@ -134,7 +141,12 @@ export function ConceptRail({
                 {detail.relatedNotes.map((note) => (
                   <a
                     key={note.id}
-                    href={`/notes?note=${note.id}&concept=${concept.id}`}
+                    href={withLearningContext(`/notes?note=${note.id}`, {
+                      ...learningContext,
+                      conceptId: concept.id,
+                      source: { type: 'note', id: note.id },
+                      attempt: null,
+                    })}
                     className="block truncate rounded-md px-2 py-1.5 text-xs text-card-foreground hover:bg-card-soft"
                   >
                     {note.title}
@@ -170,9 +182,9 @@ export function ConceptRail({
             继续追问
           </Button>
           <div className="mt-2 grid grid-cols-3 gap-1">
-            <RailLink href={`/notes?concept=${concept.id}`} label="创建笔记" icon={<NotebookPen />} />
-            <RailLink href={`/practice?concept=${concept.id}`} label="开始练习" icon={<Brain />} />
-            <RailLink href={`/review?concept=${concept.id}`} label="加入复习" icon={<BookOpenText />} />
+            <RailLink href={withLearningContext('/notes', { ...learningContext, conceptId: concept.id, attempt: null })} label="创建笔记" icon={<NotebookPen />} />
+            <RailLink href={withLearningContext('/practice', { ...learningContext, conceptId: concept.id, attempt: null })} label="开始练习" icon={<Brain />} />
+            <RailLink href={withLearningContext('/review', { ...learningContext, conceptId: concept.id, attempt: null })} label="加入复习" icon={<BookOpenText />} />
           </div>
         </div>
       ) : null}

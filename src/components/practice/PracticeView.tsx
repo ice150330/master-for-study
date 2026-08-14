@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Rows3,
   TableProperties,
+  History,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
@@ -52,12 +53,25 @@ type AttemptPayload = {
   idempotencyKey: string;
 };
 
+type FocusPracticeAttempt = {
+  id: string;
+  challengeId: string;
+  status: 'success' | 'error';
+  errorType: RunErrorType | null;
+  runCount: number;
+  hintCount: number;
+  durationMs: number;
+  createdAt: string;
+};
+
 export function PracticeView({
   initialChallengeId,
   conceptId = null,
+  focusAttempt = null,
 }: {
   initialChallengeId?: string | null;
   conceptId?: string | null;
+  focusAttempt?: FocusPracticeAttempt | null;
 }) {
   const toast = useToast();
   const runnerRef = useRef<SqlWorkerClient | null>(null);
@@ -193,6 +207,26 @@ export function PracticeView({
           actionLabel="重新保存"
           onAction={persistenceError.retry}
         />
+      ) : null}
+
+      {focusAttempt ? (
+        <section
+          data-context-focus={`practice:${focusAttempt.id}`}
+          tabIndex={-1}
+          className="mb-4 flex items-center justify-between gap-4 rounded-md border border-primary/25 bg-primary/8 px-4 py-3 outline-none"
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <History aria-hidden="true" className="size-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">正在查看一次历史尝试</p>
+              <p className="mt-0.5 truncate text-[11px] text-muted">
+                {focusAttempt.status === 'success' ? '任务通过' : `未通过${focusAttempt.errorType ? ` · ${focusAttempt.errorType}` : ''}`}
+                {' · '}{focusAttempt.runCount} 次运行 · {focusAttempt.hintCount} 次提示 · {Math.max(1, Math.round(focusAttempt.durationMs / 1_000))} 秒
+              </p>
+            </div>
+          </div>
+          <time className="shrink-0 text-[10px] text-muted">{new Date(focusAttempt.createdAt).toLocaleString('zh-CN')}</time>
+        </section>
       ) : null}
 
       <section className="grid min-h-[660px] overflow-hidden rounded-md border border-border bg-card min-[1100px]:grid-cols-[15rem_minmax(0,1fr)_22rem]">

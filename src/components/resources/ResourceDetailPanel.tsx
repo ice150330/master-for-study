@@ -6,10 +6,12 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Textarea, Input } from '@/components/ui/Field';
 import { RESOURCE_STATUSES, RESOURCE_STATUS_LABELS } from '@/lib/resources/types';
+import { withLearningContext, type LearningContext } from '@/lib/learning-context';
 import type { ResourceDto } from './types';
 
 export function ResourceDetailPanel({
   resource,
+  learningContext,
   onEdit,
   onDelete,
   onUpdateProgress,
@@ -18,6 +20,7 @@ export function ResourceDetailPanel({
   busy,
 }: {
   resource: ResourceDto;
+  learningContext: LearningContext;
   onEdit(): void;
   onDelete(): void;
   onUpdateProgress(progress: number, status: ResourceDto['status']): void;
@@ -32,7 +35,12 @@ export function ResourceDetailPanel({
   const [locator, setLocator] = useState('');
   const status = progress >= 100 ? '已读' : resource.status;
   return (
-    <section className="min-w-0" aria-labelledby="resource-detail-title">
+    <section
+      data-context-focus={`resource:${resource.id}`}
+      tabIndex={-1}
+      className="min-w-0 outline-none"
+      aria-labelledby="resource-detail-title"
+    >
       <header className="flex items-start justify-between gap-5 border-b border-border px-6 py-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs text-muted">
@@ -152,7 +160,18 @@ export function ResourceDetailPanel({
             <p className="text-xs font-semibold text-card-foreground">关联 Concept</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {resource.concepts.length ? resource.concepts.map((concept) => (
-                <Link key={concept.id} href={`/?concept=${concept.id}`} className="rounded-md bg-accent/10 px-2 py-1 text-[11px] font-medium text-accent hover:bg-accent/15">{concept.name}</Link>
+                <Link
+                  key={concept.id}
+                  href={withLearningContext('/', {
+                    ...learningContext,
+                    conceptId: concept.id,
+                    source: { type: 'resource', id: resource.id },
+                    attempt: null,
+                  })}
+                  className="rounded-md bg-accent/10 px-2 py-1 text-[11px] font-medium text-accent hover:bg-accent/15"
+                >
+                  {concept.name}
+                </Link>
               )) : <span className="text-xs text-muted">未关联</span>}
             </div>
           </div>

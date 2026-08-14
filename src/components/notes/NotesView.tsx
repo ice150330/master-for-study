@@ -17,7 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
@@ -26,6 +27,7 @@ import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
+import { parseLearningContext, withLearningContext, type LearningContext } from '@/lib/learning-context';
 
 type NoteVersion = {
   id: string;
@@ -77,6 +79,9 @@ export function NotesView({
   initialSelectedId?: string;
 }) {
   const toast = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const learningContext = useMemo(() => parseLearningContext(searchParams), [searchParams]);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [selectedId, setSelectedId] = useState(
     initialNotes.some((note) => note.id === initialSelectedId) ? initialSelectedId! : initialNotes[0]?.id ?? '',
@@ -94,6 +99,28 @@ export function NotesView({
   const [error, setError] = useState<{ message: string; retry?: () => void } | null>(null);
 
   const selected = notes.find((note) => note.id === selectedId) ?? null;
+
+  useEffect(() => {
+    const requested = searchParams.get('note');
+    if (!requested || !notes.some((note) => note.id === requested)) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSelectedId(requested);
+      setEditing(false);
+    });
+    return () => { cancelled = true; };
+  }, [notes, searchParams]);
+
+  function selectNote(note: Note) {
+    setSelectedId(note.id);
+    setEditing(false);
+    router.push(withLearningContext(`/notes?note=${note.id}`, {
+      ...learningContext,
+      source: { type: 'note', id: note.id },
+      attempt: null,
+    }));
+  }
   const allTags = useMemo(
     () => [...new Set(notes.flatMap((note) => note.tags))].sort((a, b) => a.localeCompare(b, 'zh-CN')),
     [notes],
@@ -236,10 +263,7 @@ export function NotesView({
                 <button
                   key={note.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedId(note.id);
-                    setEditing(false);
-                  }}
+                  onClick={() => selectNote(note)}
                   className={`mb-1 w-full rounded-md px-3 py-2.5 text-left transition-colors ${
                     note.id === selectedId ? 'bg-primary/10 text-foreground' : 'hover:bg-card-soft'
                   }`}
@@ -286,6 +310,7 @@ export function NotesView({
             <NoteReader
               note={selected}
               conceptByName={conceptByName}
+              learningContext={learningContext}
               onEdit={beginEdit}
               onExport={() => exportMarkdown(selected)}
               onVersions={() => setVersionOpen(true)}
@@ -362,12 +387,14 @@ function NoteEditor({
 function NoteReader({
   note,
   conceptByName,
+  learningContext,
   onEdit,
   onExport,
   onVersions,
 }: {
   note: Note;
   conceptByName: Map<string, string>;
+  learningContext: LearningContext;
   onEdit: () => void;
   onExport: () => void;
   onVersions: () => void;
@@ -375,7 +402,11 @@ function NoteReader({
   const blocks = parseMarkdown(note.markdown);
   const headings = blocks.filter((block): block is MarkdownBlock & { type: 'heading' } => block.type === 'heading');
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-context-focus={`note:${note.id}`}
+      tabIndex={-1}
+      className="flex h-full min-h-0 flex-col outline-none"
+    >
       <header className="shrink-0 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -402,7 +433,11 @@ function NoteReader({
             source.valid && source.sessionId && source.startMessageId ? (
               <Link
                 key={source.id}
-                href={`/?session=${source.sessionId}&message=${source.startMessageId}`}
+                href={withLearningContext(`/?session=${source.sessionId}&message=${source.startMessageId}`, {
+                  ...learningContext,
+                  source: { type: 'message', sessionId: source.sessionId, messageId: source.startMessageId },
+                  attempt: null,
+                })}
                 className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-2 py-1 text-[11px] text-accent hover:bg-accent/20"
               >
                 <Link2 aria-hidden="true" className="size-3" />
@@ -419,7 +454,7 @@ function NoteReader({
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_13rem]">
         <div className="min-h-0 overflow-y-auto px-7 py-6">
-          <MarkdownDocument blocks={blocks} conceptByName={conceptByName} />
+          <MarkdownDocument blocks={blocks} conceptByName={conceptByName} noteId={note.id} learningContext={learningContext} />
         </div>
         <aside className="border-l border-border px-4 py-5">
           <h3 className="flex items-center gap-1.5 text-xs font-semibold text-card-foreground">
@@ -437,9 +472,9 @@ function NoteReader({
             )) : <span className="text-xs text-muted">暂无标题</span>}
           </nav>
           <div className="mt-6 space-y-1 border-t border-border pt-4">
-            <ActionLink href={`/review?note=${note.id}`} icon={<BookOpenCheck />} label="生成复习卡" />
-            <ActionLink href={`/practice?note=${note.id}`} icon={<SquareTerminal />} label="生成练习" />
-            <ActionLink href={`/?note=${note.id}`} icon={<MessageSquareText />} label="加入上下文" />
+            <ActionLink href={withLearningContext(`/review?note=${note.id}`, { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<BookOpenCheck />} label="生成复习卡" />
+            <ActionLink href={withLearningContext(`/practice?note=${note.id}`, { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<SquareTerminal />} label="生成练习" />
+            <ActionLink href={withLearningContext('/', { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<MessageSquareText />} label="加入上下文" />
           </div>
         </aside>
       </div>
@@ -514,7 +549,17 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
   return blocks;
 }
 
-function MarkdownDocument({ blocks, conceptByName }: { blocks: MarkdownBlock[]; conceptByName: Map<string, string> }) {
+function MarkdownDocument({
+  blocks,
+  conceptByName,
+  noteId,
+  learningContext,
+}: {
+  blocks: MarkdownBlock[];
+  conceptByName: Map<string, string>;
+  noteId: string;
+  learningContext: LearningContext;
+}) {
   return (
     <article className="space-y-3 text-sm leading-6 text-card-foreground">
       {blocks.map((block, index) => {
@@ -523,20 +568,26 @@ function MarkdownDocument({ blocks, conceptByName }: { blocks: MarkdownBlock[]; 
           return <Tag key={block.id} id={block.id} className={`${block.level === 1 ? 'text-xl' : 'mt-5 text-base'} font-semibold`}>{block.text}</Tag>;
         }
         if (block.type === 'code') return <CodeBlock key={index} language={block.language} code={block.code} />;
-        if (block.type === 'list') return <p key={index} className="pl-4 before:mr-2 before:content-['•']">{renderConceptText(block.text, conceptByName)}</p>;
-        return <p key={index}>{renderConceptText(block.text, conceptByName)}</p>;
+        if (block.type === 'list') return <p key={index} className="pl-4 before:mr-2 before:content-['•']">{renderConceptText(block.text, conceptByName, noteId, learningContext)}</p>;
+        return <p key={index}>{renderConceptText(block.text, conceptByName, noteId, learningContext)}</p>;
       })}
     </article>
   );
 }
 
-function renderConceptText(text: string, conceptByName: Map<string, string>) {
+function renderConceptText(text: string, conceptByName: Map<string, string>, noteId: string, learningContext: LearningContext) {
   const match = /\*\*([^*]+)\*\*/.exec(text);
   if (!match) return text;
   const id = conceptByName.get(match[1].toLocaleLowerCase());
   const before = text.slice(0, match.index);
   const after = text.slice(match.index + match[0].length);
-  return <>{before}{id ? <Link href={`/?concept=${id}`} className="font-semibold text-accent hover:underline">{match[1]}</Link> : <strong>{match[1]}</strong>}{after}</>;
+  const href = id ? withLearningContext('/', {
+    ...learningContext,
+    conceptId: id,
+    source: { type: 'note', id: noteId },
+    attempt: null,
+  }) : null;
+  return <>{before}{href ? <Link href={href} className="font-semibold text-accent hover:underline">{match[1]}</Link> : <strong>{match[1]}</strong>}{after}</>;
 }
 
 function CodeBlock({ language, code }: { language: string; code: string }) {

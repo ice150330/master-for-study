@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import {
   NAV_SECTIONS,
   findActiveItem,
@@ -26,8 +27,11 @@ import {
   type NavSection,
 } from '@/lib/nav';
 import { cn } from '@/lib/cn';
+import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { ShellTools } from './ShellTools';
+import { LearningContextBar } from '@/components/context/LearningContextBar';
+import { RouteScrollRegion, saveCurrentRouteScrollPosition } from '@/components/context/RouteScrollRegion';
 
 const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   today: CalendarDays,
@@ -69,7 +73,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     } catch {
       // 忽略不可用的本地记忆并回到区域默认页
     }
-    router.push(target);
+    saveCurrentRouteScrollPosition();
+    router.push(contextualHref(target));
+  }
+
+  function contextualHref(target: string) {
+    if (typeof window === 'undefined') return target;
+    const context = parseLearningContext(new URLSearchParams(window.location.search));
+    if (!context.conceptId && !context.source && !context.attempt && !context.workspaceId) return target;
+    return withLearningContext(target, context);
   }
 
   return (
@@ -101,6 +113,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                   const link = (
                     <Link
                       href={item.href}
+                      onClick={(event) => {
+                        saveCurrentRouteScrollPosition();
+                        const target = contextualHref(item.href);
+                        if (target === item.href) return;
+                        event.preventDefault();
+                        router.push(target);
+                      }}
                       aria-label={item.label}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
@@ -145,8 +164,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <ShellTools />
         </header>
-
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}</main>
+        <Suspense fallback={null}><LearningContextBar /></Suspense>
+        <Suspense fallback={<main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}</main>}>
+          <RouteScrollRegion>{children}</RouteScrollRegion>
+        </Suspense>
       </div>
 
       <nav

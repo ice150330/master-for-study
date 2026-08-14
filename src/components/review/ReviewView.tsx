@@ -55,6 +55,15 @@ type LastReview = {
   intervalLabel: string;
 };
 
+type FocusReview = {
+  id: string;
+  termId: string;
+  termName: string;
+  rating: Grade;
+  reviewAt: string;
+  scheduledDays: number;
+};
+
 const GRADE_OPTIONS: Array<{
   grade: Grade;
   label: string;
@@ -74,7 +83,13 @@ const STATE_LABELS: Record<ReviewItem['state'], string> = {
   relearning: '重新学习',
 };
 
-export function ReviewView({ initialQueue }: { initialQueue: ReviewQueue }) {
+export function ReviewView({
+  initialQueue,
+  focusReview = null,
+}: {
+  initialQueue: ReviewQueue;
+  focusReview?: FocusReview | null;
+}) {
   const toast = useToast();
   const [queue, setQueue] = useState(initialQueue.reviews);
   const [summary, setSummary] = useState(initialQueue.summary);
@@ -244,6 +259,22 @@ export function ReviewView({ initialQueue }: { initialQueue: ReviewQueue }) {
         <Metric icon={<CircleAlert />} label="已逾期" value={`${summary.overdue} 张`} tone={summary.overdue > 0 ? 'warning' : undefined} />
         <Metric icon={<Clock3 />} label="预计" value={`${summary.estimatedMinutes} 分钟`} />
       </section>
+
+      {focusReview ? (
+        <section
+          data-context-focus={`review:${focusReview.id}`}
+          tabIndex={-1}
+          className="mb-4 flex items-center justify-between gap-4 rounded-md border border-primary/25 bg-primary/8 px-4 py-3 outline-none"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold text-foreground">历史记录：{focusReview.termName}</p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              评级 {focusReview.rating} · 当次安排 {focusReview.scheduledDays} 天后复习
+            </p>
+          </div>
+          <time className="shrink-0 text-[10px] text-muted">{new Date(focusReview.reviewAt).toLocaleString('zh-CN')}</time>
+        </section>
+      ) : null}
 
       {lastReview ? (
         <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-accent/30 bg-accent/8 px-4 py-2.5 text-sm">

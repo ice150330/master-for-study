@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import { NotesView } from '@/components/notes/NotesView';
 
 export default function EmptyNotesFixturePage() {
-  return <NotesView initialNotes={[]} initialSessions={[]} initialTerms={[]} />;
+  return (
+    <Suspense fallback={null}>
+      <NotesView initialNotes={[]} initialSessions={[]} initialTerms={[]} />
+    </Suspense>
+  );
 }

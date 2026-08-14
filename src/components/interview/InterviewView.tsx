@@ -31,13 +31,20 @@ const defaultSettings: InterviewSettings = {
   teacherStyle: 'guided',
 };
 
-export function InterviewView({ initialSessions }: { initialSessions: InterviewSessionDetailDto[] }) {
+export function InterviewView({
+  initialSessions,
+  initialAttemptId = null,
+}: {
+  initialSessions: InterviewSessionDetailDto[];
+  initialAttemptId?: string | null;
+}) {
   const toast = useToast();
   const startedAtRef = useRef(0);
+  const focusedDetail = focusedInterviewDetail(initialSessions, initialAttemptId);
   const [history, setHistory] = useState(initialSessions);
   const [settings, setSettings] = useState<InterviewSettings>(defaultSettings);
-  const [detail, setDetail] = useState<InterviewSessionDetailDto | null>(null);
-  const [mode, setMode] = useState<ViewMode>('setup');
+  const [detail, setDetail] = useState<InterviewSessionDetailDto | null>(focusedDetail);
+  const [mode, setMode] = useState<ViewMode>(focusedDetail ? 'feedback' : 'setup');
   const [answer, setAnswer] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [busyAction, setBusyAction] = useState<InterviewAction | null>(null);
@@ -274,6 +281,28 @@ export function InterviewView({ initialSessions }: { initialSessions: InterviewS
       {mode === 'summary' && detail ? <InterviewSummary detail={detail} onRestart={restart} /> : null}
     </PageShell>
   );
+}
+
+function focusedInterviewDetail(
+  sessions: InterviewSessionDetailDto[],
+  attemptId: string | null,
+) {
+  if (!attemptId) return null;
+  for (const detail of sessions) {
+    const question = detail.questions.find((item) => item.attempts.some((attempt) => attempt.id === attemptId));
+    if (!question) continue;
+    const attempts = [...question.attempts];
+    const targetIndex = attempts.findIndex((attempt) => attempt.id === attemptId);
+    if (targetIndex >= 0) attempts.push(...attempts.splice(targetIndex, 1));
+    return {
+      ...detail,
+      questions: [
+        ...detail.questions.filter((item) => item.id !== question.id),
+        { ...question, attempts },
+      ],
+    };
+  }
+  return null;
 }
 
 function replaceCurrentQuestion(detail: InterviewSessionDetailDto, interview: InterviewQuestionDto) {

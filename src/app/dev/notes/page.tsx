@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { NotesView } from '@/components/notes/NotesView';
 
 const note = {
@@ -57,15 +58,17 @@ const invalidNote = {
 
 export default function NotesFixturePage() {
   return (
-    <NotesView
-      initialNotes={[note, invalidNote]}
-      initialSessions={[
-        { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', parentId: null, title: 'HTTP 缓存策略' },
-      ]}
-      initialTerms={[
-        { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', name: 'Cache-Control' },
-      ]}
-      initialSelectedId={note.id}
-    />
+    <Suspense fallback={null}>
+      <NotesView
+        initialNotes={[note, invalidNote]}
+        initialSessions={[
+          { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', parentId: null, title: 'HTTP 缓存策略' },
+        ]}
+        initialTerms={[
+          { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', name: 'Cache-Control' },
+        ]}
+        initialSelectedId={note.id}
+      />
+    </Suspense>
   );
 }

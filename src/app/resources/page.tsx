@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { ResourcesView } from '@/components/resources/ResourcesView';
 import type { ResourceDto } from '@/components/resources/types';
 import { listResourceDetails, listTerms, type ResourceDetail } from '@/lib/db';
@@ -14,7 +15,15 @@ export default async function ResourcesPage({
   const initialResourceId = params.resource && resources.some((resource) => resource.id === params.resource)
     ? params.resource
     : null;
-  return <ResourcesView initialResources={resources} initialTerms={listTerms()} initialResourceId={initialResourceId} />;
+  return (
+    <Suspense fallback={null}>
+      <ResourcesView
+        initialResources={resources}
+        initialTerms={listTerms()}
+        initialResourceId={initialResourceId}
+      />
+    </Suspense>
+  );
 }
 
 function serializeResource(resource: ResourceDetail): ResourceDto {

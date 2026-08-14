@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { ConceptRail, type ConceptDetail } from '@/components/context/ConceptRail';
 import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
+import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { SessionDeck } from './SessionDeck';
 import { SessionPicker } from './SessionPicker';
 import type { TermAction } from './Term';
@@ -33,6 +34,8 @@ function subscribeModel(cb: () => void) {
 export function Chat() {
   const toast = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const learningContext = useMemo(() => parseLearningContext(searchParams), [searchParams]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [archivedSessions, setArchivedSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -106,8 +109,9 @@ export function Chat() {
 
   useEffect(() => {
     const conceptId = new URLSearchParams(window.location.search).get('concept');
-    if (conceptId) void loadConcept({ id: conceptId });
+    if (conceptId) void loadConcept({ id: conceptId, syncUrl: false });
     // 仅消费首次进入页面时来自笔记或资源的 Concept 深链接。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function refreshSessions(): Promise<ChatSession[]> {
@@ -384,10 +388,12 @@ export function Chat() {
     id,
     name,
     sourceMessageId,
+    syncUrl = true,
   }: {
     id?: string;
     name?: string;
     sourceMessageId?: string;
+    syncUrl?: boolean;
   }) {
     const label = name ?? '知识对象';
     setConceptPanel({ name: label, sourceMessageId, detail: null, loading: true, error: null });
@@ -401,6 +407,17 @@ export function Chat() {
         loading: false,
         error: null,
       });
+      if (syncUrl) {
+        const source = sourceMessageId && currentSessionId
+          ? { type: 'message' as const, sessionId: currentSessionId, messageId: sourceMessageId }
+          : learningContext.source;
+        router.push(withLearningContext(currentSessionId ? `/?session=${currentSessionId}${sourceMessageId ? `&message=${sourceMessageId}` : ''}` : '/', {
+          ...learningContext,
+          conceptId: detail.concept.id,
+          source,
+          attempt: null,
+        }));
+      }
     } catch (error) {
       setConceptPanel({
         name: label,
@@ -429,12 +446,25 @@ export function Chat() {
 
   async function openConceptSource(source: ConceptDetail['mentions'][number]) {
     if (source.sourceType === 'message' && source.sessionId) {
+      router.push(withLearningContext(`/?session=${source.sessionId}&message=${source.sourceId}`, {
+        ...learningContext,
+        source: { type: 'message', sessionId: source.sessionId, messageId: source.sourceId },
+        attempt: null,
+      }));
       await openSession(source.sessionId);
       requestAnimationFrame(() => focusMessage(source.sourceId));
       return;
     }
-    if (source.sourceType === 'note') router.push(`/notes?note=${source.sourceId}`);
-    if (source.sourceType === 'resource') router.push(`/resources?resource=${source.sourceId}`);
+    if (source.sourceType === 'note') router.push(withLearningContext(`/notes?note=${source.sourceId}`, {
+      ...learningContext,
+      source: { type: 'note', id: source.sourceId },
+      attempt: null,
+    }));
+    if (source.sourceType === 'resource') router.push(withLearningContext(`/resources?resource=${source.sourceId}`, {
+      ...learningContext,
+      source: { type: 'resource', id: source.sourceId },
+      attempt: null,
+    }));
   }
 
   function focusMessage(messageId: string) {
@@ -649,6 +679,7 @@ export function Chat() {
             onClose={() => setConceptPanel(null)}
             onFollowup={followupConcept}
             onOpenSource={openConceptSource}
+            learningContext={learningContext}
           />
         </aside>
       ) : null}

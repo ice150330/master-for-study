@@ -41,5 +41,17 @@ const reviews = [
 
 export default function ReviewDevPage() {
   if (process.env.NODE_ENV !== 'development') notFound();
-  return <ReviewView initialQueue={{ reviews, summary: { due: 2, overdue: 1, estimatedMinutes: 2 } }} />;
+  return (
+    <ReviewView
+      initialQueue={{ reviews, summary: { due: 2, overdue: 1, estimatedMinutes: 2 } }}
+      focusReview={{
+        id: 'review-fixture-1',
+        termId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        termName: 'Cache-Control',
+        rating: 'good',
+        reviewAt: '2026-08-15T08:00:00.000Z',
+        scheduledDays: 6,
+      }}
+    />
+  );
 }

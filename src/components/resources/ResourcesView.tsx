@@ -1,7 +1,8 @@
 'use client';
 
 import { BookOpenText, Filter, Inbox, Plus, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
 import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
@@ -10,6 +11,7 @@ import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
+import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { RESOURCE_STATUS_LABELS, RESOURCE_STATUSES, RESOURCE_TYPES } from '@/lib/resources/types';
 import { ResourceDetailPanel } from './ResourceDetailPanel';
 import { ResourceFormDialog } from './ResourceFormDialog';
@@ -25,6 +27,9 @@ export function ResourcesView({
   initialResourceId?: string | null;
 }) {
   const toast = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const learningContext = useMemo(() => parseLearningContext(searchParams), [searchParams]);
   const initialSelected = initialResources.find((resource) => resource.id === initialResourceId)
     ?? initialResources[0]
     ?? null;
@@ -51,6 +56,28 @@ export function ResourcesView({
     ?? visible[0]
     ?? null;
   const counts = Object.fromEntries(RESOURCE_STATUSES.map((item) => [item, resources.filter((resource) => resource.status === item).length])) as Record<ResourceDto['status'], number>;
+
+  useEffect(() => {
+    const requested = searchParams.get('resource');
+    const resource = resources.find((item) => item.id === requested);
+    if (!resource) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setStatus(resource.status);
+      setSelectedId(resource.id);
+    });
+    return () => { cancelled = true; };
+  }, [resources, searchParams]);
+
+  function selectResource(resource: ResourceDto) {
+    setSelectedId(resource.id);
+    router.push(withLearningContext(`/resources?resource=${resource.id}`, {
+      ...learningContext,
+      source: { type: 'resource', id: resource.id },
+      attempt: null,
+    }));
+  }
 
   async function saveResource(input: { url: string; metadata: ResourceMetadataDto; form: ResourceFormValue }) {
     if (busy) return;
@@ -244,7 +271,7 @@ export function ResourcesView({
                 <p className="mt-1 text-xs text-muted">调整筛选，或添加一个新链接。</p>
               </div>
             ) : visible.map((resource) => (
-              <button key={resource.id} type="button" onClick={() => setSelectedId(resource.id)} className={`block w-full border-b border-border px-4 py-4 text-left transition-colors ${selected?.id === resource.id ? 'bg-card' : 'hover:bg-card/65'}`}>
+              <button key={resource.id} type="button" onClick={() => selectResource(resource)} className={`block w-full border-b border-border px-4 py-4 text-left transition-colors ${selected?.id === resource.id ? 'bg-card' : 'hover:bg-card/65'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <strong className="line-clamp-2 text-sm leading-5 text-card-foreground">{resource.title}</strong>
                   <span className="shrink-0 rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">{resource.type}</span>
@@ -260,6 +287,7 @@ export function ResourcesView({
             <ResourceDetailPanel
               key={`${selected.id}:${selected.progress}:${selected.highlights.length}`}
               resource={selected}
+              learningContext={learningContext}
               onEdit={() => setFormMode('edit')}
               onDelete={() => setDeleteOpen(true)}
               onUpdateProgress={(progress, nextStatus) => void updateProgress(progress, nextStatus)}

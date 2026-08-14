@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { NotesView } from '@/components/notes/NotesView';
 import { listNoteSources, listNoteVersions, listNotes, listSessions, listTerms } from '@/lib/db';
 
@@ -39,11 +40,13 @@ export default async function NotesPage({
   }));
 
   return (
-    <NotesView
-      initialNotes={notes}
-      initialSessions={sessions}
-      initialTerms={listTerms()}
-      initialSelectedId={requestedNoteId}
-    />
+    <Suspense fallback={null}>
+      <NotesView
+        initialNotes={notes}
+        initialSessions={sessions}
+        initialTerms={listTerms()}
+        initialSelectedId={requestedNoteId}
+      />
+    </Suspense>
   );
 }
