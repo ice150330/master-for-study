@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Term } from './Term';
+import { Term, type TermAction } from './Term';
 
 /**
  * 流式正文解析器：把 `[[术语]]` 内联标记解析成高亮术语组件。
@@ -8,9 +8,11 @@ import { Term } from './Term';
 export function MessageContent({
   text,
   termDefs,
+  onTermAction,
 }: {
   text: string;
   termDefs: Record<string, string>;
+  onTermAction?: (action: TermAction, name: string) => void;
 }) {
   const nodes: ReactNode[] = [];
   const regex = /\[\[([^\]]+)\]\]/g;
@@ -22,7 +24,12 @@ export function MessageContent({
       nodes.push(text.slice(last, m.index));
     }
     nodes.push(
-      <Term key={key++} name={m[1]} definition={termDefs[m[1]]} />,
+      <Term
+        key={key++}
+        name={m[1]}
+        definition={termDefs[m[1]]}
+        onAction={onTermAction}
+      />,
     );
     last = (m.index ?? 0) + m[0].length;
   }

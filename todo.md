@@ -16,7 +16,7 @@
 - [x] **P3. 安装数据库依赖**：`npm i better-sqlite3 drizzle-orm` + `npm i -D drizzle-kit @types/better-sqlite3`
 - [ ] **P4. 安装状态/UI**：`npm i zustand`，初始化 shadcn/ui（`npx shadcn@latest init`，只引入会用到的组件）
 - [x] **P5. 确认 DeepSeek 模型 ID**：映射为 `deepseek-chat`（快）/ `deepseek-reasoner`（重），见 `lib/ai/provider.ts`。
-- [ ] **P6. 数据目录**：建 `data/` 目录存放 SQLite 文件，并把 `data/*.db` 加入 `.gitignore`。
+- [x] **P6. 数据目录**：建 `data/` 目录存放 SQLite 文件，并把 `data/` 加入 `.gitignore`。
 
 ---
 
@@ -52,7 +52,7 @@
 
 ## 阶段 1 · 数据模型 + 会话树 + 持久化
 
-- [ ] **1.1 建库建表** —— `src/lib/db/schema.ts` + `src/lib/db/index.ts`
+- [x] **1.1 建库建表** —— `src/lib/db/schema.ts` + `src/lib/db/index.ts`（drizzle-kit 生成迁移，运行时 `migrate()` 自动建表）
   - 用 Drizzle 定义六张表，SQLite 文件落 `data/mentor.db`（服务端 only，已配 `serverExternalPackages`）：
     - `Workspace`：id / title / goal(成长目标) / created_at
     - `Session`：id / workspace_id / **parent_id(自引用，null=根)** / title / teacher_style / created_at / updated_at
@@ -63,15 +63,15 @@
   - 用 `drizzle-kit` 生成迁移并建表。
   - 验证：迁移后 `data/mentor.db` 生成，表结构正确。
 
-- [ ] **1.2 会话 CRUD API** —— `src/app/api/sessions/route.ts`
+- [x] **1.2 会话 CRUD API** —— `src/app/api/sessions/route.ts` + `[id]/route.ts`（详情 + 历史消息）
   - 建会话 / 派生会话（带 `parent_id`）/ 查会话树（按 `parent_id` 组装父子层级）。
   - 验证：`curl` 建/派生/查，树结构正确。
 
-- [ ] **1.3 消息持久化**
+- [x] **1.3 消息持久化**
   - 对话时把用户/助手消息写入 `Message`；会话详情接口可回读历史。
   - 验证：刷新后历史对话仍在。
 
-- [ ] **1.4 会话树侧边栏**
+- [x] **1.4 会话树侧边栏**
   - 侧边栏按 `parent_id` 展示会话树；接上 0.7 弹窗的「派生会话」动作。
   - 验证：派生子会话后侧边栏出现正确父子/兄弟层级。
 
