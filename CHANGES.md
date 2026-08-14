@@ -16,6 +16,7 @@
 - 新增「学习笔记」模块：`/api/notes` + `/notes` 页，结构化总结（核心概念/术语/代码示例/未懂点）+ 导出 Markdown
 - 新增「模拟面试」模块：`/api/interview` + `/interview` 页，出题 + 分层判分（advance/stay/downgrade）
 - 重构 DB 连接为懒加载单例，避免 `next build` 多 worker 并发初始化 SQLite 造成 SQLITE_BUSY
+- 新增「隐性巩固」模块：简化版 FSRS 调度器 + `/api/review` + `/review` 复习卡片页（术语自动入队，答后按评级排期）
 
 ## 2026-08-13
 

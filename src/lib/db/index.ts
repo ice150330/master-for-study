@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
+import { scheduleReview, type ReviewGrade } from '../fsrs';
 
 /**
  * SQLite 连接与仓库层（服务端 only，勿在客户端引用）。
@@ -20,6 +21,17 @@ export type Session = typeof schema.sessions.$inferSelect;
 export type Message = typeof schema.messages.$inferSelect;
 export type Note = typeof schema.notes.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
+export type TermMastery = typeof schema.termMasteries.$inferSelect;
+
+/** 待复习术语（术语表 + 掌握度合并）。 */
+export type ReviewItem = {
+  termId: string;
+  name: string;
+  definition: string;
+  state: TermMastery['state'];
+  stability: number | null;
+  difficulty: number | null;
+};
 
 function createDb() {
   const dataDir = path.join(process.cwd(), 'data');
@@ -167,14 +179,18 @@ export function upsertTerm(input: { name: string; definition: string }): void {
     .get();
   if (existing) return;
 
+  const termId = randomUUID();
   db.insert(schema.terms)
     .values({
-      id: randomUUID(),
+      id: termId,
       name: input.name,
       definition: input.definition,
       createdAt: new Date(),
     })
     .run();
+
+  // 新术语加入复习队列
+  ensureMastery(termId);
 }
 
 /** 新建一条学习笔记。 */
@@ -243,4 +259,89 @@ export function listInterviews(): Interview[] {
     .from(schema.interviews)
     .orderBy(desc(schema.interviews.createdAt))
     .all();
+}
+
+/** 为术语创建掌握度记录（不存在时，state=new，立即到期）。 */
+export function ensureMastery(termId: string): void {
+  const db = getDb();
+  const existing = db
+    .select()
+    .from(schema.termMasteries)
+    .where(eq(schema.termMasteries.termId, termId))
+    .limit(1)
+    .get();
+  if (existing) return;
+
+  db.insert(schema.termMasteries)
+    .values({
+      id: randomUUID(),
+      termId,
+      state: 'new',
+      stability: 0,
+      difficulty: 5,
+      dueAt: new Date(),
+      lastReviewedAt: null,
+    })
+    .run();
+}
+
+/** 取出到期待复习的术语（术语表 + 掌握度合并，按到期时间升序）。 */
+export function getDueReviews(limit = 20): ReviewItem[] {
+  return getDb()
+    .select({
+      termId: schema.termMasteries.termId,
+      name: schema.terms.name,
+      definition: schema.terms.definition,
+      state: schema.termMasteries.state,
+      stability: schema.termMasteries.stability,
+      difficulty: schema.termMasteries.difficulty,
+    })
+    .from(schema.termMasteries)
+    .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
+    .where(lte(schema.termMasteries.dueAt, new Date()))
+    .orderBy(asc(schema.termMasteries.dueAt))
+    .limit(limit)
+    .all();
+}
+
+/** 复习一个术语：按评级更新掌握度，并记录 reviewed 事件。 */
+export function reviewTerm(termId: string, grade: ReviewGrade) {
+  const db = getDb();
+  const mastery = db
+    .select()
+    .from(schema.termMasteries)
+    .where(eq(schema.termMasteries.termId, termId))
+    .limit(1)
+    .get();
+  if (!mastery) {
+    ensureMastery(termId);
+  }
+  const current = mastery ?? {
+    state: 'new' as const,
+    stability: 0,
+    difficulty: 5,
+  };
+
+  const result = scheduleReview(
+    {
+      state: current.state,
+      stability: current.stability ?? 0,
+      difficulty: current.difficulty ?? 5,
+    },
+    grade,
+  );
+
+  db.update(schema.termMasteries)
+    .set({
+      state: result.state,
+      stability: result.stability,
+      difficulty: result.difficulty,
+      dueAt: new Date(Date.now() + result.dueDays * 24 * 3600 * 1000),
+      lastReviewedAt: new Date(),
+    })
+    .where(eq(schema.termMasteries.termId, termId))
+    .run();
+
+  recordEvent({ type: 'reviewed', entityId: termId, metadata: { grade } });
+  return result;
 }

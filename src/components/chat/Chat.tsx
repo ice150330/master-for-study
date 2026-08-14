@@ -196,6 +196,12 @@ export function Chat() {
             >
               模拟面试
             </Link>
+            <Link
+              href="/review"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              复习
+            </Link>
           </nav>
         </header>
 
