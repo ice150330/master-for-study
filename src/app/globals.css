@@ -3,69 +3,69 @@
 /* 类策略暗色变体：.dark 挂在 <html> 上，由防闪脚本与 ThemeToggle 切换 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ============================================================
-   设计令牌 · 双主题（默认浅色，.dark 切换深色 card-stack）
-   浅色：浅灰白底 + 品牌紫 #6c5ce7 + 青/粉/黄点缀（白底对比度已校准）
-   深色：原 card-stack 精修（深紫黑底 + 浅色卡片堆叠）
-   ============================================================ */
+/* 学习工作台语义令牌：低噪声中性色承载信息，品牌色只表达路径与动作。 */
 :root {
-  /* 基底 */
-  --background: #f6f6fa;
-  --foreground: #1c1c2e;
-  --surface: #ececf4;            /* 分区块底（浅灰，比 background 深一档） */
-
-  /* 卡片（浅色主题：白卡） */
+  color-scheme: light;
+  --background: #f6f7f9;
+  --foreground: #1b1d22;
+  --surface: #eef0f3;
   --card: #ffffff;
-  --card-soft: #f1f1f8;
-  --card-foreground: #1c1c2e;
-
-  /* 品牌与点缀（青/粉在白底上加深以保证 AA 对比度） */
-  --primary: #6c5ce7;
+  --card-soft: #f3f4f6;
+  --card-foreground: #1b1d22;
+  --primary: #6558d9;
   --primary-foreground: #ffffff;
-  --accent: #0a7d78;             /* 深青：白底文字对比度 ~5:1 */
+  --accent: #087f76;
   --accent-foreground: #ffffff;
-  --pink: #c94077;
+  --warning: #b96d0b;
+  --warning-foreground: #ffffff;
+  --danger: #c44e63;
+  --danger-foreground: #ffffff;
+  --pink: #c44e63;
   --pink-foreground: #ffffff;
-  --yellow: #f5c542;             /* 黄色仅作填充，文字用下方深棕 */
-  --yellow-foreground: #5c4708;
-
-  /* 弱化与描边 */
-  --muted: #71717a;
-  --border: rgba(28, 28, 46, 0.12);
-
-  /* 成长地图「未接触」态（白板热力） */
-  --state-untouched: #e9e9f0;
-  --state-untouched-fg: #71717a;
+  --yellow: #f4c45e;
+  --yellow-foreground: #493500;
+  --muted: #656a74;
+  --border: #d9dce3;
+  --ring: #7a6fe1;
+  --overlay: rgba(20, 22, 27, 0.38);
+  --state-untouched: #e8eaee;
+  --state-untouched-fg: #656a74;
+  --shadow-sm: 0 1px 2px rgba(27, 29, 34, 0.08);
+  --shadow-md: 0 8px 24px rgba(27, 29, 34, 0.1);
+  --shadow-lg: 0 20px 56px rgba(27, 29, 34, 0.16);
+  --duration-fast: 140ms;
+  --duration-panel: 200ms;
 }
 
 .dark {
-  /* 基底（原 card-stack 深紫黑） */
-  --background: #1a1a2e;
-  --foreground: #fafafa;
-  --surface: rgba(255, 255, 255, 0.04);
-
-  /* 卡片（深色主题延续 card-stack：深底上的浅卡） */
-  --card: #f0f0f5;
-  --card-soft: #f7f7fc;
-  --card-foreground: #1a1a2e;
-
-  /* 品牌与点缀（高饱和原值） */
-  --primary: #6c5ce7;
-  --primary-foreground: #fafafa;
-  --accent: #00cec9;
-  --accent-foreground: #1a1a2e;
-  --pink: #fd79a8;
-  --pink-foreground: #1a1a2e;
-  --yellow: #ffeaa7;
-  --yellow-foreground: #1a1a2e;
-
-  /* 弱化与描边 */
-  --muted: #a1a1aa;
-  --border: rgba(255, 255, 255, 0.12);
-
-  /* 成长地图「未接触」态 */
-  --state-untouched: #2a2a3e;
-  --state-untouched-fg: #a1a1aa;
+  color-scheme: dark;
+  --background: #18191c;
+  --foreground: #f3f3f2;
+  --surface: #202226;
+  --card: #25272b;
+  --card-soft: #2c2f34;
+  --card-foreground: #f3f3f2;
+  --primary: #948cf0;
+  --primary-foreground: #17171a;
+  --accent: #45bdb1;
+  --accent-foreground: #101d1b;
+  --warning: #e0a452;
+  --warning-foreground: #2a1903;
+  --danger: #e27c91;
+  --danger-foreground: #2a1017;
+  --pink: #e27c91;
+  --pink-foreground: #2a1017;
+  --yellow: #e4bd66;
+  --yellow-foreground: #241c08;
+  --muted: #a9adb6;
+  --border: #3b3e45;
+  --ring: #a8a1f3;
+  --overlay: rgba(0, 0, 0, 0.62);
+  --state-untouched: #303238;
+  --state-untouched-fg: #a9adb6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.34);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.46);
 }
 
 @theme inline {
@@ -79,12 +79,17 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
   --color-pink: var(--pink);
   --color-pink-foreground: var(--pink-foreground);
   --color-yellow: var(--yellow);
   --color-yellow-foreground: var(--yellow-foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -93,4 +98,63 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@keyframes ui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-ui-enter {
+  animation: ui-enter var(--duration-panel) ease-out;
+}
+
+.animate-toast-enter {
+  animation: toast-enter var(--duration-panel) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

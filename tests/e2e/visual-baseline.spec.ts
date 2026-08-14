@@ -14,6 +14,7 @@ const routes = [
 
 test('采集五个核心页面的视觉基线', async ({ page }, testInfo) => {
   const viewport = testInfo.project.name;
+  const comparisonState = phase === '00-baseline' ? 'before' : 'after';
   const routeAudits: Array<Record<string, unknown>> = [];
 
   await fs.mkdir(captureRoot, { recursive: true });
@@ -79,7 +80,7 @@ test('采集五个核心页面的视觉基线', async ({ page }, testInfo) => {
       };
     });
 
-    const screenshotName = `${phase}-${route.name}-default-${viewport}-before.png`;
+    const screenshotName = `${phase}-${route.name}-default-${viewport}-${comparisonState}.png`;
     await page.screenshot({
       path: path.join(captureRoot, screenshotName),
       animations: 'disabled',

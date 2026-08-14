@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/shell/AppShell";
+import { UIProvider } from "@/components/ui/UIProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         {/* 阻塞式内联脚本：必须在正文渲染前执行 */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <AppShell>{children}</AppShell>
+        <UIProvider>
+          <AppShell>{children}</AppShell>
+        </UIProvider>
       </body>
     </html>
   );

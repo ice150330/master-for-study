@@ -6,6 +6,8 @@ const { spawnSync } = nodeProcess.getBuiltinModule('node:child_process');
 const path = nodeProcess.getBuiltinModule('node:path');
 
 const phase = process.argv[2] ?? '00-baseline';
+const spec = process.argv[3] ?? 'visual-baseline.spec.ts';
+const extraArgs = process.argv.slice(4);
 const playwrightCli = path.resolve(
   process.cwd(),
   'node_modules',
@@ -19,8 +21,9 @@ const result = spawnSync(
   [
     playwrightCli,
     'test',
-    'visual-baseline.spec.ts',
+    spec,
     '--config=config/playwright.config.ts',
+    ...extraArgs,
   ],
   {
     cwd: process.cwd(),
