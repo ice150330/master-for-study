@@ -15,6 +15,7 @@ export const LEARNING_EVENT_ACTIONS = [
   'reviewed',
   'review_undone',
   'review_card_flagged',
+  'practice_attempted',
   'resource_created',
   'resource_status_changed',
   'code_run',
@@ -35,6 +36,7 @@ export const LEARNING_OBJECT_TYPES = [
   'review_log',
   'resource',
   'practice',
+  'practice_attempt',
 ] as const;
 
 export type LearningEventAction = (typeof LEARNING_EVENT_ACTIONS)[number];

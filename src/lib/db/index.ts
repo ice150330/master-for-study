@@ -46,6 +46,7 @@ export type TermMastery = typeof schema.termMasteries.$inferSelect;
 export type ReviewCard = typeof schema.reviewCards.$inferSelect;
 export type ReviewLog = typeof schema.reviewLogs.$inferSelect;
 export type ReviewUndo = typeof schema.reviewUndos.$inferSelect;
+export type PracticeAttempt = typeof schema.practiceAttempts.$inferSelect;
 export type LearningEvent = typeof schema.learningEvents.$inferSelect;
 export type Resource = typeof schema.resources.$inferSelect;
 export type ResourceType = Resource['type'];
@@ -553,6 +554,75 @@ export function recordEvent(input: {
   const values = eventValues({ workspaceId: ws.id, ...input });
   getDb().insert(schema.learningEvents).values(values).run();
   return values;
+}
+
+/** 实践运行与事件同事务写入，结果正确与否都形成技能证据。 */
+export function createPracticeAttempt(input: {
+  conceptId?: string | null;
+  challengeId: string;
+  status: PracticeAttempt['status'];
+  errorType?: PracticeAttempt['errorType'];
+  runCount: number;
+  hintCount: number;
+  durationMs: number;
+  sql: string;
+  result: Record<string, unknown>;
+  skills: string[];
+  idempotencyKey: string;
+}): PracticeAttempt {
+  const db = getDb();
+  const existing = db.select().from(schema.practiceAttempts)
+    .where(eq(schema.practiceAttempts.idempotencyKey, input.idempotencyKey))
+    .limit(1).get();
+  if (existing) return existing;
+  const ws = ensureWorkspace();
+  const attempt = {
+    id: randomUUID(),
+    workspaceId: ws.id,
+    conceptId: input.conceptId ?? null,
+    challengeId: input.challengeId,
+    status: input.status,
+    errorType: input.errorType ?? null,
+    runCount: input.runCount,
+    hintCount: input.hintCount,
+    durationMs: input.durationMs,
+    sql: input.sql,
+    result: input.result,
+    skills: input.skills,
+    idempotencyKey: input.idempotencyKey,
+    createdAt: new Date(),
+  } satisfies PracticeAttempt;
+  db.transaction((tx) => {
+    tx.insert(schema.practiceAttempts).values(attempt).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: ws.id,
+      action: 'practice_attempted',
+      objectType: 'practice_attempt',
+      objectId: attempt.id,
+      result: {
+        status: attempt.status,
+        errorType: attempt.errorType,
+        challengeId: attempt.challengeId,
+      },
+      context: {
+        conceptId: attempt.conceptId,
+        runCount: attempt.runCount,
+        hintCount: attempt.hintCount,
+        durationMs: attempt.durationMs,
+        skills: attempt.skills,
+      },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return attempt;
+}
+
+export function listPracticeAttempts(challengeId?: string): PracticeAttempt[] {
+  const query = getDb().select().from(schema.practiceAttempts);
+  return challengeId
+    ? query.where(eq(schema.practiceAttempts.challengeId, challengeId))
+      .orderBy(desc(schema.practiceAttempts.createdAt)).all()
+    : query.orderBy(desc(schema.practiceAttempts.createdAt)).all();
 }
 
 /** Concept 不存在则插入，存在则合并更可信的解释与别名。 */

@@ -177,6 +177,30 @@ export const reviewUndos = sqliteTable('review_undos', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+/** SQL 实践尝试：每次运行一条不可变证据，成功与失败都保留。 */
+export const practiceAttempts = sqliteTable('practice_attempts', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  conceptId: text('concept_id').references(() => terms.id, { onDelete: 'set null' }),
+  challengeId: text('challenge_id').notNull(),
+  status: text('status', { enum: ['success', 'error'] }).notNull(),
+  errorType: text('error_type', {
+    enum: ['syntax', 'runtime', 'timeout', 'validation'],
+  }),
+  runCount: integer('run_count').notNull(),
+  hintCount: integer('hint_count').notNull(),
+  durationMs: integer('duration_ms').notNull(),
+  sql: text('sql').notNull(),
+  result: text('result', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+  skills: text('skills', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  index('practice_attempts_challenge_created_idx').on(table.challengeId, table.createdAt),
+]);
+
 /** 学习事件：不可变事件流（Event Sourcing），一切学习行为在此留痕。 */
 export const learningEvents = sqliteTable('learning_events', {
   id: text('id').primaryKey(),

@@ -195,6 +195,41 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
   });
 
+  it('实践尝试成功与失败都形成幂等技能证据', () => {
+    const first = repository.createPracticeAttempt({
+      challengeId: 'sql-filter-sort',
+      status: 'error',
+      errorType: 'validation',
+      runCount: 2,
+      hintCount: 1,
+      durationMs: 18,
+      sql: 'SELECT * FROM students;',
+      result: { title: '结果内容还不正确' },
+      skills: ['WHERE', 'ORDER BY'],
+      idempotencyKey: 'practice:attempt:one',
+    });
+    const second = repository.createPracticeAttempt({
+      challengeId: 'sql-filter-sort',
+      status: 'success',
+      runCount: 3,
+      hintCount: 1,
+      durationMs: 12,
+      sql: 'SELECT name, score FROM students WHERE score >= 80 ORDER BY score DESC;',
+      result: { title: '任务完成' },
+      skills: ['WHERE', 'ORDER BY'],
+      idempotencyKey: 'practice:attempt:one',
+    });
+    expect(second).toEqual(first);
+    expect(repository.listPracticeAttempts('sql-filter-sort')).toContainEqual(first);
+    expect(repository.findEventByIdempotencyKey('practice:attempt:one')).toMatchObject({
+      action: 'practice_attempted',
+      objectType: 'practice_attempt',
+      objectId: first.id,
+      result: { status: 'error', errorType: 'validation', challengeId: 'sql-filter-sort' },
+      context: { runCount: 2, hintCount: 1, durationMs: 18, skills: ['WHERE', 'ORDER BY'] },
+    });
+  });
+
   it('事件写入失败时回滚同事务内的资源状态', () => {
     const raw = new Database(dbPath);
     raw.exec(`

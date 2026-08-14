@@ -32,7 +32,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (input: ToastInput) => {
       const id = ++nextId.current;
       const item: ToastItem = { ...input, id, tone: input.tone ?? 'info' };
-      setToasts((items) => [...items, item].slice(-3));
+      setToasts((items) => [
+        ...items.filter((toast) => toast.title !== item.title || toast.description !== item.description),
+        item,
+      ].slice(-3));
       window.setTimeout(() => dismiss(id), input.duration ?? 3600);
     },
     [dismiss],

@@ -116,6 +116,22 @@ export const reviewRequestSchema = z.union([
     .strict(),
 ]);
 
+export const practiceAttemptSchema = z
+  .object({
+    challengeId: z.string().trim().regex(/^[a-z0-9-]+$/).max(80),
+    conceptId: nullableId,
+    status: z.enum(['success', 'error']),
+    errorType: z.enum(['syntax', 'runtime', 'timeout', 'validation']).nullable().optional(),
+    runCount: z.number().int().min(1).max(10_000),
+    hintCount: z.number().int().min(0).max(100),
+    durationMs: z.number().int().min(0).max(3_600_000),
+    sql: z.string().trim().min(1).max(50_000),
+    result: z.record(z.string(), z.unknown()).default({}),
+    skills: z.array(z.string().trim().min(1).max(80)).max(12),
+    idempotencyKey,
+  })
+  .strict();
+
 export const resourceCreateSchema = z
   .object({
     title: z.string().trim().min(1).max(240),

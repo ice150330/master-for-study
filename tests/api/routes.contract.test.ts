@@ -10,6 +10,7 @@ let repository: typeof import('../../src/lib/db');
 let resourcesPost: PostHandler;
 let reviewPost: PostHandler;
 let eventsPost: PostHandler;
+let practicePost: PostHandler;
 let sessionsPost: PostHandler;
 let notesPost: PostHandler;
 let interviewPost: PostHandler;
@@ -33,6 +34,7 @@ beforeAll(async () => {
   resourcesPost = (await import('../../src/app/api/resources/route')).POST;
   reviewPost = (await import('../../src/app/api/review/route')).POST;
   eventsPost = (await import('../../src/app/api/events/route')).POST;
+  practicePost = (await import('../../src/app/api/practice/route')).POST;
   sessionsPost = (await import('../../src/app/api/sessions/route')).POST;
   notesPost = (await import('../../src/app/api/notes/route')).POST;
   interviewPost = (await import('../../src/app/api/interview/route')).POST;
@@ -42,6 +44,7 @@ beforeAll(async () => {
     resources: resourcesPost,
     review: reviewPost,
     events: eventsPost,
+    practice: practicePost,
     sessions: sessionsPost,
     notes: notesPost,
     interview: interviewPost,
@@ -61,6 +64,7 @@ describe('Route Handler zod 合同', () => {
     ['resources', '/api/resources', { title: 'x', type: '播客', url: 'not-url', idempotencyKey: 'invalid:resource' }],
     ['review', '/api/review', { termId: crypto.randomUUID(), grade: 'perfect', idempotencyKey: 'invalid:review' }],
     ['events', '/api/events', { action: 'arbitrary_event', idempotencyKey: 'invalid:event' }],
+    ['practice', '/api/practice', { challengeId: '../bad', status: 'done', idempotencyKey: 'invalid:practice' }],
     ['sessions', '/api/sessions', { parentId: 'not-a-uuid', idempotencyKey: 'invalid:session' }],
     ['notes', '/api/notes', { sessionId: 'not-a-uuid', idempotencyKey: 'invalid:note' }],
     ['interview', '/api/interview', { action: 'score', idempotencyKey: 'invalid:interview' }],
