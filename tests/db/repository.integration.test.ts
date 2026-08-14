@@ -23,6 +23,28 @@ afterAll(() => {
 });
 
 describe('SQLite 仓库事务与幂等性', () => {
+  it('活跃会话按最近活动倒序返回', async () => {
+    const older = repository.createSession({
+      title: '较早会话',
+      idempotencyKey: 'session:test:older',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 3));
+    const newer = repository.createSession({
+      title: '较新会话',
+      idempotencyKey: 'session:test:newer',
+    });
+    expect(repository.listSessions()[0].id).toBe(newer.id);
+
+    await new Promise((resolve) => setTimeout(resolve, 3));
+    repository.saveMessage({
+      sessionId: older.id,
+      role: 'user',
+      content: '继续较早会话',
+      idempotencyKey: 'message:test:resume-older',
+    });
+    expect(repository.listSessions()[0].id).toBe(older.id);
+  });
+
   it('相同幂等键只创建一个会话和一条事件', () => {
     const first = repository.createSession({
       title: '事务测试会话',
@@ -122,5 +144,71 @@ describe('SQLite 仓库事务与幂等性', () => {
     raw.close();
     expect(repository.listResources().some((resource) => resource.title === '不应残留的资源')).toBe(false);
     expect(repository.findEventByIdempotencyKey('resource:test:rollback')).toBeUndefined();
+  });
+
+  it('首问自动命名，历史术语可恢复定义和消息来源', () => {
+    const session = repository.createSession({
+      idempotencyKey: 'session:test:history',
+    });
+    repository.upsertTerm({
+      name: 'Cache-Control',
+      definition: '控制 HTTP 缓存行为的响应头。',
+      idempotencyKey: 'term:test:cache-control',
+    });
+    const userMessage = repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: '请解释 [[Cache-Control]] 的作用和常见指令',
+      idempotencyKey: 'message:test:history:user',
+    });
+
+    expect(repository.getSession(session.id)?.title).toBe('请解释 Cache-Control 的作用和常见指令');
+    expect(repository.listHistoricalTerms(repository.listMessages(session.id))).toEqual([
+      {
+        name: 'Cache-Control',
+        definition: '控制 HTTP 缓存行为的响应头。',
+        sources: [{ messageId: userMessage.id, sessionId: session.id }],
+      },
+    ]);
+  });
+
+  it('会话支持置顶、归档、恢复和事务删除', () => {
+    const session = repository.createSession({
+      title: '待管理会话',
+      idempotencyKey: 'session:test:manage',
+    });
+    repository.updateSession(session.id, {
+      action: 'pin',
+      pinned: true,
+      idempotencyKey: 'session:test:pin',
+    });
+    expect(repository.getSession(session.id)?.pinnedAt).toBeInstanceOf(Date);
+
+    repository.updateSession(session.id, {
+      action: 'archive',
+      archived: true,
+      idempotencyKey: 'session:test:archive',
+    });
+    expect(repository.listSessions().some((item) => item.id === session.id)).toBe(false);
+    expect(repository.listSessions({ archived: true }).some((item) => item.id === session.id)).toBe(true);
+
+    repository.updateSession(session.id, {
+      action: 'archive',
+      archived: false,
+      idempotencyKey: 'session:test:restore',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: '删除前消息',
+      idempotencyKey: 'message:test:before-delete',
+    });
+    expect(repository.deleteSession(session.id, 'session:test:delete')).toBe(true);
+    expect(repository.getSession(session.id)).toBeUndefined();
+    expect(repository.listMessages(session.id)).toEqual([]);
+    expect(repository.findEventByIdempotencyKey('session:test:delete')).toMatchObject({
+      action: 'session_deleted',
+      objectId: session.id,
+    });
   });
 });

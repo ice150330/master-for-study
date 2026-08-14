@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { asc, count, desc, eq, isNotNull, lte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -12,6 +12,8 @@ import {
   type LearningEventAction,
   type LearningObjectType,
 } from '../learning-events';
+import { DEFAULT_TITLE, deriveSessionTitle } from '../session-title';
+import { parseTermMarkers } from '../term-parse';
 
 /**
  * SQLite 连接与仓库层（服务端 only，勿在客户端引用）。
@@ -171,14 +173,21 @@ function eventValues(input: {
   };
 }
 
-/** 列出默认工作区下的全部会话（按创建时间升序）。 */
-export function listSessions(): Session[] {
+/** 列出默认工作区会话，默认只返回活跃会话并按最近活动倒序。 */
+export function listSessions(options: { archived?: boolean } = {}): Session[] {
   const ws = ensureWorkspace();
   return getDb()
     .select()
     .from(schema.sessions)
-    .where(eq(schema.sessions.workspaceId, ws.id))
-    .orderBy(asc(schema.sessions.createdAt))
+    .where(
+      and(
+        eq(schema.sessions.workspaceId, ws.id),
+        options.archived
+          ? isNotNull(schema.sessions.archivedAt)
+          : isNull(schema.sessions.archivedAt),
+      ),
+    )
+    .orderBy(desc(schema.sessions.updatedAt))
     .all();
 }
 
@@ -200,8 +209,10 @@ export function createSession(input: {
     id: randomUUID(),
     workspaceId: ws.id,
     parentId: input.parentId ?? null,
-    title: input.title?.trim() || '新会话',
+    title: input.title?.trim() || DEFAULT_TITLE,
     teacherStyle: null,
+    pinnedAt: null,
+    archivedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -223,6 +234,97 @@ export function createSession(input: {
       .run();
   });
   return session;
+}
+
+export type SessionUpdate =
+  | { action: 'rename'; title: string; idempotencyKey: string }
+  | { action: 'pin'; pinned: boolean; idempotencyKey: string }
+  | { action: 'archive'; archived: boolean; idempotencyKey: string };
+
+/** 更新会话元数据，并把操作和事件放进同一事务。 */
+export function updateSession(id: string, input: SessionUpdate): Session | undefined {
+  const session = getSession(id);
+  if (!session) return undefined;
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent) return getSession(id);
+
+  const now = new Date();
+  const patch =
+    input.action === 'rename'
+      ? { title: input.title, updatedAt: now }
+      : input.action === 'pin'
+        ? { pinnedAt: input.pinned ? now : null }
+        : { archivedAt: input.archived ? now : null };
+  const action =
+    input.action === 'rename'
+      ? 'session_renamed'
+      : input.action === 'pin'
+        ? 'session_pinned'
+        : input.archived
+          ? 'session_archived'
+          : 'session_restored';
+
+  getDb().transaction((tx) => {
+    tx.update(schema.sessions).set(patch).where(eq(schema.sessions.id, id)).run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: session.workspaceId,
+          sessionId: id,
+          action,
+          objectType: 'session',
+          objectId: id,
+          result:
+            input.action === 'rename'
+              ? { title: input.title }
+              : input.action === 'pin'
+                ? { pinned: input.pinned }
+                : { archived: input.archived },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return getSession(id);
+}
+
+/** 删除会话内容，分支提升为根会话，笔记和面试保留但解除会话引用。 */
+export function deleteSession(id: string, idempotencyKey: string): boolean {
+  const existingEvent = findEventByIdempotencyKey(idempotencyKey);
+  if (existingEvent) return true;
+  const session = getSession(id);
+  if (!session) return false;
+
+  getDb().transaction((tx) => {
+    tx.update(schema.sessions)
+      .set({ parentId: null })
+      .where(eq(schema.sessions.parentId, id))
+      .run();
+    tx.update(schema.notes).set({ sessionId: null }).where(eq(schema.notes.sessionId, id)).run();
+    tx.update(schema.interviews)
+      .set({ sessionId: null })
+      .where(eq(schema.interviews.sessionId, id))
+      .run();
+    tx.update(schema.learningEvents)
+      .set({ sessionId: null })
+      .where(eq(schema.learningEvents.sessionId, id))
+      .run();
+    tx.delete(schema.messages).where(eq(schema.messages.sessionId, id)).run();
+    tx.delete(schema.sessions).where(eq(schema.sessions.id, id)).run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: session.workspaceId,
+          action: 'session_deleted',
+          objectType: 'session',
+          objectId: id,
+          result: { title: session.title },
+          idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return true;
 }
 
 /** 保存一条消息，并更新会话 updatedAt。 */
@@ -248,14 +350,20 @@ export function saveMessage(input: {
     sessionId: input.sessionId,
     role: input.role,
     content: input.content,
+    status: 'complete' as const,
+    error: null,
     idempotencyKey: input.idempotencyKey,
     createdAt: new Date(),
   };
 
   db.transaction((tx) => {
     tx.insert(schema.messages).values(message).run();
+    const title =
+      input.role === 'user' && session.title === DEFAULT_TITLE
+        ? deriveSessionTitle(input.content)
+        : session.title;
     tx.update(schema.sessions)
-      .set({ updatedAt: new Date() })
+      .set({ title, updatedAt: new Date() })
       .where(eq(schema.sessions.id, input.sessionId))
       .run();
     tx.insert(schema.learningEvents)
@@ -283,6 +391,35 @@ export function listMessages(sessionId: string): Message[] {
     .where(eq(schema.messages.sessionId, sessionId))
     .orderBy(asc(schema.messages.createdAt))
     .all();
+}
+
+export type HistoricalTerm = {
+  name: string;
+  definition: string;
+  sources: Array<{ messageId: string; sessionId: string }>;
+};
+
+/** 从历史消息的内联标记恢复术语定义与来源。 */
+export function listHistoricalTerms(messages: Message[]): HistoricalTerm[] {
+  const sourceMap = new Map<string, Array<{ messageId: string; sessionId: string }>>();
+  for (const message of messages) {
+    for (const segment of parseTermMarkers(message.content)) {
+      if (segment.type !== 'term') continue;
+      const sources = sourceMap.get(segment.value) ?? [];
+      if (!sources.some((source) => source.messageId === message.id)) {
+        sources.push({ messageId: message.id, sessionId: message.sessionId });
+      }
+      sourceMap.set(segment.value, sources);
+    }
+  }
+  const names = [...sourceMap.keys()];
+  if (names.length === 0) return [];
+  return getDb()
+    .select({ name: schema.terms.name, definition: schema.terms.definition })
+    .from(schema.terms)
+    .where(inArray(schema.terms.name, names))
+    .all()
+    .map((term) => ({ ...term, sources: sourceMap.get(term.name) ?? [] }));
 }
 
 /** 记录一条学习事件。 */

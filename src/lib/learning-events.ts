@@ -1,6 +1,11 @@
 export const LEARNING_EVENT_ACTIONS = [
   'legacy',
   'session_created',
+  'session_renamed',
+  'session_pinned',
+  'session_archived',
+  'session_restored',
+  'session_deleted',
   'message_sent',
   'term_seen',
   'note_created',

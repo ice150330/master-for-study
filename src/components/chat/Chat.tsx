@@ -7,7 +7,7 @@ import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { SessionDeck } from './SessionDeck';
 import { SessionPicker } from './SessionPicker';
 import type { TermAction } from './Term';
-import type { ChatModel, ChatMsg, ChatSession } from './chat-types';
+import type { ChatModel, ChatMsg, ChatSession, HistoricalTerm } from './chat-types';
 
 /**
  * 聊天页状态容器：持有会话 / 消息 / 流式 / 术语 / 模型等全部状态与请求逻辑，
@@ -31,6 +31,7 @@ function subscribeModel(cb: () => void) {
 export function Chat() {
   const toast = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [archivedSessions, setArchivedSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
@@ -79,8 +80,12 @@ export function Chat() {
   }, []);
 
   async function refreshSessions(): Promise<ChatSession[]> {
-    const data = await requestJson<{ sessions: ChatSession[] }>('/api/sessions');
+    const data = await requestJson<{
+      sessions: ChatSession[];
+      archivedSessions?: ChatSession[];
+    }>('/api/sessions');
     setSessions(data.sessions);
+    setArchivedSessions(data.archivedSessions ?? []);
     return data.sessions;
   }
 
@@ -89,12 +94,22 @@ export function Chat() {
     const loadId = ++sessionLoadSequence.current;
     setRequestError(null);
     try {
-      const data = await requestJson<{ messages: ChatMsg[] }>(`/api/sessions/${id}`);
+      const data = await requestJson<{ messages: ChatMsg[]; terms?: HistoricalTerm[] }>(
+        `/api/sessions/${id}`,
+      );
       if (loadId !== sessionLoadSequence.current) return;
       currentSessionRef.current = id;
       setCurrentSessionId(id);
-      setMessages(data.messages);
-      setTermDefs({});
+      setMessages(
+        data.messages.map((message, index) => ({
+          ...message,
+          id: message.id ?? `${id}:history:${index}`,
+          status: message.status ?? 'complete',
+        })),
+      );
+      setTermDefs(
+        Object.fromEntries((data.terms ?? []).map((term) => [term.name, term.definition])),
+      );
     } catch (error) {
       if (loadId !== sessionLoadSequence.current) return;
       setRequestError({ message: getErrorMessage(error, '会话加载失败') });
@@ -131,7 +146,12 @@ export function Chat() {
     }
   }
 
-  async function send(textOverride?: string, retry = false, previousIdempotencyKey?: string) {
+  async function send(
+    textOverride?: string,
+    retry = false,
+    previousIdempotencyKey?: string,
+    baseOverride?: ChatMsg[],
+  ) {
     const text = (textOverride ?? input).trim();
     if (!text || isStreaming) return;
 
@@ -155,12 +175,28 @@ export function Chat() {
 
     setInput('');
     setRequestError(null);
-    const baseMessages =
-      retry && messages.at(-1)?.role === 'user' && messages.at(-1)?.content === text
-        ? messages.slice(0, -1)
-        : messages;
-    const history: ChatMsg[] = [...baseMessages, { role: 'user', content: text }];
-    setMessages([...history, { role: 'assistant', content: '' }]);
+    let retryBase = messages;
+    if (retry && retryBase.at(-1)?.role === 'assistant' && retryBase.at(-1)?.status === 'error') {
+      retryBase = retryBase.slice(0, -1);
+    }
+    if (retry && retryBase.at(-1)?.role === 'user' && retryBase.at(-1)?.content === text) {
+      retryBase = retryBase.slice(0, -1);
+    }
+    const baseMessages = baseOverride ?? retryBase;
+    const userMessage: ChatMsg = {
+      id: `${idempotencyKey}:user`,
+      role: 'user',
+      content: text,
+      status: 'complete',
+    };
+    const assistantMessage: ChatMsg = {
+      id: `${idempotencyKey}:assistant`,
+      role: 'assistant',
+      content: '',
+      status: 'streaming',
+    };
+    const history: ChatMsg[] = [...baseMessages, userMessage];
+    setMessages([...history, assistantMessage]);
     setIsStreaming(true);
 
     const requestId = ++requestSequence.current;
@@ -186,7 +222,10 @@ export function Chat() {
         if (done) break;
         full += decoder.decode(value, { stream: true });
         if (!isCurrentRequest(requestId, sid)) return;
-        setMessages([...history, { role: 'assistant', content: full }]);
+        setMessages([...history, { ...assistantMessage, content: full }]);
+      }
+      if (isCurrentRequest(requestId, sid)) {
+        setMessages([...history, { ...assistantMessage, content: full, status: 'complete' }]);
       }
 
       // 第二段：术语结构化提取（名称 + 一句话解释）
@@ -216,7 +255,14 @@ export function Chat() {
       }
     } catch (error) {
       if (!isCurrentRequest(requestId, sid) || isAbortError(error)) return;
-      setMessages(history);
+      setMessages([
+        ...history,
+        {
+          ...assistantMessage,
+          status: 'error',
+          error: getErrorMessage(error, '回答生成失败'),
+        },
+      ]);
       setInput(text);
       setRequestError({
         message: getErrorMessage(error, '对话生成失败，请稍后重试'),
@@ -269,6 +315,90 @@ export function Chat() {
     }
   }
 
+  async function updateCurrentSession(
+    action:
+      | { action: 'rename'; title: string }
+      | { action: 'pin'; pinned: boolean }
+      | { action: 'archive'; archived: boolean },
+  ) {
+    if (!currentSessionId) return;
+    setRequestError(null);
+    try {
+      await requestJson(`/api/sessions/${currentSessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...action,
+          idempotencyKey: createIdempotencyKey(`session-${action.action}`),
+        }),
+      });
+      const active = await refreshSessions();
+      if (action.action === 'archive' && action.archived) {
+        if (active[0]) await openSession(active[0].id);
+        else clearCurrentSession();
+      }
+      if (action.action === 'archive') {
+        toast({ title: action.archived ? '会话已归档' : '会话已恢复', tone: 'success' });
+      }
+    } catch (error) {
+      setRequestError({ message: getErrorMessage(error, '会话更新失败') });
+    }
+  }
+
+  async function restoreSession(id: string) {
+    try {
+      await requestJson(`/api/sessions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'archive',
+          archived: false,
+          idempotencyKey: createIdempotencyKey('session-restore'),
+        }),
+      });
+      await refreshSessions();
+      await openSession(id);
+      toast({ title: '会话已恢复', tone: 'success' });
+    } catch (error) {
+      setRequestError({ message: getErrorMessage(error, '恢复会话失败') });
+    }
+  }
+
+  async function deleteCurrentSession() {
+    if (!currentSessionId) return;
+    stopStreaming(false);
+    try {
+      await requestJson(`/api/sessions/${currentSessionId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotencyKey: createIdempotencyKey('session-delete') }),
+      });
+      const active = await refreshSessions();
+      if (active[0]) await openSession(active[0].id);
+      else clearCurrentSession();
+      toast({ title: '会话已删除', tone: 'success' });
+    } catch (error) {
+      setRequestError({ message: getErrorMessage(error, '删除会话失败') });
+    }
+  }
+
+  function clearCurrentSession() {
+    currentSessionRef.current = null;
+    setCurrentSessionId(null);
+    setMessages([]);
+    setTermDefs({});
+  }
+
+  function regenerateLastAnswer() {
+    const lastUserIndex = messages.findLastIndex((message) => message.role === 'user');
+    if (lastUserIndex < 0) return;
+    void send(messages[lastUserIndex].content, false, undefined, messages.slice(0, lastUserIndex));
+  }
+
+  function continueAnswer() {
+    void send('请从刚才中断的位置继续，不要重复已经给出的内容。');
+  }
+
   function isCurrentRequest(requestId: number, sessionId: string) {
     const active = activeRequest.current;
     return active?.id === requestId && currentSessionRef.current === sessionId;
@@ -281,6 +411,13 @@ export function Chat() {
       activeRequest.current = null;
       active.controller.abort();
       setIsStreaming(false);
+      setMessages((items) =>
+        items.map((message, index) =>
+          index === items.length - 1 && message.status === 'streaming'
+            ? { ...message, status: 'error', error: '已停止生成' }
+            : message,
+        ),
+      );
       if (notify) {
         toast({ title: '已停止生成', description: '已保留当前收到的内容。', tone: 'info' });
       }
@@ -303,9 +440,11 @@ export function Chat() {
       <div className="flex shrink-0 items-center">
         <SessionPicker
           sessions={sessions}
+          archivedSessions={archivedSessions}
           currentId={currentSessionId}
           onSelect={openSession}
           onNew={newSession}
+          onRestore={restoreSession}
         />
       </div>
 
@@ -321,6 +460,8 @@ export function Chat() {
         onInputChange={setInput}
         onSend={() => send()}
         onStop={() => stopStreaming()}
+        onRegenerate={regenerateLastAnswer}
+        onContinue={continueAnswer}
         requestError={
           requestError
             ? {
@@ -336,6 +477,10 @@ export function Chat() {
         model={model}
         onModelChange={changeModel}
         onSelect={openSession}
+        onRename={(title) => updateCurrentSession({ action: 'rename', title })}
+        onPin={(pinned) => updateCurrentSession({ action: 'pin', pinned })}
+        onArchive={() => updateCurrentSession({ action: 'archive', archived: true })}
+        onDelete={deleteCurrentSession}
       />
     </div>
   );

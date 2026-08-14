@@ -6,9 +6,25 @@ export type ChatSession = {
   id: string;
   parentId: string | null;
   title: string;
+  pinnedAt: string | null;
+  archivedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
-export type ChatMsg = { role: 'user' | 'assistant'; content: string };
+export type ChatMsg = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  status: 'pending' | 'streaming' | 'complete' | 'error';
+  error?: string | null;
+  createdAt?: string;
+};
+
+export type HistoricalTerm = {
+  name: string;
+  definition: string;
+  sources: Array<{ messageId: string; sessionId: string }>;
+};
 
 export type ChatModel = 'fast' | 'pro';

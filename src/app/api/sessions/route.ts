@@ -11,7 +11,12 @@ import { sessionsCreateSchema } from '@/lib/validation/schemas';
  */
 
 export async function GET() {
-  return withApiErrors(() => Response.json({ sessions: listSessions() }));
+  return withApiErrors(() =>
+    Response.json({
+      sessions: listSessions(),
+      archivedSessions: listSessions({ archived: true }),
+    }),
+  );
 }
 
 export async function POST(req: Request) {

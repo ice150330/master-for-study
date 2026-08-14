@@ -29,6 +29,8 @@ export const sessions = sqliteTable('sessions', {
   parentId: text('parent_id').references((): AnySQLiteColumn => sessions.id),
   title: text('title').notNull(),
   teacherStyle: text('teacher_style'),
+  pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }),
+  archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
@@ -41,6 +43,8 @@ export const messages = sqliteTable('messages', {
     .references(() => sessions.id),
   role: text('role', { enum: ['user', 'assistant'] }).notNull(),
   content: text('content').notNull(),
+  status: text('status', { enum: ['complete', 'error'] }).notNull().default('complete'),
+  error: text('error'),
   idempotencyKey: text('idempotency_key').unique(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });

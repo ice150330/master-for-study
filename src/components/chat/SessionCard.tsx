@@ -1,18 +1,47 @@
 'use client';
 
-import { SendHorizontal, Sparkles, Square, Zap } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import {
+  Archive,
+  CornerDownRight,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  RotateCcw,
+  SendHorizontal,
+  Sparkles,
+  Square,
+  Trash2,
+  Zap,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu';
+import { Input } from '@/components/ui/Field';
+import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { MessageContent } from './MessageContent';
 import type { TermAction } from './Term';
-import type { ChatMsg, ChatModel } from './chat-types';
+import type { ChatMsg, ChatModel, ChatSession } from './chat-types';
 
 /**
  * 当前会话大卡片：标题栏（标题 + 血缘提示 + 模型切换）+ 消息流 + 输入区。
  * 整张卡即一个会话；派生新会话后本卡退为祖先竖条（见 AncestorStack）。
  */
 export function SessionCard({
+  session,
   title,
   lineage,
   hasBranches,
@@ -24,10 +53,17 @@ export function SessionCard({
   onInputChange,
   onSend,
   onStop,
+  onRegenerate,
+  onContinue,
   requestError,
   model,
   onModelChange,
+  onRename,
+  onPin,
+  onArchive,
+  onDelete,
 }: {
+  session: ChatSession | null;
   title: string;
   /** 血缘提示，如「承自 · HTTP 是什么」；根会话为 null */
   lineage: string | null;
@@ -41,6 +77,8 @@ export function SessionCard({
   onInputChange: (v: string) => void;
   onSend: () => void;
   onStop: () => void;
+  onRegenerate: () => void;
+  onContinue: () => void;
   requestError: {
     title: string;
     description: string;
@@ -49,8 +87,15 @@ export function SessionCard({
   } | null;
   model: ChatModel;
   onModelChange: (m: ChatModel) => void;
+  onRename: (title: string) => void;
+  onPin: (pinned: boolean) => void;
+  onArchive: () => void;
+  onDelete: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [renameTitle, setRenameTitle] = useState(title);
 
   // 消息变化（含流式逐段更新）时，滚动容器贴底
   useEffect(() => {
@@ -72,7 +117,39 @@ export function SessionCard({
             {lineage ?? '根会话'} · {messages.length} 条消息
           </p>
         </div>
-        <ModelSwitch value={model} onChange={onModelChange} />
+        <div className="flex shrink-0 items-center gap-2">
+          <ModelSwitch value={model} onChange={onModelChange} />
+          {session ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton label="会话操作">
+                  <MoreHorizontal />
+                </IconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setRenameTitle(title);
+                    setRenameOpen(true);
+                  }}
+                >
+                  <Pencil /> 重命名
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onPin(!session.pinnedAt)}>
+                  {session.pinnedAt ? <PinOff /> : <Pin />}
+                  {session.pinnedAt ? '取消置顶' : '置顶会话'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={onArchive}>
+                  <Archive /> 归档
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
+                  <Trash2 /> 删除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
       </div>
 
       {/* 消息流 */}
@@ -82,16 +159,23 @@ export function SessionCard({
             随便问个技术问题，比如「什么是 DNS？」
           </p>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        {messages.map((m) => (
+          <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
               className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md ${
                 m.role === 'user'
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-card-soft text-card-foreground'
-              }`}
+              } ${m.status === 'error' ? 'border border-danger/35' : ''}`}
             >
-              <MessageContent text={m.content} termDefs={termDefs} onTermAction={onTermAction} />
+              {m.content ? (
+                <MessageContent text={m.content} termDefs={termDefs} onTermAction={onTermAction} />
+              ) : m.status === 'error' ? (
+                <span className="text-danger">回答未完成</span>
+              ) : null}
+              {m.status === 'error' && m.error ? (
+                <p className="mt-1 text-xs text-danger">{m.error}</p>
+              ) : null}
             </div>
           </div>
         ))}
@@ -113,6 +197,18 @@ export function SessionCard({
             actionLabel={requestError.actionLabel}
             onAction={requestError.onAction}
           />
+        ) : null}
+        {!isStreaming && messages.some((message) => message.role === 'user') ? (
+          <div className="mb-2 flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={onRegenerate}>
+              <RotateCcw aria-hidden="true" className="size-3.5" />
+              重新生成
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onContinue}>
+              <CornerDownRight aria-hidden="true" className="size-3.5" />
+              继续回答
+            </Button>
+          </div>
         ) : null}
         <div className="flex items-end gap-2">
           <textarea
@@ -141,6 +237,61 @@ export function SessionCard({
           )}
         </div>
       </div>
+
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">重命名会话</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted">
+            标题用于会话搜索和分支路径，不会修改消息内容。
+          </DialogDescription>
+          <Input
+            className="mt-5"
+            value={renameTitle}
+            onChange={(event) => setRenameTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && renameTitle.trim()) {
+                onRename(renameTitle.trim());
+                setRenameOpen(false);
+              }
+            }}
+            aria-label="会话标题"
+            maxLength={120}
+          />
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setRenameOpen(false)}>取消</Button>
+            <Button
+              disabled={!renameTitle.trim()}
+              onClick={() => {
+                onRename(renameTitle.trim());
+                setRenameOpen(false);
+              }}
+            >
+              保存标题
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">删除会话</DialogTitle>
+          <DialogDescription className="mt-1 text-sm leading-relaxed text-muted">
+            会话和消息将被删除；已有笔记与面试记录会保留，但不再关联此会话。该操作不可撤销。
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>取消</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setDeleteOpen(false);
+                onDelete();
+              }}
+            >
+              确认删除
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

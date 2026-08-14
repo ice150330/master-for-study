@@ -22,10 +22,16 @@ export function SessionDeck({
   onInputChange,
   onSend,
   onStop,
+  onRegenerate,
+  onContinue,
   requestError,
   model,
   onModelChange,
   onSelect,
+  onRename,
+  onPin,
+  onArchive,
+  onDelete,
 }: {
   sessions: ChatSession[];
   currentSessionId: string | null;
@@ -37,6 +43,8 @@ export function SessionDeck({
   onInputChange: (v: string) => void;
   onSend: () => void;
   onStop: () => void;
+  onRegenerate: () => void;
+  onContinue: () => void;
   requestError: {
     title: string;
     description: string;
@@ -47,6 +55,10 @@ export function SessionDeck({
   onModelChange: (m: ChatModel) => void;
   /** 点击祖先竖条 / 分支小卡时切换会话 */
   onSelect: (id: string) => void;
+  onRename: (title: string) => void;
+  onPin: (pinned: boolean) => void;
+  onArchive: () => void;
+  onDelete: () => void;
 }) {
   const nodeById = useMemo(() => {
     const map = new Map<string, ChatSession>();
@@ -84,6 +96,7 @@ export function SessionDeck({
       {/* 右：当前会话大卡片 + 右上角分支扇 */}
       <div className="relative min-w-0 flex-1">
         <SessionCard
+          session={current ?? null}
           title={current?.title ?? '新对话'}
           lineage={lineage}
           hasBranches={branches.length > 0}
@@ -95,9 +108,15 @@ export function SessionDeck({
           onInputChange={onInputChange}
           onSend={onSend}
           onStop={onStop}
+          onRegenerate={onRegenerate}
+          onContinue={onContinue}
           requestError={requestError}
           model={model}
           onModelChange={onModelChange}
+          onRename={onRename}
+          onPin={onPin}
+          onArchive={onArchive}
+          onDelete={onDelete}
         />
         <BranchFan branches={branches} onSelect={onSelect} />
       </div>

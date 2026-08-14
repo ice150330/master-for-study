@@ -15,6 +15,20 @@ export const sessionsCreateSchema = z
 
 export const sessionIdSchema = id;
 
+export const sessionUpdateSchema = z.discriminatedUnion('action', [
+  z
+    .object({
+      action: z.literal('rename'),
+      title: z.string().trim().min(1).max(120),
+      idempotencyKey,
+    })
+    .strict(),
+  z.object({ action: z.literal('pin'), pinned: z.boolean(), idempotencyKey }).strict(),
+  z.object({ action: z.literal('archive'), archived: z.boolean(), idempotencyKey }).strict(),
+]);
+
+export const sessionDeleteSchema = z.object({ idempotencyKey }).strict();
+
 export const chatRequestSchema = z
   .object({
     messages: z
