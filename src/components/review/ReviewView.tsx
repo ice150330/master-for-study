@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
+import { InlineNotice } from '@/components/ui/InlineNotice';
+import { useToast } from '@/components/ui/Toast';
+import { getErrorMessage, requestJson } from '@/lib/http/client';
 
 type ReviewItem = {
   termId: string;
@@ -22,26 +25,55 @@ const GRADE_OPTIONS: Array<{ grade: Grade; label: string; className: string }> =
 ];
 
 export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] }) {
+  const toast = useToast();
   const [queue, setQueue] = useState<ReviewItem[]>(initialReviews);
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ message: string; retry: () => void; label: string } | null>(null);
 
   const current = queue[0];
 
   async function grade(g: Grade) {
     if (!current || busy) return;
     setBusy(true);
+    setError(null);
+    let submitted = false;
     try {
-      await fetch('/api/review', {
+      await requestJson<{ next: unknown }>('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ termId: current.termId, grade: g }),
       });
-      const res = await fetch('/api/review');
-      if (res.ok) setQueue(((await res.json()) as { reviews: ReviewItem[] }).reviews);
+      submitted = true;
+      const data = await requestJson<{ reviews: ReviewItem[] }>('/api/review');
+      setQueue(data.reviews);
       setRevealed(false);
-    } catch (err) {
-      console.error(err);
+      toast({ title: '复习结果已记录', tone: 'success' });
+    } catch (error) {
+      setError({
+        message: getErrorMessage(error, '复习结果提交失败'),
+        retry: submitted ? refreshQueue : () => grade(g),
+        label: submitted ? '刷新队列' : '重新提交',
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshQueue() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await requestJson<{ reviews: ReviewItem[] }>('/api/review');
+      setQueue(data.reviews);
+      setRevealed(false);
+    } catch (error) {
+      setError({
+        message: getErrorMessage(error, '复习队列刷新失败'),
+        retry: refreshQueue,
+        label: '再次刷新',
+      });
     } finally {
       setBusy(false);
     }
@@ -57,6 +89,16 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
         </div>
       ) : (
         <div className="rounded-2xl bg-card p-8 shadow-md">
+          {error ? (
+            <InlineNotice
+              className="mb-5"
+              tone="error"
+              title="复习进度未更新"
+              description={`${error.message}。当前卡片和答案仍保留。`}
+              actionLabel={error.label}
+              onAction={error.retry}
+            />
+          ) : null}
           <div className="mb-4 text-xs font-medium text-muted">
             今日待复习 {queue.length} 张
           </div>

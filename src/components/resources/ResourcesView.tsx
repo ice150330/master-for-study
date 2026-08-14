@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
+import { Button } from '@/components/ui/Button';
+import { InlineNotice } from '@/components/ui/InlineNotice';
+import { useToast } from '@/components/ui/Toast';
+import { getErrorMessage, requestJson } from '@/lib/http/client';
 
 type Resource = {
   id: string;
@@ -26,6 +30,7 @@ export function ResourcesView({
   initialResources: Resource[];
   initialTerms: Term[];
 }) {
+  const toast = useToast();
   const [resources, setResources] = useState<Resource[]>(initialResources);
   const [filter, setFilter] = useState<'全部' | (typeof STATUSES)[number]>('全部');
   const [title, setTitle] = useState('');
@@ -33,41 +38,53 @@ export function ResourcesView({
   const [url, setUrl] = useState('');
   const [termId, setTermId] = useState('');
   const [busy, setBusy] = useState(false);
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; retry: () => void } | null>(null);
 
   const termName = new Map(initialTerms.map((t) => [t.id, t.name]));
-
-  async function loadResources() {
-    const res = await fetch('/api/resources');
-    if (res.ok) setResources(((await res.json()) as { resources: Resource[] }).resources);
-  }
 
   async function add() {
     if (!title.trim() || !url.trim() || busy) return;
     setBusy(true);
+    setError(null);
     try {
-      await fetch('/api/resources', {
+      const data = await requestJson<{ resource: Resource }>('/api/resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, type, url, termId: termId || null }),
       });
+      setResources((items) => [data.resource, ...items]);
       setTitle('');
       setUrl('');
       setTermId('');
-      await loadResources();
-    } catch (err) {
-      console.error(err);
+      toast({ title: '资源已添加', description: data.resource.title, tone: 'success' });
+    } catch (error) {
+      setError({ message: getErrorMessage(error, '资源保存失败'), retry: add });
     } finally {
       setBusy(false);
     }
   }
 
   async function changeStatus(id: string, status: string) {
-    await fetch('/api/resources', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status }),
-    });
-    await loadResources();
+    if (statusBusyId) return;
+    setStatusBusyId(id);
+    setError(null);
+    try {
+      await requestJson<{ ok: true }>('/api/resources', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      setResources((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
+      toast({ title: '阅读状态已更新', tone: 'success' });
+    } catch (error) {
+      setError({
+        message: getErrorMessage(error, '状态更新失败'),
+        retry: () => changeStatus(id, status),
+      });
+    } finally {
+      setStatusBusyId(null);
+    }
   }
 
   const visible = filter === '全部' ? resources : resources.filter((r) => r.status === filter);
@@ -117,15 +134,23 @@ export function ResourcesView({
                 </option>
               ))}
             </select>
-            <button
-              type="button"
+            <Button
               onClick={add}
               disabled={!title.trim() || !url.trim() || busy}
-              className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              loading={busy}
             >
-              {busy ? '添加中…' : '添加'}
-            </button>
+              添加
+            </Button>
           </div>
+          {error ? (
+            <InlineNotice
+              tone="error"
+              title="资源操作未完成"
+              description={`${error.message}。已保留当前填写内容。`}
+              actionLabel="重试"
+              onAction={error.retry}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -176,11 +201,12 @@ export function ResourcesView({
                     key={s}
                     type="button"
                     onClick={() => changeStatus(r.id, s)}
+                    disabled={statusBusyId === r.id}
                     className={`rounded-lg px-2 py-1 text-xs ${
                       r.status === s
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-card text-card-foreground/60'
-                    }`}
+                    } disabled:opacity-45`}
                   >
                     {s}
                   </button>

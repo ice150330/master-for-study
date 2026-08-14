@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
+import { Button } from '@/components/ui/Button';
+import { InlineNotice } from '@/components/ui/InlineNotice';
+import { useToast } from '@/components/ui/Toast';
+import { getErrorMessage, requestJson } from '@/lib/http/client';
 
 type NoteContent = {
   coreConcepts: { name: string; explanation: string }[];
@@ -28,26 +32,26 @@ export function NotesView({
   initialNotes: Note[];
   initialSessions: Session[];
 }) {
+  const toast = useToast();
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [selectedId, setSelectedId] = useState(initialSessions[0]?.id ?? '');
   const [generating, setGenerating] = useState(false);
-
-  async function loadNotes() {
-    const res = await fetch('/api/notes');
-    if (res.ok) setNotes(((await res.json()) as { notes: Note[] }).notes);
-  }
+  const [error, setError] = useState<string | null>(null);
 
   async function generate() {
     if (!selectedId || generating) return;
     setGenerating(true);
+    setError(null);
     try {
-      const res = await fetch('/api/notes', {
+      const data = await requestJson<{ note: Note }>('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: selectedId }),
       });
-      if (res.ok) await loadNotes();
-      else alert('生成失败：请确认该会话有消息，且 DeepSeek key 有效');
+      setNotes((items) => [data.note, ...items]);
+      toast({ title: '笔记已生成', description: data.note.title, tone: 'success' });
+    } catch (error) {
+      setError(getErrorMessage(error, '笔记生成失败'));
     } finally {
       setGenerating(false);
     }
@@ -79,15 +83,25 @@ export function NotesView({
             </option>
           ))}
         </select>
-        <button
-          type="button"
+        <Button
           onClick={generate}
           disabled={!selectedId || generating}
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          loading={generating}
         >
-          {generating ? '生成中…' : '生成笔记'}
-        </button>
+          生成笔记
+        </Button>
       </div>
+
+      {error ? (
+        <InlineNotice
+          className="mb-5"
+          tone="error"
+          title="笔记生成未完成"
+          description={`${error}。会话选择已保留，可直接重试。`}
+          actionLabel="重新生成"
+          onAction={generate}
+        />
+      ) : null}
 
       {notes.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">

@@ -21,6 +21,8 @@ export function SessionDeck({
   input,
   onInputChange,
   onSend,
+  onStop,
+  requestError,
   model,
   onModelChange,
   onSelect,
@@ -34,6 +36,13 @@ export function SessionDeck({
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
+  onStop: () => void;
+  requestError: {
+    title: string;
+    description: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null;
   model: ChatModel;
   onModelChange: (m: ChatModel) => void;
   /** 点击祖先竖条 / 分支小卡时切换会话 */
@@ -85,6 +94,8 @@ export function SessionDeck({
           input={input}
           onInputChange={onInputChange}
           onSend={onSend}
+          onStop={onStop}
+          requestError={requestError}
           model={model}
           onModelChange={onModelChange}
         />

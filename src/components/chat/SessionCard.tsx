@@ -1,6 +1,9 @@
 'use client';
 
+import { SendHorizontal, Sparkles, Square, Zap } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/Button';
+import { InlineNotice } from '@/components/ui/InlineNotice';
 import { MessageContent } from './MessageContent';
 import type { TermAction } from './Term';
 import type { ChatMsg, ChatModel } from './chat-types';
@@ -20,6 +23,8 @@ export function SessionCard({
   input,
   onInputChange,
   onSend,
+  onStop,
+  requestError,
   model,
   onModelChange,
 }: {
@@ -35,6 +40,13 @@ export function SessionCard({
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
+  onStop: () => void;
+  requestError: {
+    title: string;
+    description: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null;
   model: ChatModel;
   onModelChange: (m: ChatModel) => void;
 }) {
@@ -92,6 +104,16 @@ export function SessionCard({
 
       {/* 输入区 */}
       <div className="shrink-0 border-t border-border p-3">
+        {requestError ? (
+          <InlineNotice
+            className="mb-2"
+            tone="error"
+            title={requestError.title}
+            description={requestError.description}
+            actionLabel={requestError.actionLabel}
+            onAction={requestError.onAction}
+          />
+        ) : null}
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -106,14 +128,17 @@ export function SessionCard({
             placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
             className="flex-1 resize-none rounded-xl border border-border bg-card-soft px-4 py-3 text-sm text-card-foreground outline-none placeholder:text-card-foreground/50 focus:border-primary"
           />
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={isStreaming}
-            className="rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-50"
-          >
-            发送
-          </button>
+          {isStreaming ? (
+            <Button className="h-[46px]" variant="outline" onClick={onStop}>
+              <Square aria-hidden="true" className="size-4 fill-current" />
+              停止
+            </Button>
+          ) : (
+            <Button className="h-[46px]" onClick={onSend}>
+              <SendHorizontal aria-hidden="true" className="size-4" />
+              发送
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -141,7 +166,7 @@ function ModelSwitch({
             : 'text-muted hover:text-foreground'
         }`}
       >
-        <BoltIcon />
+        <Zap aria-hidden="true" className="size-3" />
         闪电
       </button>
       <button
@@ -155,25 +180,9 @@ function ModelSwitch({
             : 'text-muted hover:text-foreground'
         }`}
       >
-        <SparkIcon />
+        <Sparkles aria-hidden="true" className="size-3" />
         深思
       </button>
     </div>
-  );
-}
-
-function BoltIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" />
-    </svg>
-  );
-}
-
-function SparkIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-    </svg>
   );
 }

@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
+import { Button } from '@/components/ui/Button';
+import { InlineNotice } from '@/components/ui/InlineNotice';
+import { useToast } from '@/components/ui/Toast';
+import { getErrorMessage, requestJson } from '@/lib/http/client';
 
 type Interview = {
   id: string;
@@ -13,34 +17,29 @@ type Interview = {
 };
 
 export function InterviewView({ initialInterviews }: { initialInterviews: Interview[] }) {
+  const toast = useToast();
   const [history, setHistory] = useState<Interview[]>(initialInterviews);
   const [current, setCurrent] = useState<Interview | null>(null);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{ correct: boolean; feedback: string } | null>(null);
   const [busy, setBusy] = useState(false);
-
-  async function loadHistory() {
-    const res = await fetch('/api/interview');
-    if (res.ok) setHistory(((await res.json()) as { interviews: Interview[] }).interviews);
-  }
+  const [error, setError] = useState<{ message: string; action: 'question' | 'answer' } | null>(null);
 
   async function askQuestion() {
     setBusy(true);
-    setAnswer('');
-    setFeedback(null);
+    setError(null);
     try {
-      const res = await fetch('/api/interview', {
+      const data = await requestJson<{ interview: Interview }>('/api/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'question' }),
       });
-      if (!res.ok) throw new Error('出题失败');
-      const data = (await res.json()) as { interview: Interview };
       setCurrent(data.interview);
-      await loadHistory();
-    } catch (err) {
-      console.error(err);
-      alert('出题失败，请确认 DeepSeek key 有效');
+      setAnswer('');
+      setFeedback(null);
+      setHistory((items) => [data.interview, ...items]);
+    } catch (error) {
+      setError({ message: getErrorMessage(error, '出题失败'), action: 'question' });
     } finally {
       setBusy(false);
     }
@@ -49,19 +48,24 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
   async function submit() {
     if (!current || !answer.trim() || busy) return;
     setBusy(true);
+    setError(null);
     try {
-      const res = await fetch('/api/interview', {
+      const data = await requestJson<{ correct: boolean; feedback: string }>('/api/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'answer', id: current.id, answer: answer.trim() }),
       });
-      if (!res.ok) throw new Error('判分失败');
-      const data = (await res.json()) as { correct: boolean; feedback: string };
       setFeedback(data);
-      await loadHistory();
-    } catch (err) {
-      console.error(err);
-      alert('判分失败，请确认 DeepSeek key 有效');
+      setHistory((items) =>
+        items.map((item) =>
+          item.id === current.id
+            ? { ...item, answer: answer.trim(), feedback: data.feedback, correct: data.correct }
+            : item,
+        ),
+      );
+      toast({ title: '回答已完成评估', tone: 'success' });
+    } catch (error) {
+      setError({ message: getErrorMessage(error, '判分失败'), action: 'answer' });
     } finally {
       setBusy(false);
     }
@@ -71,16 +75,26 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
     <PageShell title="模拟面试" description="依据画像出题，答后分层判分">
 
       <div className="rounded-2xl bg-card p-6 shadow-md">
+        {error ? (
+          <InlineNotice
+            className="mb-4"
+            tone="error"
+            title={error.action === 'question' ? '暂时无法生成题目' : '回答尚未完成评估'}
+            description={`${error.message}。${error.action === 'answer' ? '你的回答已保留。' : '当前面试状态未改变。'}`}
+            actionLabel="重试"
+            onAction={error.action === 'question' ? askQuestion : submit}
+          />
+        ) : null}
         {!current ? (
           <div className="py-10 text-center">
-            <button
-              type="button"
+            <Button
               onClick={askQuestion}
               disabled={busy}
-              className="rounded-xl bg-primary px-6 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              loading={busy}
+              size="lg"
             >
-              {busy ? '出题中…' : '开始面试'}
-            </button>
+              开始面试
+            </Button>
           </div>
         ) : (
           <div>
