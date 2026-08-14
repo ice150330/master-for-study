@@ -49,7 +49,12 @@ export const BACKEND_SKILL_TREE: TreeInput<SkillData> = {
   ],
 };
 
-/** 掌握度状态 → 节点配色（热力）。 */
+/**
+ * 掌握度状态 → 节点配色（热力）。
+ * 热力四态用固定高饱和色（其上文字深色，与主题无关，两主题均可读）；
+ * 「未接触」与品牌紫走 CSS 变量令牌（随浅/深主题切换，见 globals.css）。
+ * 返回值是 CSS 颜色字符串，由 TreeGraph 经 style 对象注入 SVG。
+ */
 export function stateToStyle(state?: string): { fill: string; text: string } {
   switch (state) {
     case 'reviewing':
@@ -59,8 +64,8 @@ export function stateToStyle(state?: string): { fill: string; text: string } {
     case 'relearning':
       return { fill: '#fd79a8', text: '#1a1a2e' }; // 重学中
     case 'new':
-      return { fill: '#6c5ce7', text: '#fafafa' }; // 新发现
+      return { fill: 'var(--primary)', text: 'var(--primary-foreground)' }; // 新发现
     default:
-      return { fill: '#2a2a3e', text: '#a1a1aa' }; // 未接触
+      return { fill: 'var(--state-untouched)', text: 'var(--state-untouched-fg)' }; // 未接触
   }
 }

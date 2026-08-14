@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
+import { PageShell } from '@/components/shell/PageShell';
 
 type ReviewItem = {
   termId: string;
@@ -15,10 +15,10 @@ type ReviewItem = {
 type Grade = 'again' | 'hard' | 'good' | 'easy';
 
 const GRADE_OPTIONS: Array<{ grade: Grade; label: string; className: string }> = [
-  { grade: 'again', label: '忘记', className: 'bg-pink text-background' },
-  { grade: 'hard', label: '困难', className: 'bg-yellow text-background' },
-  { grade: 'good', label: '一般', className: 'bg-accent text-background' },
-  { grade: 'easy', label: '轻松', className: 'bg-primary text-foreground' },
+  { grade: 'again', label: '忘记', className: 'bg-pink text-pink-foreground' },
+  { grade: 'hard', label: '困难', className: 'bg-yellow text-yellow-foreground' },
+  { grade: 'good', label: '一般', className: 'bg-accent text-accent-foreground' },
+  { grade: 'easy', label: '轻松', className: 'bg-primary text-primary-foreground' },
 ];
 
 export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] }) {
@@ -48,20 +48,11 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">隐性巩固</h1>
-          <p className="mt-1 text-sm text-muted">在你遗忘前，悄悄考你</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="隐性巩固" description="在你遗忘前，悄悄考你" width="sm">
 
       {queue.length === 0 ? (
         <div className="rounded-2xl bg-card p-12 text-center">
-          <p className="text-sm text-background/70">今日没有待复习的术语 🎉</p>
+          <p className="text-sm text-card-foreground/70">今日没有待复习的术语 🎉</p>
           <p className="mt-2 text-xs text-muted">去聊点新内容，术语会自动进入复习队列</p>
         </div>
       ) : (
@@ -70,7 +61,7 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
             今日待复习 {queue.length} 张
           </div>
 
-          <h2 className="mb-6 text-center text-2xl font-semibold text-background">
+          <h2 className="mb-6 text-center text-2xl font-semibold text-card-foreground">
             {current.name}
           </h2>
 
@@ -79,14 +70,14 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
               <button
                 type="button"
                 onClick={() => setRevealed(true)}
-                className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-background"
+                className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-accent-foreground"
               >
                 显示答案
               </button>
             </div>
           ) : (
             <>
-              <p className="mb-8 whitespace-pre-wrap rounded-xl bg-background/5 p-4 text-sm leading-relaxed text-background/85">
+              <p className="mb-8 whitespace-pre-wrap rounded-xl bg-card-soft p-4 text-sm leading-relaxed text-card-foreground/85">
                 {current.definition}
               </p>
               <div className="grid grid-cols-4 gap-2">
@@ -106,6 +97,6 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
           )}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useRef, useState } from 'react';
+import { PageShell } from '@/components/shell/PageShell';
 import initSqlJs from 'sql.js';
 import type { Database } from 'sql.js';
 
@@ -67,18 +67,7 @@ export function PracticeView() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">实践区 · SQL 沙盒</h1>
-          <p className="mt-1 text-sm text-muted">
-            浏览器内跑 SQL（SQLite/WASM），零安装，随便试错
-          </p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="实践区 · SQL 沙盒" description="浏览器内跑 SQL（SQLite/WASM），零安装，随便试错">
 
       {/* 示例查询 */}
       <div className="mb-3 flex flex-wrap gap-2">
@@ -87,7 +76,7 @@ export function PracticeView() {
             key={q}
             type="button"
             onClick={() => setSql(q)}
-            className="rounded-lg bg-background/40 px-3 py-1.5 text-xs text-muted hover:text-foreground"
+            className="rounded-lg bg-surface px-3 py-1.5 text-xs text-muted hover:text-foreground"
           >
             {q}
           </button>
@@ -100,7 +89,7 @@ export function PracticeView() {
         onChange={(e) => setSql(e.target.value)}
         rows={4}
         spellCheck={false}
-        className="mb-3 w-full resize-y rounded-xl border border-border bg-card px-4 py-3 font-mono text-sm text-background outline-none focus:border-primary"
+        className="mb-3 w-full resize-y rounded-xl border border-border bg-card px-4 py-3 font-mono text-sm text-card-foreground outline-none focus:border-primary"
       />
 
       <div className="mb-4 flex justify-end">
@@ -108,7 +97,7 @@ export function PracticeView() {
           type="button"
           onClick={run}
           disabled={!sql.trim() || busy}
-          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-foreground disabled:opacity-50"
+          className="rounded-xl bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
           {busy ? '运行中…' : '运行'}
         </button>
@@ -116,12 +105,12 @@ export function PracticeView() {
 
       {/* 结果 */}
       {error ? (
-        <div className="rounded-xl bg-pink/20 p-4 font-mono text-sm text-background">
+        <div className="rounded-xl bg-pink/20 p-4 font-mono text-sm text-foreground">
           <div className="mb-1 font-semibold">错误</div>
           {error}
         </div>
       ) : ran && results.length === 0 ? (
-        <div className="rounded-xl bg-accent/20 p-4 text-sm text-background">
+        <div className="rounded-xl bg-accent/20 p-4 text-sm text-foreground">
           ✓ 执行成功（无返回结果）
         </div>
       ) : (
@@ -131,7 +120,7 @@ export function PracticeView() {
               <thead>
                 <tr className="border-b border-border">
                   {r.columns.map((c) => (
-                    <th key={c} className="px-4 py-2 font-semibold text-background">
+                    <th key={c} className="px-4 py-2 font-semibold text-card-foreground">
                       {c}
                     </th>
                   ))}
@@ -141,7 +130,7 @@ export function PracticeView() {
                 {r.values.map((row, ri) => (
                   <tr key={ri} className="border-b border-border/40 last:border-0">
                     {row.map((v, ci) => (
-                      <td key={ci} className="px-4 py-2 text-background/80">
+                      <td key={ci} className="px-4 py-2 text-card-foreground/80">
                         {formatValue(v)}
                       </td>
                     ))}
@@ -158,7 +147,7 @@ export function PracticeView() {
           内置一张 students 表，点上方示例或输入 SQL，点「运行」查看结果
         </p>
       )}
-    </div>
+    </PageShell>
   );
 }
 

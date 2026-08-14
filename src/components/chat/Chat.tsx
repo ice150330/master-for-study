@@ -1,32 +1,45 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
-import { MessageContent } from './MessageContent';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { SessionDeck } from './SessionDeck';
+import { SessionPicker } from './SessionPicker';
 import type { TermAction } from './Term';
-
-type Msg = { role: 'user' | 'assistant'; content: string };
-type Session = { id: string; parentId: string | null; title: string; createdAt: string };
+import type { ChatModel, ChatMsg, ChatSession } from './chat-types';
 
 /**
- * 聊天工作区：会话树侧边栏 + 流式对话 + 术语高亮与悬停弹窗。
- * 阶段 1 接入 SQLite 持久化（消息 / 会话 / 术语 / 学习事件）。
+ * 聊天页状态容器：持有会话 / 消息 / 流式 / 术语 / 模型等全部状态与请求逻辑，
+ * 布局委托 SessionDeck（祖先堆 + 当前大卡片 + 分支扇）与 SessionPicker。
+ * 流式两段式不变：① /api/chat 纯文本流 ② 完成后 /api/terms 提取术语定义。
  */
+
+const MODEL_KEY = 'mentor-model';
+const MODEL_EVENT = 'mentor-model-change';
+
+/** 订阅模型偏好变化：本标签页走自定义事件，跨标签页走 storage 事件。 */
+function subscribeModel(cb: () => void) {
+  window.addEventListener('storage', cb);
+  window.addEventListener(MODEL_EVENT, cb);
+  return () => {
+    window.removeEventListener('storage', cb);
+    window.removeEventListener(MODEL_EVENT, cb);
+  };
+}
+
 export function Chat() {
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [termDefs, setTermDefs] = useState<Record<string, string>>({});
-  const bottomRef = useRef<HTMLDivElement>(null);
   const initRan = useRef(false);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // 模型偏好：localStorage 为真相源（服务端快照恒为 fast，避免 hydration 不匹配）
+  const model = useSyncExternalStore(
+    subscribeModel,
+    (): ChatModel => (localStorage.getItem(MODEL_KEY) === 'pro' ? 'pro' : 'fast'),
+    (): ChatModel => 'fast',
+  );
 
   // 初始化：加载会话列表，有则打开最近一个。
   useEffect(() => {
@@ -38,10 +51,10 @@ export function Chat() {
     })();
   }, []);
 
-  async function refreshSessions(): Promise<Session[]> {
+  async function refreshSessions(): Promise<ChatSession[]> {
     const res = await fetch('/api/sessions');
     if (!res.ok) return [];
-    const data = (await res.json()) as { sessions: Session[] };
+    const data = (await res.json()) as { sessions: ChatSession[] };
     setSessions(data.sessions);
     return data.sessions;
   }
@@ -49,11 +62,9 @@ export function Chat() {
   async function openSession(id: string) {
     const res = await fetch(`/api/sessions/${id}`);
     if (!res.ok) return;
-    const data = (await res.json()) as {
-      messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-    };
+    const data = (await res.json()) as { messages: ChatMsg[] };
     setCurrentSessionId(id);
-    setMessages(data.messages.map((m) => ({ role: m.role, content: m.content })));
+    setMessages(data.messages);
     setTermDefs({});
   }
 
@@ -90,7 +101,7 @@ export function Chat() {
     }
 
     setInput('');
-    const history: Msg[] = [...messages, { role: 'user', content: text }];
+    const history: ChatMsg[] = [...messages, { role: 'user', content: text }];
     setMessages([...history, { role: 'assistant', content: '' }]);
     setIsStreaming(true);
 
@@ -99,7 +110,7 @@ export function Chat() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, sessionId: sid }),
+        body: JSON.stringify({ messages: history, sessionId: sid, model }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
@@ -155,162 +166,42 @@ export function Chat() {
     }
   }
 
-  const tree = buildSessionTree(sessions);
+  function changeModel(m: ChatModel) {
+    try {
+      localStorage.setItem(MODEL_KEY, m);
+    } catch {
+      // 忽略
+    }
+    window.dispatchEvent(new Event(MODEL_EVENT));
+  }
 
   return (
-    <div className="flex h-screen">
-      {/* 会话树侧边栏 */}
-      <aside className="w-64 shrink-0 space-y-2 overflow-y-auto border-r border-border p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">会话树</h2>
-          <button
-            type="button"
-            onClick={newSession}
-            className="rounded-lg bg-primary px-2 py-1 text-xs text-foreground"
-          >
-            + 新会话
-          </button>
-        </div>
-        {tree.length === 0 ? (
-          <p className="text-xs text-muted">暂无会话，点「+ 新会话」开始</p>
-        ) : (
-          renderTree(tree, currentSessionId, openSession)
-        )}
-      </aside>
-
-      {/* 主聊天区 */}
-      <div className="flex min-w-0 flex-1 flex-col px-4 py-6">
-        <header className="mb-4 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Mentor</h1>
-          <p className="mt-1 text-sm text-muted">本地 AI 学习老师 · 术语会高亮，悬停看解释</p>
-          <nav className="mt-3 flex justify-center gap-3">
-            <Link
-              href="/notes"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              学习笔记
-            </Link>
-            <Link
-              href="/interview"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              模拟面试
-            </Link>
-            <Link
-              href="/review"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              复习
-            </Link>
-            <Link
-              href="/analytics"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              成长分析
-            </Link>
-            <Link
-              href="/whiteboard"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              白板
-            </Link>
-            <Link
-              href="/resources"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              资源库
-            </Link>
-            <Link
-              href="/practice"
-              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
-            >
-              实践区
-            </Link>
-          </nav>
-        </header>
-
-        <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl bg-background/40 p-4">
-          {messages.length === 0 && (
-            <p className="py-16 text-center text-sm text-muted">
-              随便问个技术问题，比如「什么是 DNS？」
-            </p>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md ${
-                  m.role === 'user' ? 'bg-primary text-foreground' : 'bg-card text-background'
-                }`}
-              >
-                <MessageContent
-                  text={m.content}
-                  termDefs={termDefs}
-                  onTermAction={handleTermAction}
-                />
-              </div>
-            </div>
-          ))}
-          {isStreaming && (
-            <div className="flex justify-start">
-              <span className="text-xs text-muted">思考中…</span>
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-
-        <div className="mt-4 flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={2}
-            placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
-            className="flex-1 resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-background outline-none placeholder:text-background/40 focus:border-primary"
-          />
-          <button
-            type="button"
-            onClick={() => send()}
-            disabled={isStreaming}
-            className="rounded-xl bg-primary px-5 py-3 text-sm font-medium text-foreground transition-opacity disabled:opacity-50"
-          >
-            发送
-          </button>
-        </div>
+    <div className="flex h-full flex-col gap-3 px-4 py-4">
+      {/* 工具行：全部会话 + 新话题 */}
+      <div className="flex shrink-0 items-center">
+        <SessionPicker
+          sessions={sessions}
+          currentId={currentSessionId}
+          onSelect={openSession}
+          onNew={newSession}
+        />
       </div>
-    </div>
-  );
-}
 
-/** 递归渲染会话树。 */
-function renderTree(
-  nodes: SessionTreeNode<Session>[],
-  currentId: string | null,
-  onSelect: (id: string) => void,
-  depth = 0,
-): ReactNode {
-  return (
-    <ul className={depth > 0 ? 'ml-3 border-l border-border pl-2' : 'space-y-1'}>
-      {nodes.map((n) => (
-        <li key={n.id} className="space-y-1">
-          <button
-            type="button"
-            onClick={() => onSelect(n.id)}
-            className={`w-full truncate rounded-lg px-2 py-1 text-left text-xs transition-colors ${
-              n.id === currentId
-                ? 'bg-primary text-foreground'
-                : 'text-muted hover:bg-card hover:text-background'
-            }`}
-          >
-            {n.title}
-          </button>
-          {n.children.length > 0 && renderTree(n.children, currentId, onSelect, depth + 1)}
-        </li>
-      ))}
-    </ul>
+      {/* 卡片堆舞台（祖先堆 + 当前会话大卡片 + 分支扇） */}
+      <SessionDeck
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        messages={messages}
+        isStreaming={isStreaming}
+        termDefs={termDefs}
+        onTermAction={handleTermAction}
+        input={input}
+        onInputChange={setInput}
+        onSend={() => send()}
+        model={model}
+        onModelChange={changeModel}
+        onSelect={openSession}
+      />
+    </div>
   );
 }

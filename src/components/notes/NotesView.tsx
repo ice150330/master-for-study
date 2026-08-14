@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
+import { PageShell } from '@/components/shell/PageShell';
 
 type NoteContent = {
   coreConcepts: { name: string; explanation: string }[];
@@ -64,22 +64,13 @@ export function NotesView({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">学习笔记</h1>
-          <p className="mt-1 text-sm text-muted">把对话沉淀成结构化笔记，可导出 Markdown</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="学习笔记" description="把对话沉淀成结构化笔记，可导出 Markdown">
 
       <div className="mb-6 flex items-center gap-3">
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm text-background outline-none focus:border-primary"
+          className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm text-card-foreground outline-none focus:border-primary"
         >
           {initialSessions.length === 0 && <option value="">（暂无会话）</option>}
           {initialSessions.map((s) => (
@@ -92,7 +83,7 @@ export function NotesView({
           type="button"
           onClick={generate}
           disabled={!selectedId || generating}
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-foreground disabled:opacity-50"
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
           {generating ? '生成中…' : '生成笔记'}
         </button>
@@ -109,7 +100,7 @@ export function NotesView({
           ))}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -119,11 +110,11 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
   return (
     <article className="rounded-2xl bg-card p-5 shadow-md">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-background">{note.title}</h2>
+        <h2 className="text-lg font-semibold text-card-foreground">{note.title}</h2>
         <button
           type="button"
           onClick={onExport}
-          className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-background"
+          className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-card-foreground"
         >
           导出 Markdown
         </button>
@@ -132,8 +123,8 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
       {content.coreConcepts?.length > 0 && (
         <Section title="核心概念">
           {content.coreConcepts.map((c, i) => (
-            <p key={i} className="text-sm leading-relaxed text-background/80">
-              <span className="font-medium text-background">{c.name}</span>：{c.explanation}
+            <p key={i} className="text-sm leading-relaxed text-card-foreground/80">
+              <span className="font-medium text-card-foreground">{c.name}</span>：{c.explanation}
             </p>
           ))}
         </Section>
@@ -142,8 +133,8 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
       {content.terms?.length > 0 && (
         <Section title="术语表">
           {content.terms.map((t, i) => (
-            <p key={i} className="text-sm leading-relaxed text-background/80">
-              <span className="font-medium text-background">{t.name}</span>：{t.definition}
+            <p key={i} className="text-sm leading-relaxed text-card-foreground/80">
+              <span className="font-medium text-card-foreground">{t.name}</span>：{t.definition}
             </p>
           ))}
         </Section>
@@ -153,8 +144,8 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
         <Section title="代码示例">
           {content.codeExamples.map((e, i) => (
             <div key={i} className="mb-2">
-              <div className="mb-1 text-xs font-medium text-background/60">{e.label}</div>
-              <pre className="overflow-x-auto rounded-lg bg-background p-3 text-xs text-foreground">
+              <div className="mb-1 text-xs font-medium text-card-foreground/60">{e.label}</div>
+              <pre className="overflow-x-auto rounded-lg bg-card-soft p-3 font-mono text-xs text-card-foreground">
                 {e.code}
               </pre>
             </div>
@@ -165,7 +156,7 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
       {content.gaps?.length > 0 && (
         <Section title="我还未懂的点">
           {content.gaps.map((g, i) => (
-            <p key={i} className="text-sm leading-relaxed text-background/80">
+            <p key={i} className="text-sm leading-relaxed text-card-foreground/80">
               • {g}
             </p>
           ))}

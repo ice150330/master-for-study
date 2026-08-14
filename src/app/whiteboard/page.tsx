@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageShell } from '@/components/shell/PageShell';
 import { TreeGraph } from '@/components/whiteboard/TreeGraph';
 import { getAllMasteries, listSessions, type Session } from '@/lib/db';
 import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
@@ -25,18 +25,9 @@ export default function WhiteboardPage() {
   const skillLayout = layoutTree(skillTree);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">白板</h1>
-          <p className="mt-1 text-sm text-muted">一板两用：会话关系图 + 个人成长地图</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="白板" description="一板两用：会话关系图 + 个人成长地图" width="lg">
 
-      <section className="mb-8 rounded-2xl bg-background/40 p-5">
+      <section className="mb-8 rounded-2xl bg-surface p-5">
         <h2 className="mb-4 text-sm font-semibold text-foreground">会话关系图</h2>
         {sessions.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted">
@@ -47,14 +38,14 @@ export default function WhiteboardPage() {
         )}
       </section>
 
-      <section className="rounded-2xl bg-background/40 p-5">
+      <section className="rounded-2xl bg-surface p-5">
         <h2 className="mb-4 text-sm font-semibold text-foreground">个人成长地图</h2>
         <p className="mb-4 text-xs text-muted">
           青色=已掌握 · 黄色=学习中 · 粉色=重学中 · 紫色=新发现 · 灰色=未接触
         </p>
         <TreeGraph layout={skillLayout} nodeStyle={(n) => stateToStyle(n.data?.state)} />
       </section>
-    </div>
+    </PageShell>
   );
 }
 

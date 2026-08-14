@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
+import { PageShell } from '@/components/shell/PageShell';
 
 type Resource = {
   id: string;
@@ -73,32 +73,23 @@ export function ResourcesView({
   const visible = filter === '全部' ? resources : resources.filter((r) => r.status === filter);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">资源库</h1>
-          <p className="mt-1 text-sm text-muted">学什么料，按术语组织</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="资源库" description="学什么料，按术语组织">
 
       {/* 添加资源 */}
       <div className="mb-6 rounded-2xl bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-background">添加资源</h2>
+        <h2 className="mb-3 text-sm font-semibold text-card-foreground">添加资源</h2>
         <div className="flex flex-col gap-2">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="标题，如「MDN HTTP 缓存」"
-            className="rounded-xl border border-border bg-background/5 px-3 py-2 text-sm text-background outline-none placeholder:text-background/40 focus:border-primary"
+            className="rounded-xl border border-border bg-card-soft px-3 py-2 text-sm text-card-foreground outline-none placeholder:text-card-foreground/50 focus:border-primary"
           />
           <div className="flex gap-2">
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="rounded-xl border border-border bg-background/5 px-3 py-2 text-sm text-background outline-none focus:border-primary"
+              className="rounded-xl border border-border bg-card-soft px-3 py-2 text-sm text-card-foreground outline-none focus:border-primary"
             >
               {RESOURCE_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -110,14 +101,14 @@ export function ResourcesView({
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="链接 URL"
-              className="flex-1 rounded-xl border border-border bg-background/5 px-3 py-2 text-sm text-background outline-none placeholder:text-background/40 focus:border-primary"
+              className="flex-1 rounded-xl border border-border bg-card-soft px-3 py-2 text-sm text-card-foreground outline-none placeholder:text-card-foreground/50 focus:border-primary"
             />
           </div>
           <div className="flex gap-2">
             <select
               value={termId}
               onChange={(e) => setTermId(e.target.value)}
-              className="flex-1 rounded-xl border border-border bg-background/5 px-3 py-2 text-sm text-background outline-none focus:border-primary"
+              className="flex-1 rounded-xl border border-border bg-card-soft px-3 py-2 text-sm text-card-foreground outline-none focus:border-primary"
             >
               <option value="">（不关联术语）</option>
               {initialTerms.map((t) => (
@@ -130,7 +121,7 @@ export function ResourcesView({
               type="button"
               onClick={add}
               disabled={!title.trim() || !url.trim() || busy}
-              className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-foreground disabled:opacity-50"
+              className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
               {busy ? '添加中…' : '添加'}
             </button>
@@ -146,7 +137,7 @@ export function ResourcesView({
             type="button"
             onClick={() => setFilter(s)}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-              filter === s ? 'bg-primary text-foreground' : 'bg-card text-background'
+              filter === s ? 'bg-primary text-primary-foreground' : 'bg-card text-card-foreground'
             }`}
           >
             {s}
@@ -160,7 +151,7 @@ export function ResourcesView({
       ) : (
         <div className="space-y-2">
           {visible.map((r) => (
-            <div key={r.id} className="flex items-center justify-between rounded-xl bg-background/40 px-4 py-3">
+            <div key={r.id} className="flex items-center justify-between rounded-xl bg-surface px-4 py-3">
               <div className="min-w-0">
                 <a
                   href={r.url}
@@ -171,7 +162,7 @@ export function ResourcesView({
                   {r.title}
                 </a>
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
-                  <span className="rounded bg-background px-1.5 py-0.5">{r.type}</span>
+                  <span className="rounded bg-card-soft px-1.5 py-0.5">{r.type}</span>
                   {r.termId && (
                     <span className="rounded bg-accent/20 px-1.5 py-0.5 text-accent">
                       {termName.get(r.termId) ?? ''}
@@ -186,7 +177,9 @@ export function ResourcesView({
                     type="button"
                     onClick={() => changeStatus(r.id, s)}
                     className={`rounded-lg px-2 py-1 text-xs ${
-                      r.status === s ? 'bg-primary text-foreground' : 'bg-card text-background/60'
+                      r.status === s
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-card text-card-foreground/60'
                     }`}
                   >
                     {s}
@@ -197,6 +190,6 @@ export function ResourcesView({
           ))}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

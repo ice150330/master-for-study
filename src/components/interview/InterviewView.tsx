@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
+import { PageShell } from '@/components/shell/PageShell';
 
 type Interview = {
   id: string;
@@ -68,16 +68,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">模拟面试</h1>
-          <p className="mt-1 text-sm text-muted">依据画像出题，答后分层判分</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="模拟面试" description="依据画像出题，答后分层判分">
 
       <div className="rounded-2xl bg-card p-6 shadow-md">
         {!current ? (
@@ -86,14 +77,14 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
               type="button"
               onClick={askQuestion}
               disabled={busy}
-              className="rounded-xl bg-primary px-6 py-3 text-sm font-medium text-foreground disabled:opacity-50"
+              className="rounded-xl bg-primary px-6 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
               {busy ? '出题中…' : '开始面试'}
             </button>
           </div>
         ) : (
           <div>
-            <p className="text-sm font-semibold text-background">{current.question}</p>
+            <p className="text-sm font-semibold text-card-foreground">{current.question}</p>
 
             <textarea
               value={answer}
@@ -101,7 +92,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
               rows={4}
               disabled={busy || !!feedback}
               placeholder="写下你的回答…"
-              className="mt-4 w-full resize-none rounded-xl border border-border bg-background/5 px-4 py-3 text-sm text-background outline-none focus:border-primary"
+              className="mt-4 w-full resize-none rounded-xl border border-border bg-card-soft px-4 py-3 text-sm text-card-foreground outline-none focus:border-primary"
             />
 
             {!feedback ? (
@@ -110,7 +101,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
                   type="button"
                   onClick={submit}
                   disabled={!answer.trim() || busy}
-                  className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-foreground disabled:opacity-50"
+                  className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
                   {busy ? '判分中…' : '提交答案'}
                 </button>
@@ -118,7 +109,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
             ) : (
               <div
                 className={`mt-4 rounded-xl p-4 text-sm leading-relaxed ${
-                  feedback.correct ? 'bg-accent/20 text-background' : 'bg-pink/20 text-background'
+                  feedback.correct ? 'bg-accent/20 text-card-foreground' : 'bg-pink/20 text-card-foreground'
                 }`}
               >
                 <div className="mb-1 font-semibold">
@@ -129,7 +120,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
                   type="button"
                   onClick={askQuestion}
                   disabled={busy}
-                  className="mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-foreground disabled:opacity-50"
+                  className="mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
                 >
                   下一题
                 </button>
@@ -144,7 +135,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
           <h2 className="mb-3 text-sm font-semibold text-foreground">面试记录</h2>
           <div className="space-y-2">
             {history.map((h) => (
-              <div key={h.id} className="rounded-xl bg-background/40 p-3 text-sm">
+              <div key={h.id} className="rounded-xl bg-surface p-3 text-sm">
                 <p className="text-foreground">{h.question}</p>
                 {h.feedback && (
                   <p className="mt-1 text-xs text-muted">
@@ -156,6 +147,6 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

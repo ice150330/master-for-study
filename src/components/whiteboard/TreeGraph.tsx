@@ -11,6 +11,10 @@ const GAP_X = 56;
 const GAP_Y = 24;
 const PAD = 20;
 
+/**
+ * 节点配色：fill / text 均为 CSS 颜色字符串（支持十六进制或 var(--令牌)，
+ * 走 style 对象注入——SVG presentation attribute 不支持 var()）。
+ */
 type NodeStyle = { fill?: string; text?: string };
 
 export function TreeGraph<T>({
@@ -42,7 +46,7 @@ export function TreeGraph<T>({
             y1={cy(from.y)}
             x2={cx(to.x) - NODE_W / 2}
             y2={cy(to.y)}
-            stroke="rgba(255,255,255,0.18)"
+            className="stroke-border"
             strokeWidth={1.5}
           />
         );
@@ -50,8 +54,6 @@ export function TreeGraph<T>({
 
       {nodes.map((n) => {
         const style = nodeStyle?.(n) ?? {};
-        const fill = style.fill ?? '#6c5ce7';
-        const text = style.text ?? '#fafafa';
         return (
           <g key={n.id}>
             <rect
@@ -60,14 +62,14 @@ export function TreeGraph<T>({
               width={NODE_W}
               height={NODE_H}
               rx={12}
-              fill={fill}
+              style={{ fill: style.fill ?? 'var(--primary)' }}
             />
             <text
               x={cx(n.x)}
               y={cy(n.y)}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill={text}
+              style={{ fill: style.text ?? 'var(--primary-foreground)' }}
               fontSize={13}
               fontWeight={600}
             >

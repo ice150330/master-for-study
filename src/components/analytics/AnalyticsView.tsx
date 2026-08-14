@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PageShell } from '@/components/shell/PageShell';
 
 type DashboardData = {
   termStats: {
@@ -35,16 +35,7 @@ export function AnalyticsView({ data }: { data: DashboardData }) {
     : 0;
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">成长分析</h1>
-          <p className="mt-1 text-sm text-muted">你的学习，看得见</p>
-        </div>
-        <Link href="/" className="rounded-lg bg-card px-3 py-2 text-sm text-background">
-          ← 返回聊天
-        </Link>
-      </header>
+    <PageShell title="成长分析" description="你的学习，看得见">
 
       {/* 术语掌握度 */}
       <section className="mb-6">
@@ -77,7 +68,7 @@ export function AnalyticsView({ data }: { data: DashboardData }) {
         ) : (
           <div className="space-y-2">
             {Object.entries(eventBreakdown).map(([type, n]) => (
-              <div key={type} className="flex items-center justify-between rounded-xl bg-background/40 px-4 py-2 text-sm">
+              <div key={type} className="flex items-center justify-between rounded-xl bg-surface px-4 py-2 text-sm">
                 <span className="text-foreground">{EVENT_LABELS[type] ?? type}</span>
                 <span className="font-semibold text-accent">{n}</span>
               </div>
@@ -102,16 +93,16 @@ export function AnalyticsView({ data }: { data: DashboardData }) {
           </div>
         )}
       </section>
-    </div>
+    </PageShell>
   );
 }
 
 function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
   return (
     <div
-      className={`rounded-2xl p-4 shadow-md ${accent ? 'bg-primary text-foreground' : 'bg-card text-background'}`}
+      className={`rounded-2xl p-4 shadow-md ${accent ? 'bg-primary text-primary-foreground' : 'bg-card text-card-foreground'}`}
     >
-      <div className={`text-xs ${accent ? 'text-foreground/70' : 'text-background/60'}`}>{label}</div>
+      <div className={`text-xs ${accent ? 'text-primary-foreground/70' : 'text-card-foreground/60'}`}>{label}</div>
       <div className="mt-1 text-2xl font-semibold">{value}</div>
     </div>
   );

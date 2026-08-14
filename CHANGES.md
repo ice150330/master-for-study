@@ -23,6 +23,15 @@
 - 新增「实践区」模块：sql.js（WASM）SQL 沙盒 + `/practice` 页（内置示例表、运行查询、code_run 事件落库）
 - 更新 `CLAUDE.md`：同步八大模块落地现状、Vitest / Drizzle 常用命令与架构大图（旧版仍停留在骨架阶段描述）
 - 全量文档同步：`README.md`（技术栈表标注未安装项、补 test / drizzle-kit 命令、项目结构改实际）、`AGENTS.md`（技术栈表 + 项目结构同步现状）、`todo.md`（补状态说明、401 根因更正、测试计数 4 文件 18 用例实测通过）、`docs/plans/` 两份文档头部状态行（蓝图标记愿景基线、实施计划标记已执行完成并列出选型出入）；`DESIGN.md` 与 `globals.css` 逐项核对一致，未改动
+- 前端 UI/交互整体重构（纯前端，后端 API / DB 不动）：
+- 主题系统：默认浅色 + 深色可切换——globals.css 重写为 `:root`(浅)/`.dark`(深) 双套令牌（新增 `card-foreground` / `*-foreground` / `surface` / `state-untouched` 语义令牌），`@custom-variant dark` 类策略，layout 防闪内联脚本 + `localStorage['mentor-theme']` 记忆
+- 令牌语义迁移：9 文件 54 处 `text-background` → `text-card-foreground` 等，彩色填充统一配对 `*-foreground`，分区块底统一 `bg-surface`
+- AppShell 全局壳：顶栏「学习|测验」大胶囊 + 组内子标签 + 右侧全局工具（分析/白板）+ ThemeToggle；跨组切换记忆上次页；新增 `lib/nav.ts` 导航配置与 `PageShell` 统一页头，8 个模块页去复制粘贴头、去星型导航
+- SessionDeck 会话卡片堆替代侧边栏：当前会话大卡片 + 祖先链左侧竖条堆（点回跳，>3 折叠）+ 分支子会话右上角卡片扇（点切入，>3 折叠）+ SessionPicker 全部会话弹层树；Chat.tsx 拆分为 6 个组件（状态容器/舞台/大卡/祖先堆/分支扇/选择器），流式与术语逻辑原样保留
+- 补上模型切换 UI：卡片标题栏「闪电/深思」小胶囊（接通后端已有 `model` 参数，localStorage 记忆）
+- 白板主题化：TreeGraph 连线 `stroke-border`、节点走 `var(--令牌)` style 注入（SVG attribute 不支持 var()）；stateToStyle 未接触态/新发现态改令牌化
+- 文档：DESIGN.md 全量重写（双主题令牌表 + 导航 + 卡片堆规范），CLAUDE.md 架构大图同步
+- 验证：`npm test` 18/18、`npm run lint` 0 错、`npm run build` 通过、dev 全 8 路由 200
 
 ## 2026-08-13
 

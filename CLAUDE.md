@@ -61,6 +61,8 @@ npx vitest run -t "遗忘"             # 按用例名过滤
 5. **FSRS 间隔重复**：`lib/fsrs.ts` 是简化版调度器（状态机 new → learning → reviewing，again 归零进 relearning；stability / difficulty 两参数，目标保留率 ~85%）。掌握度存 `termMasteries`，`/review` 按到期出卡。
 6. **AI 接入**：`lib/ai/provider.ts` 双模型——`fastModel`（`deepseek-v4-flash`，默认）/ `proModel`（`deepseek-v4-pro`，重任务）。旧 ID `deepseek-chat` / `deepseek-reasoner` 已于 2026-07-24 下线。AI SDK 是 **v7**：流式响应用 `createTextStreamResponse` + `toTextStream`，v4 时代的 `toDataStreamResponse` 不存在。
 7. **两种客户端数据通道**：交互页 = 客户端组件 + fetch API route；仪表盘 / 白板 = Server Component 直调仓库层（`export const dynamic = 'force-dynamic'`，本地 SQLite 每请求实时渲染）。
+8. **全局壳与主题**：`components/shell/AppShell`（顶栏「学习|测验」大胶囊 + 组内子标签 + 全局工具 + 主题切换，分组配置在 `lib/nav.ts`，跨组记忆 localStorage）；主题 = globals.css 双套令牌（`:root` 浅色默认 / `.dark` 深色），真相源是 `<html>.dark` 类，layout 防闪脚本首帧前定夺。**卡片内部文字用 `text-card-foreground`、彩色填充上用配对 `*-foreground`**（深色主题卡是浅色，`text-foreground` 在卡上不可见）。
+9. **会话卡片堆**：聊天页 = SessionDeck（当前会话大卡片 + 祖先链左侧竖条堆 + 分支右上卡片扇 + SessionPicker 弹层树），Chat.tsx 只是状态容器。SVG 颜色走 `var(--令牌)` + style 对象（presentation attribute 不吃 var()）。
 
 ## 排障备忘
 
