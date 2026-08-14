@@ -23,7 +23,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 | AI | Vercel AI SDK v7（`ai`）+ `@ai-sdk/deepseek`（`v4-flash` 默认 / `v4-pro` 重任务），校验用 zod |
 | 数据库 | SQLite（better-sqlite3）+ Drizzle ORM，仓库层在 `src/lib/db/index.ts` |
 | 实践沙盒 | sql.js（WASM，客户端跑 SQL，零安装） |
-| 测试 | Vitest（`tests/` 下 `lib/` 纯函数单测，无配置文件、相对路径导入） |
+| 测试 | Vitest（纯函数、临时 SQLite、Route 合同）+ Playwright（`config/playwright.config.ts`）+ axe-core |
 
 ## 项目结构
 
@@ -34,10 +34,12 @@ src/
 ├── components/       # 组件（chat / notes / interview / review / analytics / whiteboard / resources / practice）
 └── lib/              # ai（provider/两段式标注/note/interview）、db（schema + 仓库层）、
                      # fsrs、session-tree、term-parse、tree-layout、skill-tree
-tests/                # Vitest 单测
-data/                 # SQLite 数据文件（gitignore，首次查询自动建库迁移）
+tests/                # Vitest 单元/集成/合同测试 + Playwright E2E
+config/               # Playwright 等项目配置
+data/                 # SQLite、截图与测试产物（gitignore，首次查询自动建库迁移）
 drizzle/              # 迁移 SQL（已提交；改 schema 后 npx drizzle-kit generate）
 docs/plans/           # 产品设计蓝图 + 实施计划
+docs/reports/         # 阶段截图审查与验证报告
 ```
 
 ## 代码规范

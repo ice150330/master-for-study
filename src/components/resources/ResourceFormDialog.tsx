@@ -14,12 +14,14 @@ export function ResourceFormDialog({
   resource,
   terms,
   busy,
+  error,
   onOpenChange,
   onSave,
 }: {
   resource?: ResourceDto | null;
   terms: Array<{ id: string; name: string }>;
   busy: boolean;
+  error?: { message: string; retry?: () => void } | null;
   onOpenChange(open: boolean): void;
   onSave(input: { url: string; metadata: ResourceMetadataDto; form: ResourceFormValue }): void;
 }) {
@@ -82,6 +84,17 @@ export function ResourceFormDialog({
         <DialogDescription className="mt-1 text-sm text-muted">
           {editing ? '修改阅读状态、标签、Concept 和文档笔记。' : '先读取链接元数据，再确认资源的学习归属。'}
         </DialogDescription>
+
+        {error ? (
+          <InlineNotice
+            className="mt-3"
+            tone="error"
+            title="资源保存未完成"
+            description={`${error.message}。当前输入和选择均已保留。`}
+            actionLabel={error.retry ? '重试' : undefined}
+            onAction={error.retry}
+          />
+        ) : null}
 
         {!editing ? (
           <div className="mt-5 flex gap-2">

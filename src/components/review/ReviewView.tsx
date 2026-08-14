@@ -309,9 +309,9 @@ export function ReviewView({
           </Link>
         </section>
       ) : (
-        <section className="grid min-h-[520px] overflow-hidden rounded-md border border-border bg-card min-[960px]:grid-cols-[minmax(0,1fr)_15rem]">
-          <div className="flex min-w-0 flex-col p-7">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <section className="grid min-h-[320px] overflow-hidden rounded-md border border-border bg-card min-[960px]:grid-cols-[minmax(0,1fr)_15rem] min-[1180px]:min-h-[440px]">
+          <div className="flex min-w-0 flex-col p-5 min-[1180px]:p-7">
+            <div className="mb-4 flex items-start justify-between gap-4 min-[1180px]:mb-6">
               <div>
                 <p className="text-xs font-medium text-muted">{completed + 1} / {totalInSession} · {STATE_LABELS[current.state]}</p>
                 <h2 className="mt-2 text-2xl font-semibold text-card-foreground">{current.name}</h2>
@@ -341,7 +341,7 @@ export function ReviewView({
                     value={recall}
                     onChange={(event) => setRecall(event.target.value)}
                     placeholder="用自己的话回答，不要求逐字一致"
-                    className="min-h-52 w-full resize-none rounded-md border border-border bg-background p-4 text-sm leading-6 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    className="min-h-28 w-full resize-none rounded-md border border-border bg-background p-4 text-sm leading-6 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/15 min-[1180px]:min-h-40"
                     autoFocus
                   />
                 ) : (
@@ -349,14 +349,14 @@ export function ReviewView({
                     type="button"
                     aria-pressed={oralDone}
                     onClick={() => setOralDone((value) => !value)}
-                    className="flex min-h-52 flex-col items-center justify-center rounded-md border border-dashed border-border bg-surface text-sm transition-colors hover:border-primary"
+                    className="flex min-h-28 flex-col items-center justify-center rounded-md border border-dashed border-border bg-surface text-sm transition-colors hover:border-primary min-[1180px]:min-h-40"
                   >
                     <Mic className="mb-3 size-6 text-muted" />
                     <span className="font-medium">{oralDone ? '已完成口头回答' : '回答完成后点这里'}</span>
                     {oralDone ? <span className="mt-1 text-xs text-accent">可以查看答案</span> : null}
                   </button>
                 )}
-                <div className="mt-auto flex justify-end pt-5">
+                <div className="mt-auto flex justify-end pt-3 min-[1180px]:pt-5">
                   <Button size="lg" disabled={!readyToReveal} onClick={() => setRevealed(true)}>
                     查看答案
                   </Button>

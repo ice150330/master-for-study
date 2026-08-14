@@ -229,7 +229,7 @@ export function ResourcesView({
       width="xl"
       actions={<Button onClick={() => setFormMode('add')}><Plus aria-hidden="true" className="size-4" />添加资源</Button>}
     >
-      {error ? <InlineNotice className="mb-4" tone="error" title="资源操作未完成" description={`${error.message}。当前输入和选择均已保留。`} actionLabel={error.retry ? '重试' : undefined} onAction={error.retry} /> : null}
+      {error && !formMode ? <InlineNotice className="mb-4" tone="error" title="资源操作未完成" description={`${error.message}。当前输入和选择均已保留。`} actionLabel={error.retry ? '重试' : undefined} onAction={error.retry} /> : null}
 
       <div className="overflow-hidden rounded-md border border-border bg-card">
         <div className="flex min-h-14 items-center justify-between gap-4 border-b border-border px-4">
@@ -307,6 +307,7 @@ export function ResourcesView({
           resource={formMode === 'edit' ? selected : null}
           terms={initialTerms}
           busy={busy}
+          error={error}
           onOpenChange={(open) => { if (!open) setFormMode(null); }}
           onSave={(input) => void saveResource(input)}
         />

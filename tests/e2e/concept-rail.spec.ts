@@ -125,15 +125,15 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
   await expect(page.getByText('MDN Cache-Control', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: '创建笔记' })).toHaveAttribute(
     'href',
-    `/notes?concept=${conceptId}`,
+    new RegExp(`/notes\\?concept=${conceptId}.*source=message%3A`),
   );
   await expect(page.getByRole('link', { name: '开始练习' })).toHaveAttribute(
     'href',
-    `/practice?concept=${conceptId}`,
+    new RegExp(`/practice\\?concept=${conceptId}.*source=message%3A`),
   );
   await expect(page.getByRole('link', { name: '加入复习' })).toHaveAttribute(
     'href',
-    `/review?concept=${conceptId}`,
+    new RegExp(`/review\\?concept=${conceptId}.*source=message%3A`),
   );
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-multi-source-${testInfo.project.name}.png`),

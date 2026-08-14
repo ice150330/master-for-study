@@ -39,6 +39,18 @@ describe('跨模块学习上下文', () => {
     });
   });
 
+  it('保留流式消息使用的复合来源 ID', () => {
+    const params = new URLSearchParams({
+      concept: 'term-1',
+      source: 'message:session-1:chat:request-1:assistant',
+    });
+    expect(parseLearningContext(params).source).toEqual({
+      type: 'message',
+      sessionId: 'session-1',
+      messageId: 'chat:request-1:assistant',
+    });
+  });
+
   it('在保留模块选择参数的同时追加上下文', () => {
     const href = withLearningContext('/practice?challenge=sql-filter-sort#editor', {
       workspaceId: 'workspace-1',

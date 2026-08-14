@@ -119,6 +119,21 @@ test('术语增强失败不会回滚已经完成的回答', async ({ page }) => 
 
 test('资源保存失败后保留表单，重试成功后再清空', async ({ page }, testInfo) => {
   let attempts = 0;
+  await page.route('**/api/resources/metadata', async (route) => {
+    await route.fulfill({
+      json: {
+        metadata: {
+          title: 'MDN 缓存指南',
+          canonicalUrl: 'https://developer.mozilla.org/cache',
+          siteName: 'MDN',
+          author: null,
+          description: 'HTTP 缓存学习资料。',
+          faviconUrl: null,
+          type: '文档',
+        },
+      },
+    });
+  });
   await page.route('**/api/resources', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     attempts += 1;
@@ -136,24 +151,38 @@ test('资源保存失败后保留表单，重试成功后再清空', async ({ pa
       body: JSON.stringify({
         resource: {
           id: 'resource-e2e',
+          workspaceId: 'workspace-e2e',
           termId: null,
           title: 'MDN 缓存指南',
           type: '文档',
           url: 'https://developer.mozilla.org/cache',
+          canonicalUrl: 'https://developer.mozilla.org/cache',
+          siteName: 'MDN',
+          author: null,
+          description: 'HTTP 缓存学习资料。',
+          faviconUrl: null,
           status: '想读',
+          progress: 0,
+          tags: [],
           note: null,
           createdAt: '2026-08-14T10:00:00.000Z',
+          updatedAt: '2026-08-14T10:00:00.000Z',
+          concepts: [],
+          highlights: [],
         },
+        duplicate: false,
       }),
     });
   });
 
   await page.goto('/resources', { waitUntil: 'networkidle' });
-  const title = page.getByPlaceholder('标题，如「MDN HTTP 缓存」');
-  const url = page.getByPlaceholder('链接 URL');
-  await title.fill('MDN 缓存指南');
+  await page.getByRole('button', { name: '添加资源' }).click();
+  const url = page.getByRole('textbox', { name: '资源链接' });
   await url.fill('https://developer.mozilla.org/cache');
-  await page.getByRole('button', { name: '添加', exact: true }).click();
+  await page.getByRole('button', { name: '读取信息' }).click();
+  const title = page.getByLabel('标题');
+  await expect(title).toHaveValue('MDN 缓存指南');
+  await page.getByRole('button', { name: '加入收件箱' }).click();
 
   await expect(page.getByRole('alert').filter({ hasText: '资源服务暂时不可用' })).toBeVisible();
   await expect(title).toHaveValue('MDN 缓存指南');
@@ -164,9 +193,10 @@ test('资源保存失败后保留表单，重试成功后再清空', async ({ pa
   });
 
   await page.getByRole('button', { name: '重试', exact: true }).click();
-  await expect(page.getByText('资源已添加')).toBeVisible();
-  await expect(title).toHaveValue('');
-  await expect(url).toHaveValue('');
+  await expect(page.getByText('资源已加入收件箱')).toBeVisible();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByRole('button', { name: '添加资源' }).click();
+  await expect(page.getByRole('textbox', { name: '资源链接' })).toHaveValue('');
 });
 
 test('复习提交失败后保留答案面并可恢复队列', async ({ page }, testInfo) => {

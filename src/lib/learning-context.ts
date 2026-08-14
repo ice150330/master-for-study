@@ -22,6 +22,7 @@ export type LearningContext = {
 type SearchReader = { get(name: string): string | null };
 
 const CONTEXT_ID = /^[a-z0-9][a-z0-9_-]{0,159}$/i;
+const MESSAGE_ID = /^[a-z0-9][a-z0-9_:-]{0,239}$/i;
 
 export function parseLearningContext(search: SearchReader): LearningContext {
   return {
@@ -97,9 +98,9 @@ export function attemptHref(attempt: LearningAttempt, context: LearningContext) 
 function parseSource(value: string | null): LearningSource | null {
   if (!value) return null;
   const parts = value.split(':');
-  if (parts[0] === 'message' && parts.length === 3) {
+  if (parts[0] === 'message' && parts.length >= 3) {
     const sessionId = validId(parts[1]);
-    const messageId = validId(parts[2]);
+    const messageId = validMessageId(parts.slice(2).join(':'));
     return sessionId && messageId ? { type: 'message', sessionId, messageId } : null;
   }
   if ((parts[0] === 'note' || parts[0] === 'resource') && parts.length === 2) {
@@ -119,6 +120,10 @@ function parseAttempt(value: string | null): LearningAttempt | null {
 
 function validId(value: string | null | undefined) {
   return value && CONTEXT_ID.test(value) ? value : null;
+}
+
+function validMessageId(value: string | null | undefined) {
+  return value && MESSAGE_ID.test(value) ? value : null;
 }
 
 function setOrDelete(params: URLSearchParams, key: string, value: string | null | undefined) {

@@ -2,18 +2,18 @@
 
 > 一个运行在本地、有长期记忆的私人学习老师——陪你学、帮你整理、看得见你的成长、在你遗忘前悄悄考你。
 
-**当前状态**：八大模块已完成——流式对话（术语标注 + 高亮 + 会话树）、学习笔记（结构化总结 + 导出）、模拟面试（出题 + 判分）、隐性巩固（间隔重复）、成长分析（仪表盘）、白板（会话关系图 + 成长地图）、资源库（按术语组织 + 阅读状态）、实践区（SQL WASM 沙盒）。规划见 [`docs/plans/`](docs/plans/) 与 [`todo.md`](todo.md)。
+**当前状态**：阶段 0–18 已完成。应用已形成“今日行动 → 对话与语义分支 → Concept 来源轨道 → 笔记/资源 → SQL 实践或结构化面试 → FSRS 主动复习 → 证据化分析/知识图”的可运行学习闭环；统一 URL 上下文支持刷新、深链和浏览器历史恢复。实施记录见 [`docs/reports/`](docs/reports/) 与 [`CHANGES.md`](CHANGES.md)。
 
 ## 技术栈
 
 | 层 | 选型 |
 |----|------|
 | 框架 | Next.js 16 (App Router, Turbopack) + React 19 + TypeScript |
-| UI | Tailwind CSS v4（shadcn/ui 与 Zustand 为规划项，尚未引入） |
+| UI | Tailwind CSS v4 + Radix primitives + Lucide；React hooks + fetch 管理客户端状态 |
 | AI | Vercel AI SDK v7（`ai`）+ `@ai-sdk/deepseek`（`v4-flash` 默认 / `v4-pro` 重任务） |
 | 数据库 | SQLite（better-sqlite3）+ Drizzle ORM |
-| 实践沙盒 | sql.js（WASM，客户端运行 SQL） |
-| 测试 | Vitest（`lib/` 纯函数单测） |
+| 学习引擎 | sql.js Web Worker 沙盒 + ts-fsrs FSRS 6 + React Flow 知识图 |
+| 测试 | Vitest（纯函数、SQLite、Route 合同）+ Playwright + axe-core |
 
 ## 快速开始
 
@@ -40,6 +40,8 @@ npm run start   # 生产启动（需先 build）
 npm run lint    # ESLint
 npm test        # Vitest 单次运行
 npx vitest run tests/fsrs.test.ts   # 跑单个测试文件
+npx playwright test --config=config/playwright.config.ts --project=desktop-1440x900
+npx playwright test tests/e2e/final-learning-loop.spec.ts --config=config/playwright.config.ts
 npx drizzle-kit generate            # 改 schema 后生成迁移（drizzle/，运行时自动应用）
 ```
 
@@ -50,15 +52,15 @@ src/
 ├── app/              # 路由 + API route handlers
 │   └── api/          # chat / sessions / terms / notes / interview / review / resources / events
 ├── components/       # 组件（chat / notes / interview / review / analytics / whiteboard / resources / practice）
-└── lib/              # 领域逻辑
-    ├── ai/           # provider（双模型）/ term-annotation（两段式）/ note / interview
-    ├── db/           # schema + 仓库层（所有 SQL 只出现在这里）
-    ├── fsrs.ts       # 间隔重复调度器
-    ├── session-tree.ts / term-parse.ts / tree-layout.ts / skill-tree.ts
-tests/                # Vitest 纯函数单测
-data/                 # SQLite 数据文件（gitignore）
+└── lib/              # AI、DB、FSRS、学习上下文、知识图、分析与实践领域逻辑
+tests/
+├── api/ / db/        # Route 合同与临时 SQLite 集成测试
+└── e2e/              # Playwright 交互、截图、无障碍和闭环测试
+config/               # Playwright 等项目配置
+data/                 # SQLite、截图与测试产物（gitignore）
 drizzle/              # 迁移 SQL（已提交）
-docs/plans/           # 产品设计蓝图 + 实施计划
+docs/plans/           # 产品蓝图与实施计划
+docs/reports/         # 各阶段设计、截图与验证审计
 ```
 
 路径别名 `@/*` → `src/*`。
@@ -67,9 +69,10 @@ docs/plans/           # 产品设计蓝图 + 实施计划
 
 - [AGENTS.md](AGENTS.md) —— 代码规范与关键约束（含 Next.js 16 破坏性变更提示）
 - [CLAUDE.md](CLAUDE.md) —— Claude Code 工作指引（命令 + 架构大图）
-- [DESIGN.md](DESIGN.md) —— UI/UX 设计系统（card-stack 设计令牌）
+- [DESIGN.md](DESIGN.md) —— 桌面学习工作台 UI/UX 设计系统
 - [CHANGES.md](CHANGES.md) —— 变更记录
 - [docs/plans/](docs/plans/) —— 产品设计蓝图与实施计划
+- [docs/reports/](docs/reports/) —— 阶段审查与最终交付报告
 
 ## 许可证
 

@@ -433,6 +433,7 @@ export function Chat() {
     const concept = conceptPanel?.detail?.concept;
     const sourceMessageId = conceptPanel?.sourceMessageId;
     if (!concept) return;
+    setConceptPanel(null);
     if (sourceMessageId && currentSessionId) {
       void createSemanticBranch(
         sourceMessageId,
