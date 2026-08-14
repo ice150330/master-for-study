@@ -30,6 +30,14 @@ import {
 } from '../interview/types';
 import { DEFAULT_TITLE, deriveSessionTitle } from '../session-title';
 import { parseTermMarkers } from '../term-parse';
+import { KNOWLEDGE_SEED_EDGES, KNOWLEDGE_SEED_NODES } from '../knowledge/seed';
+import type {
+  KnowledgeEvidence,
+  KnowledgeGraph,
+  KnowledgeGraphEdge,
+  KnowledgeGraphNode,
+  KnowledgeRelation,
+} from '../knowledge/types';
 
 /**
  * SQLite 连接与仓库层（服务端 only，勿在客户端引用）。
@@ -60,6 +68,9 @@ export type Resource = typeof schema.resources.$inferSelect;
 export type ResourceTerm = typeof schema.resourceTerms.$inferSelect;
 export type ResourceHighlight = typeof schema.resourceHighlights.$inferSelect;
 export type MessageResource = typeof schema.messageResources.$inferSelect;
+export type KnowledgeNode = typeof schema.knowledgeNodes.$inferSelect;
+export type KnowledgeEdge = typeof schema.knowledgeEdges.$inferSelect;
+export type KnowledgeNodeLayout = typeof schema.knowledgeNodeLayouts.$inferSelect;
 export type ResourceType = Resource['type'];
 export type ResourceStatus = Resource['status'];
 
@@ -2433,4 +2444,348 @@ export function getResourceContext(resourceIds: string[]) {
         locator: highlight.locator,
       })),
     }));
+}
+
+/** 同步数据库种子、真实 Concept 和有来源的共现关系。 */
+function ensureKnowledgeProjection() {
+  const db = getDb();
+  const workspace = ensureWorkspace();
+  const now = new Date();
+  const terms = db.select().from(schema.terms).all();
+  const knownNodes = db.select().from(schema.knowledgeNodes)
+    .where(eq(schema.knowledgeNodes.workspaceId, workspace.id)).all();
+  const byLabel = new Map(knownNodes.map((node) => [node.label.toLocaleLowerCase(), node]));
+  const byTerm = new Map(knownNodes.filter((node) => node.termId).map((node) => [node.termId as string, node]));
+
+  db.transaction((tx) => {
+    for (const seed of KNOWLEDGE_SEED_NODES) {
+      const key = seed.label.toLocaleLowerCase();
+      const existing = byLabel.get(key);
+      const term = terms.find((candidate) => conceptNames(candidate).has(key));
+      if (existing) {
+        if (!existing.termId && term && !byTerm.has(term.id)) {
+          tx.update(schema.knowledgeNodes).set({ termId: term.id, updatedAt: now })
+            .where(eq(schema.knowledgeNodes.id, existing.id)).run();
+          existing.termId = term.id;
+          byTerm.set(term.id, existing);
+        }
+        continue;
+      }
+      const node = {
+        id: seed.id,
+        workspaceId: workspace.id,
+        termId: term?.id ?? null,
+        kind: seed.kind,
+        label: seed.label,
+        description: seed.description,
+        origin: 'seed' as const,
+        createdAt: now,
+        updatedAt: now,
+      };
+      tx.insert(schema.knowledgeNodes).values(node).run();
+      knownNodes.push(node);
+      byLabel.set(key, node);
+      if (term) byTerm.set(term.id, node);
+    }
+
+    for (const term of terms) {
+      if (byTerm.has(term.id)) continue;
+      const labelKey = term.canonicalName.toLocaleLowerCase();
+      const matching = byLabel.get(labelKey);
+      if (matching && !matching.termId) {
+        tx.update(schema.knowledgeNodes).set({ termId: term.id, updatedAt: now })
+          .where(eq(schema.knowledgeNodes.id, matching.id)).run();
+        matching.termId = term.id;
+        byTerm.set(term.id, matching);
+        continue;
+      }
+      const node = {
+        id: `concept:${term.id}`,
+        workspaceId: workspace.id,
+        termId: term.id,
+        kind: 'concept' as const,
+        label: term.canonicalName,
+        description: term.definition,
+        origin: 'learned' as const,
+        createdAt: term.createdAt,
+        updatedAt: term.createdAt,
+      };
+      tx.insert(schema.knowledgeNodes).values(node).run();
+      knownNodes.push(node);
+      byLabel.set(labelKey, node);
+      byTerm.set(term.id, node);
+    }
+
+    for (const edge of KNOWLEDGE_SEED_EDGES) {
+      const sourceSeed = KNOWLEDGE_SEED_NODES.find((node) => node.id === edge.source);
+      const targetSeed = KNOWLEDGE_SEED_NODES.find((node) => node.id === edge.target);
+      const source = sourceSeed ? byLabel.get(sourceSeed.label.toLocaleLowerCase()) : undefined;
+      const target = targetSeed ? byLabel.get(targetSeed.label.toLocaleLowerCase()) : undefined;
+      if (!source || !target) continue;
+      tx.insert(schema.knowledgeEdges).values({
+        id: `seed-edge:${edge.source}:${edge.target}:${edge.relation}`,
+        workspaceId: workspace.id,
+        sourceNodeId: source.id,
+        targetNodeId: target.id,
+        relation: edge.relation,
+        evidenceType: 'seed',
+        evidenceId: null,
+        weight: 1,
+        createdAt: now,
+        updatedAt: now,
+      }).onConflictDoNothing().run();
+    }
+
+    const existingMentionEdges = tx.select().from(schema.knowledgeEdges).where(and(
+      eq(schema.knowledgeEdges.workspaceId, workspace.id),
+      eq(schema.knowledgeEdges.evidenceType, 'mention'),
+    )).all();
+    const termIds = new Set(terms.map((term) => term.id));
+    const mentions = tx.select().from(schema.conceptMentions).all()
+      .filter((mention) => termIds.has(mention.termId));
+    const groups = new Map<string, Set<string>>();
+    for (const mention of mentions) {
+      const key = `${mention.sourceType}:${mention.sourceId}`;
+      groups.set(key, new Set([...(groups.get(key) ?? []), mention.termId]));
+    }
+    const pairCounts = new Map<string, { source: string; target: string; weight: number }>();
+    for (const group of groups.values()) {
+      const ids = [...group].map((termId) => byTerm.get(termId)?.id).filter((id): id is string => Boolean(id)).slice(0, 12);
+      for (let left = 0; left < ids.length; left += 1) {
+        for (let right = left + 1; right < ids.length; right += 1) {
+          const [source, target] = [ids[left], ids[right]].sort();
+          const key = `${source}:${target}`;
+          const pair = pairCounts.get(key);
+          pairCounts.set(key, { source, target, weight: (pair?.weight ?? 0) + 1 });
+        }
+      }
+    }
+    for (const pair of pairCounts.values()) {
+      const existing = existingMentionEdges.find((edge) =>
+        edge.sourceNodeId === pair.source && edge.targetNodeId === pair.target && edge.relation === 'related');
+      if (existing) {
+        if (existing.weight !== pair.weight) {
+          tx.update(schema.knowledgeEdges).set({ weight: pair.weight, updatedAt: now })
+            .where(eq(schema.knowledgeEdges.id, existing.id)).run();
+        }
+      } else {
+        tx.insert(schema.knowledgeEdges).values({
+          id: randomUUID(),
+          workspaceId: workspace.id,
+          sourceNodeId: pair.source,
+          targetNodeId: pair.target,
+          relation: 'related',
+          evidenceType: 'mention',
+          evidenceId: null,
+          weight: pair.weight,
+          createdAt: now,
+          updatedAt: now,
+        }).onConflictDoNothing().run();
+      }
+    }
+    for (const existing of existingMentionEdges) {
+      const key = `${existing.sourceNodeId}:${existing.targetNodeId}`;
+      if (!pairCounts.has(key)) {
+        tx.delete(schema.knowledgeEdges).where(eq(schema.knowledgeEdges.id, existing.id)).run();
+      }
+    }
+  });
+}
+
+/** 读取当前 Concept 周围一到两跳的局部知识图。 */
+export function getKnowledgeGraph(input: {
+  centerId?: string;
+  depth?: 1 | 2;
+  relations?: KnowledgeRelation[];
+} = {}): KnowledgeGraph {
+  ensureKnowledgeProjection();
+  const db = getDb();
+  const workspace = ensureWorkspace();
+  const depth = input.depth ?? 1;
+  const allNodes = db.select().from(schema.knowledgeNodes)
+    .where(eq(schema.knowledgeNodes.workspaceId, workspace.id)).all();
+  const allowed = new Set(input.relations?.length ? input.relations : ['part_of', 'prerequisite', 'related', 'applied_in']);
+  const allEdges = db.select().from(schema.knowledgeEdges)
+    .where(eq(schema.knowledgeEdges.workspaceId, workspace.id)).all()
+    .filter((edge) => allowed.has(edge.relation));
+  const validRequested = input.centerId && allNodes.some((node) => node.id === input.centerId)
+    ? input.centerId
+    : null;
+  const connected = new Set(allEdges.flatMap((edge) => [edge.sourceNodeId, edge.targetNodeId]));
+  const latestConnectedTerm = db.select().from(schema.terms).orderBy(desc(schema.terms.createdAt)).all()
+    .map((term) => allNodes.find((node) => node.termId === term.id))
+    .find((node) => node && connected.has(node.id));
+  const centerId = validRequested
+    ?? latestConnectedTerm?.id
+    ?? allNodes.find((node) => node.id === 'domain:engineering')?.id
+    ?? allNodes[0]?.id
+    ?? null;
+  const included = centerId ? collectLocalNodeIds(centerId, allEdges, depth) : new Set<string>();
+  const layouts = new Map(db.select().from(schema.knowledgeNodeLayouts)
+    .where(eq(schema.knowledgeNodeLayouts.viewKey, 'knowledge')).all()
+    .map((layout) => [layout.nodeId, { x: layout.x, y: layout.y }]));
+  const termById = new Map(db.select().from(schema.terms).all().map((term) => [term.id, term]));
+  const nodes = allNodes.filter((node) => included.has(node.id)).map((node) => {
+    const term = node.termId ? termById.get(node.termId) : undefined;
+    return {
+      id: node.id,
+      label: node.label,
+      kind: node.kind,
+      termId: node.termId,
+      description: term?.definition ?? node.description,
+      masteryState: node.termId ? getMasteryState(node.termId) : null,
+      evidence: getKnowledgeEvidence(node.termId, node.label),
+      href: node.termId ? `/?concept=${node.termId}` : null,
+      position: layouts.get(node.id) ?? null,
+    } satisfies KnowledgeGraphNode;
+  });
+  const edges = allEdges.filter((edge) => included.has(edge.sourceNodeId) && included.has(edge.targetNodeId))
+    .map((edge) => ({
+      id: edge.id,
+      source: edge.sourceNodeId,
+      target: edge.targetNodeId,
+      relation: edge.relation,
+      weight: edge.weight,
+      evidenceType: edge.evidenceType,
+    } satisfies KnowledgeGraphEdge));
+  return {
+    mode: 'knowledge',
+    centerId,
+    depth,
+    nodes,
+    edges,
+    searchOptions: allNodes.map((node) => ({ id: node.id, label: node.label, kind: node.kind, termId: node.termId }))
+      .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN')),
+    totalNodes: allNodes.length,
+  };
+}
+
+/** 会话分支投影继续使用真实 parent/fork 锚点，并提供可直接返回来源的 URL。 */
+export function getSessionKnowledgeGraph(): KnowledgeGraph {
+  const sessions = listSessions();
+  const nodes = sessions.map((session, index) => ({
+    id: session.id,
+    label: session.title,
+    kind: 'session' as const,
+    termId: null,
+    description: `${listMessages(session.id).length} 条消息${session.parentId ? ' · 派生会话' : ' · 根会话'}`,
+    masteryState: null,
+    evidence: { messages: listMessages(session.id).length, notes: 0, resources: 0, interviews: 0, practice: 0, reviews: 0 },
+    href: `/?session=${session.id}${session.forkedFromMessageId ? `&message=${session.forkedFromMessageId}` : ''}`,
+    forkedFromMessageId: session.forkedFromMessageId,
+    position: { x: sessionDepth(session, sessions) * 250, y: index * 105 },
+  } satisfies KnowledgeGraphNode));
+  const ids = new Set(nodes.map((node) => node.id));
+  const edges = sessions.filter((session) => session.parentId && ids.has(session.parentId)).map((session) => ({
+    id: `session-edge:${session.parentId}:${session.id}`,
+    source: session.parentId as string,
+    target: session.id,
+    relation: 'branch' as const,
+    weight: 1,
+    evidenceType: session.forkedFromMessageId ? 'message' : 'session',
+  }));
+  return {
+    mode: 'session',
+    centerId: nodes[0]?.id ?? null,
+    depth: 2,
+    nodes,
+    edges,
+    searchOptions: nodes.map((node) => ({ id: node.id, label: node.label, kind: node.kind, termId: null })),
+    totalNodes: nodes.length,
+  };
+}
+
+export function saveKnowledgeNodeLayout(input: {
+  nodeId: string;
+  x: number;
+  y: number;
+  viewKey?: string;
+  idempotencyKey: string;
+}) {
+  const previous = findEventByIdempotencyKey(input.idempotencyKey);
+  if (previous) return true;
+  const db = getDb();
+  const workspace = ensureWorkspace();
+  const node = db.select().from(schema.knowledgeNodes).where(and(
+    eq(schema.knowledgeNodes.id, input.nodeId),
+    eq(schema.knowledgeNodes.workspaceId, workspace.id),
+  )).limit(1).get();
+  if (!node) return false;
+  const viewKey = input.viewKey ?? 'knowledge';
+  const now = new Date();
+  db.transaction((tx) => {
+    tx.insert(schema.knowledgeNodeLayouts).values({ nodeId: node.id, viewKey, x: input.x, y: input.y, updatedAt: now })
+      .onConflictDoUpdate({
+        target: [schema.knowledgeNodeLayouts.nodeId, schema.knowledgeNodeLayouts.viewKey],
+        set: { x: input.x, y: input.y, updatedAt: now },
+      }).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: workspace.id,
+      action: 'knowledge_layout_changed',
+      objectType: 'knowledge_node',
+      objectId: node.id,
+      result: { x: input.x, y: input.y },
+      context: { viewKey },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return true;
+}
+
+function conceptNames(term: Term) {
+  return new Set([term.name, term.canonicalName, ...term.aliases].map((name) => name.toLocaleLowerCase()));
+}
+
+function collectLocalNodeIds(centerId: string, edges: KnowledgeEdge[], depth: 1 | 2) {
+  const adjacency = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    adjacency.set(edge.sourceNodeId, new Set([...(adjacency.get(edge.sourceNodeId) ?? []), edge.targetNodeId]));
+    adjacency.set(edge.targetNodeId, new Set([...(adjacency.get(edge.targetNodeId) ?? []), edge.sourceNodeId]));
+  }
+  const included = new Set([centerId]);
+  let frontier = [centerId];
+  for (let level = 0; level < depth; level += 1) {
+    const next = new Set<string>();
+    for (const nodeId of frontier) for (const neighbor of adjacency.get(nodeId) ?? []) {
+      included.add(neighbor);
+      next.add(neighbor);
+    }
+    frontier = [...next];
+  }
+  return included;
+}
+
+function getMasteryState(termId: string): TermMastery['state'] | null {
+  return getDb().select({ state: schema.termMasteries.state }).from(schema.termMasteries)
+    .where(eq(schema.termMasteries.termId, termId)).limit(1).get()?.state ?? null;
+}
+
+function getKnowledgeEvidence(termId: string | null, label: string): KnowledgeEvidence {
+  const empty = { messages: 0, notes: 0, resources: 0, interviews: 0, practice: 0, reviews: 0 };
+  if (!termId) return empty;
+  const db = getDb();
+  const mentions = db.select({ sourceType: schema.conceptMentions.sourceType }).from(schema.conceptMentions)
+    .where(eq(schema.conceptMentions.termId, termId)).all();
+  return {
+    messages: mentions.filter((item) => item.sourceType === 'message').length,
+    notes: mentions.filter((item) => item.sourceType === 'note').length,
+    resources: mentions.filter((item) => item.sourceType === 'resource').length,
+    interviews: db.select().from(schema.interviews).where(eq(schema.interviews.termId, termId)).all().length,
+    practice: db.select({ skills: schema.practiceAttempts.skills }).from(schema.practiceAttempts).all()
+      .filter((attempt) => attempt.skills.some((skill) => skill.toLocaleLowerCase() === label.toLocaleLowerCase())).length,
+    reviews: db.select().from(schema.reviewLogs).where(eq(schema.reviewLogs.termId, termId)).all().length,
+  };
+}
+
+function sessionDepth(session: Session, sessions: Session[]) {
+  const byId = new Map(sessions.map((item) => [item.id, item]));
+  let depth = 0;
+  let cursor = session.parentId ? byId.get(session.parentId) : undefined;
+  const seen = new Set([session.id]);
+  while (cursor && !seen.has(cursor.id)) {
+    seen.add(cursor.id);
+    depth += 1;
+    cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+  }
+  return depth;
 }

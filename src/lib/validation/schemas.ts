@@ -209,6 +209,21 @@ export const resourceHighlightSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('delete'), id, idempotencyKey }).strict(),
 ]);
 
+export const knowledgeGraphQuerySchema = z.object({
+  mode: z.enum(['knowledge', 'session']).default('knowledge'),
+  centerId: z.string().trim().min(1).max(160).optional(),
+  depth: z.coerce.number().int().min(1).max(2).default(1).transform((value) => value as 1 | 2),
+  relations: z.array(z.enum(['part_of', 'prerequisite', 'related', 'applied_in'])).max(4).default([]),
+}).strict();
+
+export const knowledgeLayoutSchema = z.object({
+  nodeId: z.string().trim().min(1).max(160),
+  viewKey: z.string().trim().regex(/^[a-z0-9:-]+$/).max(120).default('knowledge'),
+  x: z.number().finite().min(-100_000).max(100_000),
+  y: z.number().finite().min(-100_000).max(100_000),
+  idempotencyKey,
+}).strict();
+
 export const publicEventSchema = z
   .object({
     action: z.enum(PUBLIC_EVENT_ACTIONS),

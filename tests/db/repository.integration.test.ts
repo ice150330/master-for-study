@@ -208,6 +208,71 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
   });
 
+  it('知识图同步真实 Concept、来源关系、局部深度和独立布局', () => {
+    const alpha = repository.upsertTerm({
+      name: '图谱 Alpha',
+      definition: '局部图测试的中心概念。',
+      idempotencyKey: 'term:graph:alpha',
+    });
+    const beta = repository.upsertTerm({
+      name: '图谱 Beta',
+      definition: '与中心概念直接相关。',
+      idempotencyKey: 'term:graph:beta',
+    });
+    const gamma = repository.upsertTerm({
+      name: '图谱 Gamma',
+      definition: '通过 Beta 与中心形成二跳关系。',
+      idempotencyKey: 'term:graph:gamma',
+    });
+    repository.recordConceptMention({ termId: alpha.id, sourceType: 'message', sourceId: 'graph-source-one', idempotencyKey: 'mention:graph:alpha:one' });
+    repository.recordConceptMention({ termId: beta.id, sourceType: 'message', sourceId: 'graph-source-one', idempotencyKey: 'mention:graph:beta:one' });
+    repository.recordConceptMention({ termId: beta.id, sourceType: 'message', sourceId: 'graph-source-two', idempotencyKey: 'mention:graph:beta:two' });
+    repository.recordConceptMention({ termId: gamma.id, sourceType: 'message', sourceId: 'graph-source-two', idempotencyKey: 'mention:graph:gamma:two' });
+
+    const centerId = `concept:${alpha.id}`;
+    const oneHop = repository.getKnowledgeGraph({ centerId, depth: 1, relations: ['related'] });
+    const twoHop = repository.getKnowledgeGraph({ centerId, depth: 2, relations: ['related'] });
+    expect(oneHop.nodes.map((node) => node.termId)).toContain(beta.id);
+    expect(oneHop.nodes.map((node) => node.termId)).not.toContain(gamma.id);
+    expect(twoHop.nodes.map((node) => node.termId)).toContain(gamma.id);
+    expect(twoHop.nodes.find((node) => node.termId === beta.id)?.evidence.messages).toBe(2);
+    expect(twoHop.edges.every((edge) => edge.evidenceType === 'mention')).toBe(true);
+    expect(repository.getKnowledgeGraph({ centerId, depth: 2 }).totalNodes).toBe(repository.getKnowledgeGraph({ centerId, depth: 2 }).totalNodes);
+
+    expect(repository.saveKnowledgeNodeLayout({
+      nodeId: centerId,
+      x: 128,
+      y: -64,
+      idempotencyKey: 'knowledge-layout:test:alpha',
+    })).toBe(true);
+    repository.saveKnowledgeNodeLayout({
+      nodeId: centerId,
+      x: 999,
+      y: 999,
+      idempotencyKey: 'knowledge-layout:test:alpha',
+    });
+    expect(repository.getKnowledgeGraph({ centerId, depth: 1 }).nodes.find((node) => node.id === centerId)?.position).toEqual({ x: 128, y: -64 });
+    expect(repository.findEventByIdempotencyKey('knowledge-layout:test:alpha')).toMatchObject({
+      action: 'knowledge_layout_changed',
+      objectType: 'knowledge_node',
+      objectId: centerId,
+    });
+  });
+
+  it('会话知识图节点保留分支消息锚点', () => {
+    const root = repository.createSession({ title: '图谱根会话', idempotencyKey: 'session:graph:root' });
+    const anchor = repository.saveMessage({ sessionId: root.id, role: 'assistant', content: '从这条消息继续。', idempotencyKey: 'message:graph:anchor' });
+    const branch = repository.createSession({
+      title: '图谱分支会话',
+      parentId: root.id,
+      forkedFromMessageId: anchor.id,
+      idempotencyKey: 'session:graph:branch',
+    });
+    const graph = repository.getSessionKnowledgeGraph();
+    expect(graph.edges).toContainEqual(expect.objectContaining({ source: root.id, target: branch.id, relation: 'branch' }));
+    expect(graph.nodes.find((node) => node.id === branch.id)?.href).toContain(`message=${anchor.id}`);
+  });
+
   it('正式 FSRS 的预览与提交一致，Again 不会立即回到队首', () => {
     const term = repository.upsertTerm({
       name: '检索练习',

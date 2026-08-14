@@ -16,6 +16,7 @@ let notesPost: PostHandler;
 let interviewPost: PostHandler;
 let chatPost: PostHandler;
 let termsPost: PostHandler;
+let knowledgePatch: PostHandler;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -40,6 +41,7 @@ beforeAll(async () => {
   interviewPost = (await import('../../src/app/api/interview/route')).POST;
   chatPost = (await import('../../src/app/api/chat/route')).POST;
   termsPost = (await import('../../src/app/api/terms/route')).POST;
+  knowledgePatch = (await import('../../src/app/api/knowledge-graph/route')).PATCH;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -50,6 +52,7 @@ beforeAll(async () => {
     interview: interviewPost,
     chat: chatPost,
     terms: termsPost,
+    knowledge: knowledgePatch,
   };
 });
 
@@ -70,6 +73,7 @@ describe('Route Handler zod 合同', () => {
     ['interview', '/api/interview', { action: 'score', idempotencyKey: 'invalid:interview' }],
     ['chat', '/api/chat', { messages: [], sessionId: crypto.randomUUID(), idempotencyKey: 'invalid:chat' }],
     ['terms', '/api/terms', { text: 42, idempotencyKey: 'invalid:terms' }],
+    ['knowledge', '/api/knowledge-graph', { nodeId: '', x: 'left', y: 0, idempotencyKey: 'invalid:knowledge' }],
   ])('%s 非法输入返回统一 400', async (name, pathname, body) => {
     const handler = handlers[name];
     const response = await handler(jsonRequest(pathname, body));

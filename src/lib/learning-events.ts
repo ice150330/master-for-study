@@ -25,6 +25,7 @@ export const LEARNING_EVENT_ACTIONS = [
   'resource_highlight_created',
   'resource_highlight_deleted',
   'resource_deleted',
+  'knowledge_layout_changed',
   'code_run',
 ] as const;
 
@@ -45,6 +46,7 @@ export const LEARNING_OBJECT_TYPES = [
   'review_log',
   'resource',
   'resource_highlight',
+  'knowledge_node',
   'practice',
   'practice_attempt',
 ] as const;

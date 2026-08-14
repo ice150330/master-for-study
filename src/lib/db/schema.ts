@@ -445,3 +445,59 @@ export const conceptMentions = sqliteTable('concept_mentions', {
   idempotencyKey: text('idempotency_key').notNull().unique(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
+
+/** 知识图节点：语义对象存于数据库，Concept 可选关联 term。 */
+export const knowledgeNodes = sqliteTable('knowledge_nodes', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  termId: text('term_id').references(() => terms.id, { onDelete: 'set null' }),
+  kind: text('kind', { enum: ['domain', 'concept'] }).notNull(),
+  label: text('label').notNull(),
+  description: text('description'),
+  origin: text('origin', { enum: ['seed', 'learned'] }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('knowledge_nodes_workspace_label_idx').on(table.workspaceId, table.label),
+  uniqueIndex('knowledge_nodes_workspace_term_idx').on(table.workspaceId, table.termId),
+  index('knowledge_nodes_workspace_kind_idx').on(table.workspaceId, table.kind),
+]);
+
+/** 知识图语义边：与画布坐标分离，关系必须保留来源证据。 */
+export const knowledgeEdges = sqliteTable('knowledge_edges', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  sourceNodeId: text('source_node_id')
+    .notNull()
+    .references(() => knowledgeNodes.id, { onDelete: 'cascade' }),
+  targetNodeId: text('target_node_id')
+    .notNull()
+    .references(() => knowledgeNodes.id, { onDelete: 'cascade' }),
+  relation: text('relation', { enum: ['part_of', 'prerequisite', 'related', 'applied_in'] }).notNull(),
+  evidenceType: text('evidence_type', { enum: ['seed', 'mention', 'resource', 'interview', 'practice'] }).notNull(),
+  evidenceId: text('evidence_id'),
+  weight: integer('weight').notNull().default(1),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('knowledge_edges_semantic_idx').on(table.sourceNodeId, table.targetNodeId, table.relation),
+  index('knowledge_edges_workspace_relation_idx').on(table.workspaceId, table.relation),
+  index('knowledge_edges_target_idx').on(table.targetNodeId),
+]);
+
+/** 画布布局：只保存视觉坐标，不污染语义节点和关系。 */
+export const knowledgeNodeLayouts = sqliteTable('knowledge_node_layouts', {
+  nodeId: text('node_id')
+    .notNull()
+    .references(() => knowledgeNodes.id, { onDelete: 'cascade' }),
+  viewKey: text('view_key').notNull().default('knowledge'),
+  x: real('x').notNull(),
+  y: real('y').notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('knowledge_node_layouts_node_view_idx').on(table.nodeId, table.viewKey),
+]);
