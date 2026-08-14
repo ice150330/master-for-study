@@ -11,6 +11,8 @@
 - 完成阶段 0：DeepSeek provider、流式对话 API（`/api/chat`）、术语标注两段式（`/api/terms` + `[[术语]]` 内联）、术语高亮与悬停弹窗
 - 完成阶段 1：Drizzle + better-sqlite3 六表数据模型、会话 CRUD 与消息持久化、学习事件流、会话树侧边栏
 - 收尾：抽取会话树 / 术语解析两个纯函数到 `lib/`，引入 Vitest 并写单测（10 用例通过）
+- 修正 DeepSeek 模型 ID：`deepseek-chat`/`deepseek-reasoner` → `deepseek-v4-flash`/`deepseek-v4-pro`（旧 ID 已于 2026-07-24 下线）
+- 定位 401 根因：环境变量 `DEEPSEEK_API_KEY` 覆盖了 `.env` 中的有效 key（Next.js 不覆盖已存在的环境变量）
 
 ## 2026-08-13
 

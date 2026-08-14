@@ -15,7 +15,7 @@
 - [x] **P2. 安装 AI 依赖**：`npm i ai @ai-sdk/deepseek zod`（AI SDK 实装 v7）
 - [x] **P3. 安装数据库依赖**：`npm i better-sqlite3 drizzle-orm` + `npm i -D drizzle-kit @types/better-sqlite3`
 - [ ] **P4. 安装状态/UI**：`npm i zustand`，初始化 shadcn/ui（`npx shadcn@latest init`，只引入会用到的组件）
-- [x] **P5. 确认 DeepSeek 模型 ID**：映射为 `deepseek-chat`（快）/ `deepseek-reasoner`（重），见 `lib/ai/provider.ts`。
+- [x] **P5. 确认 DeepSeek 模型 ID**：`deepseek-v4-flash`（快）/ `deepseek-v4-pro`（重），见 `lib/ai/provider.ts`。
 - [x] **P6. 数据目录**：建 `data/` 目录存放 SQLite 文件，并把 `data/` 加入 `.gitignore`。
 
 ---
