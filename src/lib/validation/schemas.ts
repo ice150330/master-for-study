@@ -35,6 +35,7 @@ export const chatRequestSchema = z
     message: z.string().trim().min(1).max(20_000),
     model: z.enum(['fast', 'pro']).optional(),
     sessionId: id,
+    resourceIds: z.array(id).max(5).default([]),
     idempotencyKey,
   })
   .strict();
@@ -157,19 +158,56 @@ export const resourceCreateSchema = z
     title: z.string().trim().min(1).max(240),
     type: z.enum(['教程', '文档', '书籍', '视频', '博客', 'GitHub']),
     url: z.url().max(2_048),
-    termId: nullableId,
+    canonicalUrl: z.url().max(2_048).optional(),
+    siteName: z.string().trim().max(200).nullable().optional(),
+    author: z.string().trim().max(240).nullable().optional(),
+    description: z.string().trim().max(2_000).nullable().optional(),
+    faviconUrl: z.url().max(2_048).nullable().optional(),
+    termId: nullableId.optional(),
+    conceptIds: z.array(id).max(20).default([]),
+    tags: z.array(z.string().trim().min(1).max(40)).max(30).default([]),
     note: z.string().trim().max(8_000).nullable().optional(),
     idempotencyKey,
   })
   .strict();
 
-export const resourcePatchSchema = z
-  .object({
+export const resourcePatchSchema = z.union([
+  z.object({
     id,
     status: z.enum(['想读', '在读', '已读']),
     idempotencyKey,
   })
-  .strict();
+  .strict(),
+  z.object({
+    action: z.literal('update'),
+    id,
+    title: z.string().trim().min(1).max(240),
+    type: z.enum(['教程', '文档', '书籍', '视频', '博客', 'GitHub']),
+    status: z.enum(['想读', '在读', '已读']),
+    progress: z.number().int().min(0).max(100),
+    tags: z.array(z.string().trim().min(1).max(40)).max(30),
+    note: z.string().trim().max(8_000).nullable().optional(),
+    conceptIds: z.array(id).max(20),
+    idempotencyKey,
+  }).strict(),
+]);
+
+export const resourceMetadataSchema = z.object({ url: z.url().max(2_048) }).strict();
+
+export const resourceDeleteSchema = z.object({ id, idempotencyKey }).strict();
+
+export const resourceHighlightSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('create'),
+    resourceId: id,
+    excerpt: z.string().trim().min(1).max(20_000),
+    note: z.string().trim().max(8_000).nullable().optional(),
+    locator: z.string().trim().max(500).nullable().optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    idempotencyKey,
+  }).strict(),
+  z.object({ action: z.literal('delete'), id, idempotencyKey }).strict(),
+]);
 
 export const publicEventSchema = z
   .object({

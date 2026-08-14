@@ -2,7 +2,7 @@ import {
   deleteSession,
   getSession,
   listHistoricalTerms,
-  listMessages,
+  listMessagesWithResources,
   updateSession,
 } from '@/lib/db';
 import { apiError, parseJson, withApiErrors } from '@/lib/validation/api';
@@ -28,7 +28,7 @@ export async function GET(
     if (!parsedId.success) return apiError('VALIDATION_ERROR', '会话 ID 无效', 400);
     const session = getSession(parsedId.data);
     if (!session) return apiError('SESSION_NOT_FOUND', '会话不存在', 404);
-    const messages = listMessages(parsedId.data);
+    const messages = listMessagesWithResources(parsedId.data);
     return Response.json({
       session,
       messages,

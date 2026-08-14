@@ -1,21 +1,31 @@
 import { ResourcesView } from '@/components/resources/ResourcesView';
-import { listResources, listTerms } from '@/lib/db';
+import type { ResourceDto } from '@/components/resources/types';
+import { listResourceDetails, listTerms, type ResourceDetail } from '@/lib/db';
 
-// 本地 SQLite 数据，每次请求实时渲染。
 export const dynamic = 'force-dynamic';
 
-export default function ResourcesPage() {
-  const resources = listResources().map((r) => ({
-    id: r.id,
-    termId: r.termId,
-    title: r.title,
-    type: r.type,
-    url: r.url,
-    status: r.status,
-    note: r.note,
-    createdAt: r.createdAt.toISOString(),
-  }));
-  const terms = listTerms();
+export default async function ResourcesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ resource?: string }>;
+}) {
+  const params = await searchParams;
+  const resources = listResourceDetails().map(serializeResource);
+  const initialResourceId = params.resource && resources.some((resource) => resource.id === params.resource)
+    ? params.resource
+    : null;
+  return <ResourcesView initialResources={resources} initialTerms={listTerms()} initialResourceId={initialResourceId} />;
+}
 
-  return <ResourcesView initialResources={resources} initialTerms={terms} />;
+function serializeResource(resource: ResourceDetail): ResourceDto {
+  return {
+    ...resource,
+    createdAt: resource.createdAt.toISOString(),
+    updatedAt: resource.updatedAt?.toISOString() ?? null,
+    highlights: resource.highlights.map((highlight) => ({
+      ...highlight,
+      createdAt: highlight.createdAt.toISOString(),
+      updatedAt: highlight.updatedAt.toISOString(),
+    })),
+  };
 }

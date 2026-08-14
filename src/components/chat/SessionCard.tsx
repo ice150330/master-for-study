@@ -2,7 +2,10 @@
 
 import {
   Archive,
+  BookOpenText,
+  Check,
   CornerDownRight,
+  ExternalLink,
   GitBranch,
   MoreHorizontal,
   Pencil,
@@ -13,6 +16,7 @@ import {
   Sparkles,
   Square,
   Trash2,
+  X,
   Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -33,9 +37,10 @@ import {
 import { Input } from '@/components/ui/Field';
 import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { MessageContent } from './MessageContent';
 import type { TermAction } from './Term';
-import type { ChatMsg, ChatModel, ChatSession } from './chat-types';
+import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
 /**
  * 当前会话大卡片：标题栏（标题 + 血缘提示 + 模型切换）+ 消息流 + 输入区。
@@ -56,6 +61,9 @@ export function SessionCard({
   onStop,
   onRegenerate,
   onContinue,
+  resourceOptions,
+  selectedResourceIds,
+  onToggleResource,
   requestError,
   model,
   onModelChange,
@@ -81,6 +89,9 @@ export function SessionCard({
   onStop: () => void;
   onRegenerate: () => void;
   onContinue: () => void;
+  resourceOptions: ChatResource[];
+  selectedResourceIds: string[];
+  onToggleResource: (id: string) => void;
   requestError: {
     title: string;
     description: string;
@@ -193,6 +204,26 @@ export function SessionCard({
               {m.status === 'error' && m.error ? (
                 <p className="mt-1 text-xs text-danger">{m.error}</p>
               ) : null}
+              {m.role === 'assistant' && m.sources && m.sources.length > 0 ? (
+                <div className="mt-3 border-t border-border pt-2">
+                  <p className="text-[11px] font-semibold text-muted">引用来源</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {m.sources.map((source, index) => (
+                      <a
+                        key={source.id}
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex max-w-56 items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] text-card-foreground hover:text-primary"
+                      >
+                        <span className="shrink-0">[{index + 1}]</span>
+                        <span className="truncate">{source.title}</span>
+                        <ExternalLink aria-hidden="true" className="size-3 shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
             {m.role === 'assistant' && m.status === 'complete' && !isStreaming ? (
               <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
@@ -218,16 +249,35 @@ export function SessionCard({
             onAction={requestError.onAction}
           />
         ) : null}
-        {!isStreaming && messages.some((message) => message.role === 'user') ? (
-          <div className="mb-2 flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={onRegenerate}>
-              <RotateCcw aria-hidden="true" className="size-3.5" />
-              重新生成
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onContinue}>
-              <CornerDownRight aria-hidden="true" className="size-3.5" />
-              继续回答
-            </Button>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <ResourceSelector
+            resources={resourceOptions}
+            selectedIds={selectedResourceIds}
+            onToggle={onToggleResource}
+          />
+          {!isStreaming && messages.some((message) => message.role === 'user') ? (
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={onRegenerate}>
+                <RotateCcw aria-hidden="true" className="size-3.5" />
+                重新生成
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onContinue}>
+                <CornerDownRight aria-hidden="true" className="size-3.5" />
+                继续回答
+              </Button>
+            </div>
+          ) : null}
+        </div>
+        {selectedResourceIds.length > 0 ? (
+          <div className="mb-2 flex flex-wrap gap-1.5" aria-label="本轮已选资源">
+            {resourceOptions.filter((resource) => selectedResourceIds.includes(resource.id)).map((resource) => (
+              <span key={resource.id} className="inline-flex max-w-56 items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] text-primary">
+                <span className="truncate">{resource.title}</span>
+                <button type="button" aria-label={`移除资源 ${resource.title}`} onClick={() => onToggleResource(resource.id)} className="rounded-sm hover:bg-primary/10">
+                  <X aria-hidden="true" className="size-3" />
+                </button>
+              </span>
+            ))}
           </div>
         ) : null}
         <div className="flex items-end gap-2">
@@ -313,6 +363,55 @@ export function SessionCard({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ResourceSelector({
+  resources,
+  selectedIds,
+  onToggle,
+}: {
+  resources: ChatResource[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline">
+          <BookOpenText aria-hidden="true" className="size-3.5" />
+          引用资源{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-2" align="start" side="top">
+        <p className="px-2 py-1 text-xs font-semibold text-card-foreground">选择本轮使用的资源</p>
+        <p className="px-2 pb-2 text-[11px] text-muted">最多 5 个，回答会显示对应引用来源。</p>
+        <div className="max-h-64 overflow-y-auto">
+          {resources.length === 0 ? (
+            <p className="px-2 py-5 text-center text-xs text-muted">资源库中还没有可引用内容</p>
+          ) : resources.map((resource) => {
+            const selected = selectedIds.includes(resource.id);
+            return (
+              <button
+                key={resource.id}
+                type="button"
+                onClick={() => onToggle(resource.id)}
+                disabled={!selected && selectedIds.length >= 5}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-surface disabled:opacity-45"
+              >
+                <span className={`flex size-4 shrink-0 items-center justify-center rounded border ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
+                  {selected ? <Check aria-hidden="true" className="size-3" /> : null}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-medium text-card-foreground">{resource.title}</span>
+                  <span className="block text-[11px] text-muted">{resource.type}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

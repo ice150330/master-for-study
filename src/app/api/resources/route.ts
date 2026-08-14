@@ -1,34 +1,49 @@
 import {
   createResource,
+  deleteResource,
+  findResourceByCanonicalUrl,
   getResource,
+  getResourceDetail,
   getTerm,
-  listResources,
+  listResourceDetails,
+  mergeResource,
+  updateResource,
   updateResourceStatus,
 } from '@/lib/db';
+import { normalizeResourceUrl } from '@/lib/resources/url';
 import { DomainError, parseJson, withApiErrors } from '@/lib/validation/api';
-import { resourceCreateSchema, resourcePatchSchema } from '@/lib/validation/schemas';
-
-/**
- * 资源库接口。
- *
- * GET    /api/resources —— 列出全部资源
- * POST   /api/resources —— 新增资源 { title, type, url, termId?, note? }
- * PATCH  /api/resources —— 更新状态 { id, status }
- */
+import {
+  resourceCreateSchema,
+  resourceDeleteSchema,
+  resourcePatchSchema,
+} from '@/lib/validation/schemas';
 
 export async function GET() {
-  return withApiErrors(() => Response.json({ resources: listResources() }));
+  return withApiErrors(() => Response.json({ resources: listResourceDetails() }));
 }
 
 export async function POST(req: Request) {
   return withApiErrors(async () => {
     const parsed = await parseJson(req, resourceCreateSchema);
     if (!parsed.success) return parsed.response;
-    if (parsed.data.termId && !getTerm(parsed.data.termId)) {
-      throw new DomainError('TERM_NOT_FOUND', '关联术语不存在', 404);
+    const conceptIds = [...new Set([
+      ...parsed.data.conceptIds,
+      ...(parsed.data.termId ? [parsed.data.termId] : []),
+    ])];
+    assertConcepts(conceptIds);
+    const canonicalUrl = normalizeResourceUrl(parsed.data.canonicalUrl ?? parsed.data.url);
+    const existing = findResourceByCanonicalUrl(canonicalUrl);
+    if (existing) {
+      const resource = mergeResource({
+        id: existing.id,
+        conceptIds,
+        tags: parsed.data.tags,
+        idempotencyKey: parsed.data.idempotencyKey,
+      });
+      return Response.json({ resource, duplicate: true });
     }
-    const resource = createResource(parsed.data);
-    return Response.json({ resource }, { status: 201 });
+    const created = createResource({ ...parsed.data, conceptIds, canonicalUrl });
+    return Response.json({ resource: getResourceDetail(created.id), duplicate: false }, { status: 201 });
   });
 }
 
@@ -39,6 +54,27 @@ export async function PATCH(req: Request) {
     if (!getResource(parsed.data.id)) {
       throw new DomainError('RESOURCE_NOT_FOUND', '资源不存在', 404);
     }
-    return Response.json({ resource: updateResourceStatus(parsed.data) });
+    if ('action' in parsed.data) {
+      assertConcepts(parsed.data.conceptIds);
+      return Response.json({ resource: updateResource(parsed.data) });
+    }
+    const updated = updateResourceStatus(parsed.data);
+    return Response.json({ resource: getResourceDetail(updated.id) });
   });
+}
+
+export async function DELETE(req: Request) {
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, resourceDeleteSchema);
+    if (!parsed.success) return parsed.response;
+    if (!deleteResource(parsed.data)) {
+      throw new DomainError('RESOURCE_NOT_FOUND', '资源不存在', 404);
+    }
+    return Response.json({ ok: true });
+  });
+}
+
+function assertConcepts(conceptIds: string[]) {
+  const missing = conceptIds.find((id) => !getTerm(id));
+  if (missing) throw new DomainError('TERM_NOT_FOUND', '关联 Concept 不存在', 404);
 }

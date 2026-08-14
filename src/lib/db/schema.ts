@@ -369,12 +369,67 @@ export const resources = sqliteTable('resources', {
     enum: ['教程', '文档', '书籍', '视频', '博客', 'GitHub'],
   }).notNull(),
   url: text('url').notNull(),
+  canonicalUrl: text('canonical_url'),
+  siteName: text('site_name'),
+  author: text('author'),
+  description: text('description'),
+  faviconUrl: text('favicon_url'),
   status: text('status', { enum: ['想读', '在读', '已读'] })
     .notNull()
     .default('想读'),
+  progress: integer('progress').notNull().default(0),
+  tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
   note: text('note'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-});
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
+}, (table) => [
+  uniqueIndex('resources_workspace_canonical_url_idx').on(table.workspaceId, table.canonicalUrl),
+  index('resources_workspace_status_updated_idx').on(table.workspaceId, table.status, table.updatedAt),
+]);
+
+/** 资源与 Concept 多对多关系；term_id 仅保留为旧数据兼容投影。 */
+export const resourceTerms = sqliteTable('resource_terms', {
+  resourceId: text('resource_id')
+    .notNull()
+    .references(() => resources.id, { onDelete: 'cascade' }),
+  termId: text('term_id')
+    .notNull()
+    .references(() => terms.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('resource_terms_resource_term_idx').on(table.resourceId, table.termId),
+  index('resource_terms_term_idx').on(table.termId),
+]);
+
+/** 资源摘录：保存原文、个人注释与来源定位。 */
+export const resourceHighlights = sqliteTable('resource_highlights', {
+  id: text('id').primaryKey(),
+  resourceId: text('resource_id')
+    .notNull()
+    .references(() => resources.id, { onDelete: 'cascade' }),
+  excerpt: text('excerpt').notNull(),
+  note: text('note'),
+  locator: text('locator'),
+  tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  index('resource_highlights_resource_created_idx').on(table.resourceId, table.createdAt),
+]);
+
+/** 助手消息实际使用的资源，刷新历史后仍能显示引用来源。 */
+export const messageResources = sqliteTable('message_resources', {
+  messageId: text('message_id')
+    .notNull()
+    .references(() => messages.id, { onDelete: 'cascade' }),
+  resourceId: text('resource_id')
+    .notNull()
+    .references(() => resources.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('message_resources_message_resource_idx').on(table.messageId, table.resourceId),
+]);
 
 /** Concept 来源：统一记录消息、笔记块和资源中的出现位置。 */
 export const conceptMentions = sqliteTable('concept_mentions', {

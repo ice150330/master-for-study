@@ -9,7 +9,7 @@ import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { SessionDeck } from './SessionDeck';
 import { SessionPicker } from './SessionPicker';
 import type { TermAction } from './Term';
-import type { ChatModel, ChatMsg, ChatSession, HistoricalTerm } from './chat-types';
+import type { ChatModel, ChatMsg, ChatResource, ChatSession, HistoricalTerm } from './chat-types';
 
 /**
  * 聊天页状态容器：持有会话 / 消息 / 流式 / 术语 / 模型等全部状态与请求逻辑，
@@ -38,6 +38,8 @@ export function Chat() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
+  const [resourceOptions, setResourceOptions] = useState<ChatResource[]>([]);
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [termDefs, setTermDefs] = useState<Record<string, string>>({});
   const [requestError, setRequestError] = useState<{
@@ -75,6 +77,11 @@ export function Chat() {
     initRan.current = true;
     (async () => {
       try {
+        try {
+          await refreshResources();
+        } catch {
+          setResourceOptions([]);
+        }
         const list = await refreshSessions();
         const requestedSession = new URLSearchParams(window.location.search).get('session');
         const requestedMessage = new URLSearchParams(window.location.search).get('message');
@@ -113,6 +120,11 @@ export function Chat() {
     return data.sessions;
   }
 
+  async function refreshResources() {
+    const data = await requestJson<{ resources: ChatResource[] }>('/api/resources');
+    setResourceOptions(data.resources);
+  }
+
   async function openSession(id: string) {
     stopStreaming(false);
     const loadId = ++sessionLoadSequence.current;
@@ -134,6 +146,7 @@ export function Chat() {
       setTermDefs(
         Object.fromEntries((data.terms ?? []).map((term) => [term.name, term.definition])),
       );
+      setSelectedResourceIds([]);
     } catch (error) {
       if (loadId !== sessionLoadSequence.current) return;
       setRequestError({ message: getErrorMessage(error, '会话加载失败') });
@@ -178,11 +191,14 @@ export function Chat() {
     previousIdempotencyKey?: string,
     baseOverride?: ChatMsg[],
     targetSessionId?: string,
+    resourceIdsOverride?: string[],
   ) {
     const text = (textOverride ?? input).trim();
     if (!text || isStreaming) return;
 
     const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('chat');
+    const resourceIds = resourceIdsOverride ?? selectedResourceIds;
+    const selectedSources = resourceOptions.filter((resource) => resourceIds.includes(resource.id));
     let sid = targetSessionId ?? currentSessionId;
     try {
       if (!sid) {
@@ -221,6 +237,7 @@ export function Chat() {
       role: 'assistant',
       content: '',
       status: 'streaming',
+      sources: selectedSources,
     };
     const history: ChatMsg[] = [...baseMessages, userMessage];
     setMessages([...history, assistantMessage]);
@@ -235,7 +252,7 @@ export function Chat() {
       const res = await request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: sid, model, idempotencyKey }),
+        body: JSON.stringify({ message: text, sessionId: sid, model, resourceIds, idempotencyKey }),
         signal: controller.signal,
         timeoutMs: 45_000,
       });
@@ -253,6 +270,7 @@ export function Chat() {
       }
       if (isCurrentRequest(requestId, sid)) {
         setMessages([...history, { ...assistantMessage, content: full, status: 'complete' }]);
+        setSelectedResourceIds([]);
       }
 
       // 第二段：术语结构化提取（名称 + 一句话解释）
@@ -517,7 +535,10 @@ export function Chat() {
   function regenerateLastAnswer() {
     const lastUserIndex = messages.findLastIndex((message) => message.role === 'user');
     if (lastUserIndex < 0) return;
-    void send(messages[lastUserIndex].content, false, undefined, messages.slice(0, lastUserIndex));
+    const previousSources = messages.slice(lastUserIndex + 1).find((message) => message.role === 'assistant')?.sources ?? [];
+    const resourceIds = previousSources.map((source) => source.id);
+    setSelectedResourceIds(resourceIds);
+    void send(messages[lastUserIndex].content, false, undefined, messages.slice(0, lastUserIndex), undefined, resourceIds);
   }
 
   function continueAnswer() {
@@ -592,6 +613,10 @@ export function Chat() {
         onStop={() => stopStreaming()}
         onRegenerate={regenerateLastAnswer}
         onContinue={continueAnswer}
+        resourceOptions={resourceOptions}
+        selectedResourceIds={selectedResourceIds}
+        onToggleResource={(id) => setSelectedResourceIds((items) =>
+          items.includes(id) ? items.filter((item) => item !== id) : [...items, id].slice(-5))}
         requestError={
           requestError
             ? {

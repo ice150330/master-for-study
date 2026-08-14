@@ -57,8 +57,20 @@ export type ReviewUndo = typeof schema.reviewUndos.$inferSelect;
 export type PracticeAttempt = typeof schema.practiceAttempts.$inferSelect;
 export type LearningEvent = typeof schema.learningEvents.$inferSelect;
 export type Resource = typeof schema.resources.$inferSelect;
+export type ResourceTerm = typeof schema.resourceTerms.$inferSelect;
+export type ResourceHighlight = typeof schema.resourceHighlights.$inferSelect;
+export type MessageResource = typeof schema.messageResources.$inferSelect;
 export type ResourceType = Resource['type'];
 export type ResourceStatus = Resource['status'];
+
+export type ResourceDetail = Resource & {
+  concepts: Array<{ id: string; name: string }>;
+  highlights: ResourceHighlight[];
+};
+
+export type MessageWithResources = Message & {
+  sources: Array<Pick<Resource, 'id' | 'title' | 'url' | 'type'>>;
+};
 
 export type InterviewQuestionWithAttempts = Interview & { attempts: InterviewAttempt[] };
 export type InterviewSessionDetail = {
@@ -438,6 +450,7 @@ export function saveMessage(input: {
   role: 'user' | 'assistant';
   content: string;
   idempotencyKey: string;
+  resourceIds?: string[];
 }): Message {
   const db = getDb();
   const existing = db
@@ -463,6 +476,18 @@ export function saveMessage(input: {
 
   db.transaction((tx) => {
     tx.insert(schema.messages).values(message).run();
+    const validResourceIds = [...new Set(input.resourceIds ?? [])].filter((resourceId) =>
+      Boolean(tx.select({ id: schema.resources.id }).from(schema.resources)
+        .where(and(eq(schema.resources.id, resourceId), eq(schema.resources.workspaceId, session.workspaceId)))
+        .limit(1).get()));
+    if (validResourceIds.length > 0) {
+      tx.insert(schema.messageResources).values(validResourceIds.map((resourceId, position) => ({
+        messageId: message.id,
+        resourceId,
+        position,
+        createdAt: new Date(),
+      }))).run();
+    }
     const title =
       input.role === 'user' && session.title === DEFAULT_TITLE
         ? deriveSessionTitle(input.content)
@@ -479,7 +504,7 @@ export function saveMessage(input: {
           action: 'message_sent',
           objectType: 'message',
           objectId: message.id,
-          result: { role: input.role, length: input.content.length },
+          result: { role: input.role, length: input.content.length, resourceCount: validResourceIds.length },
           idempotencyKey: input.idempotencyKey,
         }),
       )
@@ -496,6 +521,27 @@ export function listMessages(sessionId: string): Message[] {
     .where(eq(schema.messages.sessionId, sessionId))
     .orderBy(asc(schema.messages.createdAt))
     .all();
+}
+
+/** 会话展示使用：消息附带已持久化的资源引用。 */
+export function listMessagesWithResources(sessionId: string): MessageWithResources[] {
+  return listMessages(sessionId).map((message) => ({
+    ...message,
+    sources: getDb()
+      .select({
+        id: schema.resources.id,
+        title: schema.resources.title,
+        url: schema.resources.url,
+        type: schema.resources.type,
+        position: schema.messageResources.position,
+      })
+      .from(schema.messageResources)
+      .innerJoin(schema.resources, eq(schema.messageResources.resourceId, schema.resources.id))
+      .where(eq(schema.messageResources.messageId, message.id))
+      .orderBy(asc(schema.messageResources.position))
+      .all()
+      .map(({ position: _position, ...resource }) => resource),
+  }));
 }
 
 /**
@@ -2002,7 +2048,14 @@ export function createResource(input: {
   title: string;
   type: ResourceType;
   url: string;
+  canonicalUrl?: string;
+  siteName?: string | null;
+  author?: string | null;
+  description?: string | null;
+  faviconUrl?: string | null;
   termId?: string | null;
+  conceptIds?: string[];
+  tags?: string[];
   note?: string | null;
   idempotencyKey: string;
 }): Resource {
@@ -2017,32 +2070,50 @@ export function createResource(input: {
     if (existingResource) return existingResource;
   }
   const ws = ensureWorkspace();
+  const conceptIds = [...new Set([
+    ...(input.conceptIds ?? []),
+    ...(input.termId ? [input.termId] : []),
+  ])].filter((termId) => Boolean(getTerm(termId)));
+  const now = new Date();
   const resource = {
     id: randomUUID(),
     workspaceId: ws.id,
-    termId: input.termId ?? null,
+    termId: conceptIds[0] ?? null,
     title: input.title,
     type: input.type,
     url: input.url,
+    canonicalUrl: input.canonicalUrl ?? input.url,
+    siteName: input.siteName ?? null,
+    author: input.author ?? null,
+    description: input.description ?? null,
+    faviconUrl: input.faviconUrl ?? null,
     status: '想读' as const,
+    progress: 0,
+    tags: [...new Set(input.tags ?? [])],
     note: input.note ?? null,
-    createdAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
   };
   getDb().transaction((tx) => {
     tx.insert(schema.resources).values(resource).run();
-    if (resource.termId) {
+    if (conceptIds.length > 0) {
+      tx.insert(schema.resourceTerms).values(conceptIds.map((termId) => ({
+        resourceId: resource.id,
+        termId,
+        createdAt: now,
+      }))).run();
       tx.insert(schema.conceptMentions)
-        .values({
+        .values(conceptIds.map((termId) => ({
           id: randomUUID(),
-          termId: resource.termId,
-          sourceType: 'resource',
+          termId,
+          sourceType: 'resource' as const,
           sourceId: resource.id,
           sessionId: null,
           locator: resource.url,
           excerpt: resource.note ?? resource.title,
-          idempotencyKey: `${input.idempotencyKey}:mention`,
-          createdAt: new Date(),
-        })
+          idempotencyKey: `${input.idempotencyKey}:mention:${termId}`,
+          createdAt: now,
+        })))
         .run();
     }
     tx.insert(schema.learningEvents)
@@ -2053,7 +2124,7 @@ export function createResource(input: {
           objectType: 'resource',
           objectId: resource.id,
           result: { status: resource.status, type: resource.type },
-          context: { termId: resource.termId },
+          context: { conceptIds, canonicalUrl: resource.canonicalUrl },
           idempotencyKey: input.idempotencyKey,
         }),
       )
@@ -2071,6 +2142,145 @@ export function listResources(): Resource[] {
     .where(eq(schema.resources.workspaceId, ws.id))
     .orderBy(desc(schema.resources.createdAt))
     .all();
+}
+
+export function findResourceByCanonicalUrl(canonicalUrl: string): Resource | undefined {
+  const ws = ensureWorkspace();
+  return getDb().select().from(schema.resources)
+    .where(and(eq(schema.resources.workspaceId, ws.id), eq(schema.resources.canonicalUrl, canonicalUrl)))
+    .limit(1).get();
+}
+
+export function getResourceDetail(id: string): ResourceDetail | undefined {
+  const resource = getResource(id);
+  if (!resource) return undefined;
+  const db = getDb();
+  const concepts = db.select({ id: schema.terms.id, name: schema.terms.name })
+    .from(schema.resourceTerms)
+    .innerJoin(schema.terms, eq(schema.resourceTerms.termId, schema.terms.id))
+    .where(eq(schema.resourceTerms.resourceId, id))
+    .orderBy(asc(schema.terms.name)).all();
+  if (concepts.length === 0 && resource.termId) {
+    const legacy = getTerm(resource.termId);
+    if (legacy) concepts.push({ id: legacy.id, name: legacy.name });
+  }
+  const highlights = db.select().from(schema.resourceHighlights)
+    .where(eq(schema.resourceHighlights.resourceId, id))
+    .orderBy(desc(schema.resourceHighlights.createdAt)).all();
+  return { ...resource, concepts, highlights };
+}
+
+export function listResourceDetails(): ResourceDetail[] {
+  return listResources().map((resource) => getResourceDetail(resource.id)).filter(
+    (resource): resource is ResourceDetail => Boolean(resource),
+  );
+}
+
+/** 重复 URL 不新建条目，只合并新的 Concept 和标签。 */
+export function mergeResource(input: {
+  id: string;
+  conceptIds: string[];
+  tags?: string[];
+  idempotencyKey: string;
+}): ResourceDetail {
+  const resource = getResource(input.id);
+  if (!resource) throw new Error(`资源不存在：${input.id}`);
+  const previous = findEventByIdempotencyKey(input.idempotencyKey);
+  if (previous) return getResourceDetail(resource.id) as ResourceDetail;
+  const db = getDb();
+  const existingIds = db.select({ termId: schema.resourceTerms.termId }).from(schema.resourceTerms)
+    .where(eq(schema.resourceTerms.resourceId, resource.id)).all().map((item) => item.termId);
+  const missingIds = [...new Set(input.conceptIds)].filter((id) => !existingIds.includes(id) && getTerm(id));
+  const tags = [...new Set([...resource.tags, ...(input.tags ?? [])])];
+  const now = new Date();
+  db.transaction((tx) => {
+    if (missingIds.length > 0) {
+      tx.insert(schema.resourceTerms).values(missingIds.map((termId) => ({ resourceId: resource.id, termId, createdAt: now }))).run();
+      tx.insert(schema.conceptMentions).values(missingIds.map((termId) => ({
+        id: randomUUID(),
+        termId,
+        sourceType: 'resource' as const,
+        sourceId: resource.id,
+        sessionId: null,
+        locator: resource.url,
+        excerpt: resource.note ?? resource.title,
+        idempotencyKey: `${input.idempotencyKey}:mention:${termId}`,
+        createdAt: now,
+      }))).run();
+    }
+    tx.update(schema.resources).set({ tags, updatedAt: now }).where(eq(schema.resources.id, resource.id)).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: resource.workspaceId,
+      action: 'resource_duplicate_merged',
+      objectType: 'resource',
+      objectId: resource.id,
+      result: { addedConcepts: missingIds.length },
+      context: { canonicalUrl: resource.canonicalUrl },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return getResourceDetail(resource.id) as ResourceDetail;
+}
+
+export function updateResource(input: {
+  id: string;
+  title: string;
+  type: ResourceType;
+  status: ResourceStatus;
+  progress: number;
+  tags: string[];
+  note?: string | null;
+  conceptIds: string[];
+  idempotencyKey: string;
+}): ResourceDetail {
+  const resource = getResource(input.id);
+  if (!resource) throw new Error(`资源不存在：${input.id}`);
+  if (findEventByIdempotencyKey(input.idempotencyKey)) return getResourceDetail(resource.id) as ResourceDetail;
+  const conceptIds = [...new Set(input.conceptIds)].filter((termId) => Boolean(getTerm(termId)));
+  const now = new Date();
+  const status = input.progress >= 100 ? '已读' as const : input.status;
+  const progress = status === '已读' ? 100 : Math.min(99, Math.max(0, input.progress));
+  getDb().transaction((tx) => {
+    tx.update(schema.resources).set({
+      title: input.title,
+      type: input.type,
+      status,
+      progress,
+      tags: [...new Set(input.tags)],
+      note: input.note ?? null,
+      termId: conceptIds[0] ?? null,
+      updatedAt: now,
+    }).where(eq(schema.resources.id, resource.id)).run();
+    tx.delete(schema.resourceTerms).where(eq(schema.resourceTerms.resourceId, resource.id)).run();
+    tx.delete(schema.conceptMentions).where(and(
+      eq(schema.conceptMentions.sourceType, 'resource'),
+      eq(schema.conceptMentions.sourceId, resource.id),
+    )).run();
+    if (conceptIds.length > 0) {
+      tx.insert(schema.resourceTerms).values(conceptIds.map((termId) => ({ resourceId: resource.id, termId, createdAt: now }))).run();
+      tx.insert(schema.conceptMentions).values(conceptIds.map((termId) => ({
+        id: randomUUID(),
+        termId,
+        sourceType: 'resource' as const,
+        sourceId: resource.id,
+        sessionId: null,
+        locator: resource.url,
+        excerpt: input.note ?? resource.title,
+        idempotencyKey: `${input.idempotencyKey}:mention:${termId}`,
+        createdAt: now,
+      }))).run();
+    }
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: resource.workspaceId,
+      action: 'resource_updated',
+      objectType: 'resource',
+      objectId: resource.id,
+      result: { status, progress, conceptCount: conceptIds.length },
+      context: { previousStatus: resource.status, previousProgress: resource.progress },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return getResourceDetail(resource.id) as ResourceDetail;
 }
 
 /** 更新资源阅读状态。 */
@@ -2092,7 +2302,11 @@ export function updateResourceStatus(input: {
 
   db.transaction((tx) => {
     tx.update(schema.resources)
-      .set({ status: input.status })
+      .set({
+        status: input.status,
+        progress: input.status === '已读' ? 100 : resource.progress,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.resources.id, input.id))
       .run();
     tx.insert(schema.learningEvents)
@@ -2110,4 +2324,113 @@ export function updateResourceStatus(input: {
       .run();
   });
   return { ...resource, status: input.status };
+}
+
+export function createResourceHighlight(input: {
+  resourceId: string;
+  excerpt: string;
+  note?: string | null;
+  locator?: string | null;
+  tags?: string[];
+  idempotencyKey: string;
+}): ResourceHighlight {
+  const previous = findEventByIdempotencyKey(input.idempotencyKey);
+  if (previous?.objectId) {
+    const existing = getDb().select().from(schema.resourceHighlights)
+      .where(eq(schema.resourceHighlights.id, previous.objectId)).limit(1).get();
+    if (existing) return existing;
+  }
+  const resource = getResource(input.resourceId);
+  if (!resource) throw new Error(`资源不存在：${input.resourceId}`);
+  const now = new Date();
+  const highlight = {
+    id: randomUUID(),
+    resourceId: resource.id,
+    excerpt: input.excerpt,
+    note: input.note ?? null,
+    locator: input.locator ?? null,
+    tags: [...new Set(input.tags ?? [])],
+    createdAt: now,
+    updatedAt: now,
+  } satisfies ResourceHighlight;
+  getDb().transaction((tx) => {
+    tx.insert(schema.resourceHighlights).values(highlight).run();
+    tx.update(schema.resources).set({ updatedAt: now }).where(eq(schema.resources.id, resource.id)).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: resource.workspaceId,
+      action: 'resource_highlight_created',
+      objectType: 'resource_highlight',
+      objectId: highlight.id,
+      result: { length: highlight.excerpt.length },
+      context: { resourceId: resource.id, locator: highlight.locator },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return highlight;
+}
+
+export function deleteResourceHighlight(input: {
+  id: string;
+  idempotencyKey: string;
+}) {
+  const previous = findEventByIdempotencyKey(input.idempotencyKey);
+  if (previous) return true;
+  const highlight = getDb().select().from(schema.resourceHighlights)
+    .where(eq(schema.resourceHighlights.id, input.id)).limit(1).get();
+  if (!highlight) return false;
+  const resource = getResource(highlight.resourceId);
+  if (!resource) return false;
+  getDb().transaction((tx) => {
+    tx.delete(schema.resourceHighlights).where(eq(schema.resourceHighlights.id, highlight.id)).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: resource.workspaceId,
+      action: 'resource_highlight_deleted',
+      objectType: 'resource_highlight',
+      objectId: highlight.id,
+      context: { resourceId: resource.id },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return true;
+}
+
+export function deleteResource(input: { id: string; idempotencyKey: string }) {
+  if (findEventByIdempotencyKey(input.idempotencyKey)) return true;
+  const resource = getResource(input.id);
+  if (!resource) return false;
+  getDb().transaction((tx) => {
+    tx.delete(schema.conceptMentions).where(and(
+      eq(schema.conceptMentions.sourceType, 'resource'),
+      eq(schema.conceptMentions.sourceId, resource.id),
+    )).run();
+    tx.delete(schema.resources).where(eq(schema.resources.id, resource.id)).run();
+    tx.insert(schema.learningEvents).values(eventValues({
+      workspaceId: resource.workspaceId,
+      action: 'resource_deleted',
+      objectType: 'resource',
+      objectId: resource.id,
+      result: { title: resource.title },
+      idempotencyKey: input.idempotencyKey,
+    })).run();
+  });
+  return true;
+}
+
+/** 组装本轮聊天可用的资源上下文，正文只取个人笔记和摘录。 */
+export function getResourceContext(resourceIds: string[]) {
+  const ws = ensureWorkspace();
+  return [...new Set(resourceIds)].slice(0, 5).map((id) => getResourceDetail(id))
+    .filter((resource): resource is ResourceDetail => Boolean(resource && resource.workspaceId === ws.id))
+    .map((resource) => ({
+      id: resource.id,
+      title: resource.title,
+      url: resource.url,
+      description: resource.description,
+      note: resource.note,
+      highlights: resource.highlights.slice(0, 12).map((highlight) => ({
+        excerpt: highlight.excerpt,
+        note: highlight.note,
+        locator: highlight.locator,
+      })),
+    }));
 }

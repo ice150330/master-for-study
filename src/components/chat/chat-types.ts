@@ -21,6 +21,14 @@ export type ChatMsg = {
   status: 'pending' | 'streaming' | 'complete' | 'error';
   error?: string | null;
   createdAt?: string;
+  sources?: ChatResource[];
+};
+
+export type ChatResource = {
+  id: string;
+  title: string;
+  url: string;
+  type: string;
 };
 
 export type HistoricalTerm = {

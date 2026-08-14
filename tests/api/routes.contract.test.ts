@@ -107,9 +107,11 @@ describe('Route Handler zod 合同', () => {
     const first = await resourcesPost(jsonRequest('/api/resources', body));
     const second = await resourcesPost(jsonRequest('/api/resources', body));
     expect(first.status).toBe(201);
-    expect(second.status).toBe(201);
-    const firstBody = (await first.json()) as { resource: { id: string } };
-    const secondBody = (await second.json()) as { resource: { id: string } };
+    expect(second.status).toBe(200);
+    const firstBody = (await first.json()) as { resource: { id: string }; duplicate: boolean };
+    const secondBody = (await second.json()) as { resource: { id: string }; duplicate: boolean };
+    expect(firstBody.duplicate).toBe(false);
+    expect(secondBody.duplicate).toBe(true);
     expect(secondBody.resource.id).toBe(firstBody.resource.id);
     expect(repository.listResources().filter((resource) => resource.id === firstBody.resource.id)).toHaveLength(1);
   });

@@ -19,7 +19,12 @@ export const LEARNING_EVENT_ACTIONS = [
   'review_card_flagged',
   'practice_attempted',
   'resource_created',
+  'resource_duplicate_merged',
+  'resource_updated',
   'resource_status_changed',
+  'resource_highlight_created',
+  'resource_highlight_deleted',
+  'resource_deleted',
   'code_run',
 ] as const;
 
@@ -39,6 +44,7 @@ export const LEARNING_OBJECT_TYPES = [
   'review_card',
   'review_log',
   'resource',
+  'resource_highlight',
   'practice',
   'practice_attempt',
 ] as const;

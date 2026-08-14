@@ -124,6 +124,90 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
   });
 
+  it('资源支持多概念、重复链接合并、摘录和消息引用持久化', () => {
+    const firstTerm = repository.upsertTerm({
+      name: '资源检索',
+      definition: '从资料库中找到相关证据。',
+      idempotencyKey: 'term:resource:retrieval',
+    });
+    const secondTerm = repository.upsertTerm({
+      name: '证据引用',
+      definition: '让回答能够回到原始资料。',
+      idempotencyKey: 'term:resource:citation',
+    });
+    const thirdTerm = repository.upsertTerm({
+      name: '阅读摘录',
+      definition: '记录资料中的关键片段。',
+      idempotencyKey: 'term:resource:highlight',
+    });
+    const resource = repository.createResource({
+      title: 'SQLite FTS5 指南',
+      type: '文档',
+      url: 'https://sqlite.org/fts5.html?utm_source=test',
+      canonicalUrl: 'https://sqlite.org/fts5.html',
+      conceptIds: [firstTerm.id, secondTerm.id],
+      tags: ['检索', '数据库'],
+      note: '重点关注 bm25 排序。',
+      idempotencyKey: 'resource:test:knowledge-source',
+    });
+
+    expect(repository.findResourceByCanonicalUrl('https://sqlite.org/fts5.html')?.id).toBe(resource.id);
+    expect(repository.getResourceDetail(resource.id)?.concepts.map((concept) => concept.id).sort()).toEqual(
+      [firstTerm.id, secondTerm.id].sort(),
+    );
+
+    const merged = repository.mergeResource({
+      id: resource.id,
+      conceptIds: [secondTerm.id, thirdTerm.id],
+      tags: ['数据库', '全文搜索'],
+      idempotencyKey: 'resource:test:knowledge-source:merge',
+    });
+    expect(merged.concepts.map((concept) => concept.id).sort()).toEqual(
+      [firstTerm.id, secondTerm.id, thirdTerm.id].sort(),
+    );
+    expect(merged.tags.sort()).toEqual(['全文搜索', '数据库', '检索'].sort());
+    expect(repository.listResources().filter((item) => item.id === resource.id)).toHaveLength(1);
+
+    const updated = repository.updateResource({
+      id: resource.id,
+      title: resource.title,
+      type: resource.type,
+      status: '在读',
+      progress: 45,
+      tags: merged.tags,
+      note: '已读到查询语法，下一步验证排名函数。',
+      conceptIds: merged.concepts.map((concept) => concept.id),
+      idempotencyKey: 'resource:test:knowledge-source:update',
+    });
+    expect(updated).toMatchObject({ status: '在读', progress: 45 });
+
+    const highlight = repository.createResourceHighlight({
+      resourceId: resource.id,
+      excerpt: 'The FTS5 extension provides full-text search capabilities.',
+      note: '可作为本地知识检索的第一阶段实现。',
+      locator: '#overview-of-fts5',
+      idempotencyKey: 'resource:test:knowledge-source:highlight',
+    });
+    expect(repository.getResourceDetail(resource.id)?.highlights[0]).toMatchObject({ id: highlight.id });
+
+    const session = repository.createSession({
+      title: '带资料的对话',
+      idempotencyKey: 'session:test:resource-citation',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'assistant',
+      content: '可以先用 FTS5 建立全文索引。[来源 1]',
+      resourceIds: [resource.id],
+      idempotencyKey: 'message:test:resource-citation',
+    });
+    const reloaded = repository.listMessagesWithResources(session.id);
+    expect(reloaded[0]).toMatchObject({
+      content: '可以先用 FTS5 建立全文索引。[来源 1]',
+      sources: [{ id: resource.id, title: resource.title, url: resource.url }],
+    });
+  });
+
   it('正式 FSRS 的预览与提交一致，Again 不会立即回到队首', () => {
     const term = repository.upsertTerm({
       name: '检索练习',

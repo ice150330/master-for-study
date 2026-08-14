@@ -5,7 +5,7 @@ import type { TermAction } from './Term';
 import { AncestorStack } from './AncestorStack';
 import { BranchFan } from './BranchFan';
 import { SessionCard } from './SessionCard';
-import type { ChatMsg, ChatModel, ChatSession } from './chat-types';
+import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
 /**
  * 会话卡片堆舞台：组装「祖先竖条堆 + 当前会话大卡片 + 分支扇」。
@@ -24,6 +24,9 @@ export function SessionDeck({
   onStop,
   onRegenerate,
   onContinue,
+  resourceOptions,
+  selectedResourceIds,
+  onToggleResource,
   requestError,
   model,
   onModelChange,
@@ -46,6 +49,9 @@ export function SessionDeck({
   onStop: () => void;
   onRegenerate: () => void;
   onContinue: () => void;
+  resourceOptions: ChatResource[];
+  selectedResourceIds: string[];
+  onToggleResource: (id: string) => void;
   requestError: {
     title: string;
     description: string;
@@ -152,6 +158,9 @@ export function SessionDeck({
               onStop={onStop}
               onRegenerate={onRegenerate}
               onContinue={onContinue}
+              resourceOptions={resourceOptions}
+              selectedResourceIds={selectedResourceIds}
+              onToggleResource={onToggleResource}
               requestError={requestError}
               model={model}
               onModelChange={onModelChange}
