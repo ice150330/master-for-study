@@ -2,25 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
 import { MessageContent } from './MessageContent';
 import type { TermAction } from './Term';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type Session = { id: string; parentId: string | null; title: string; createdAt: string };
-type TreeNode = Session & { children: TreeNode[] };
-
-/** 由扁平会话列表按 parent_id 组装树。 */
-function buildTree(sessions: Session[]): TreeNode[] {
-  const map = new Map<string, TreeNode>();
-  for (const s of sessions) map.set(s.id, { ...s, children: [] });
-  const roots: TreeNode[] = [];
-  for (const node of map.values()) {
-    const parent = node.parentId ? map.get(node.parentId) : undefined;
-    if (parent) parent.children.push(node);
-    else roots.push(node);
-  }
-  return roots;
-}
 
 /**
  * 聊天工作区：会话树侧边栏 + 流式对话 + 术语高亮与悬停弹窗。
@@ -167,7 +154,7 @@ export function Chat() {
     }
   }
 
-  const tree = buildTree(sessions);
+  const tree = buildSessionTree(sessions);
 
   return (
     <div className="flex h-screen">
@@ -256,7 +243,7 @@ export function Chat() {
 
 /** 递归渲染会话树。 */
 function renderTree(
-  nodes: TreeNode[],
+  nodes: SessionTreeNode<Session>[],
   currentId: string | null,
   onSelect: (id: string) => void,
   depth = 0,
