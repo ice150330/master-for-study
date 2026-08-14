@@ -21,6 +21,8 @@
 - 新增「白板」模块：`lib/tree-layout.ts` 树布局引擎 + `TreeGraph` SVG 渲染器，`/whiteboard` 页展示会话关系图与个人成长地图（内置后端能力树 + 掌握度热力）
 - 新增「资源库」模块：`resources` 表 + `/api/resources`（增/查/改状态）+ `/resources` 页（添加资源、按术语关联、想读/在读/已读状态）
 - 新增「实践区」模块：sql.js（WASM）SQL 沙盒 + `/practice` 页（内置示例表、运行查询、code_run 事件落库）
+- 更新 `CLAUDE.md`：同步八大模块落地现状、Vitest / Drizzle 常用命令与架构大图（旧版仍停留在骨架阶段描述）
+- 全量文档同步：`README.md`（技术栈表标注未安装项、补 test / drizzle-kit 命令、项目结构改实际）、`AGENTS.md`（技术栈表 + 项目结构同步现状）、`todo.md`（补状态说明、401 根因更正、测试计数 4 文件 18 用例实测通过）、`docs/plans/` 两份文档头部状态行（蓝图标记愿景基线、实施计划标记已执行完成并列出选型出入）；`DESIGN.md` 与 `globals.css` 逐项核对一致，未改动
 
 ## 2026-08-13
 
