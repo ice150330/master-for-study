@@ -22,6 +22,13 @@
       "when": 1786688530051,
       "tag": "0002_plain_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786724188827,
+      "tag": "0003_clear_black_tom",
+      "breakpoints": true
     }
   ]
 }

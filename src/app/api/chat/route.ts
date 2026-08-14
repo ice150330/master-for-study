@@ -1,50 +1,64 @@
 import { createTextStreamResponse, streamText, toTextStream } from 'ai';
 import { fastModel, proModel } from '@/lib/ai/provider';
 import { TERM_ANNOTATION_SYSTEM_PROMPT } from '@/lib/ai/term-annotation';
-import { recordEvent, saveMessage } from '@/lib/db';
+import { findMessageByIdempotencyKey, getSession, saveMessage } from '@/lib/db';
+import { DomainError, parseJson, withApiErrors } from '@/lib/validation/api';
+import { chatRequestSchema } from '@/lib/validation/schemas';
 
 /**
  * 流式对话接口。
  *
- * 请求体：{ messages, model?: 'fast'|'pro', sessionId?: string }
+ * 请求体：{ messages, model?: 'fast'|'pro', sessionId, idempotencyKey }
  * 响应：text/plain 流，正文中的技术术语以 [[术语]] 内联标记。
- * 附带：新用户消息即时落库，助手回复在 onFinish 落库，并写一条 message_sent 事件。
+ * 附带：用户与助手消息分别在事务中和 message_sent 事件一起落库。
  */
 
 export async function POST(req: Request) {
-  const { messages, model, sessionId } = (await req.json()) as {
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-    model?: 'fast' | 'pro';
-    sessionId?: string;
-  };
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, chatRequestSchema);
+    if (!parsed.success) return parsed.response;
+    const { messages, model, sessionId, idempotencyKey } = parsed.data;
 
-  const selected = model === 'pro' ? proModel : fastModel;
-
-  // 新用户消息落库（历史消息已存在库中，仅持久化最后一条用户消息）。
-  if (sessionId) {
-    const last = messages[messages.length - 1];
-    if (last?.role === 'user') {
-      saveMessage({ sessionId, role: 'user', content: last.content });
+    if (!getSession(sessionId)) {
+      throw new DomainError('SESSION_NOT_FOUND', '会话不存在', 404);
     }
-  }
+    const last = messages.at(-1);
+    if (last?.role !== 'user') {
+      throw new DomainError('INVALID_MESSAGE_ORDER', '最后一条消息必须来自用户', 400);
+    }
+    const previousAssistant = findMessageByIdempotencyKey(`${idempotencyKey}:assistant`);
+    if (previousAssistant) {
+      return new Response(previousAssistant.content, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
 
-  const result = streamText({
-    model: selected,
-    system: TERM_ANNOTATION_SYSTEM_PROMPT,
-    messages,
-    onFinish: ({ text }) => {
-      if (sessionId) {
-        saveMessage({ sessionId, role: 'assistant', content: text });
-        recordEvent({
-          type: 'message_sent',
-          entityId: sessionId,
-          metadata: { role: 'assistant', length: text.length },
+    const selected = model === 'pro' ? proModel : fastModel;
+
+    // 用户消息与事件同事务写入；重试沿用幂等键，不重复落库。
+    saveMessage({
+      sessionId,
+      role: 'user',
+      content: last.content,
+      idempotencyKey,
+    });
+
+    const result = streamText({
+      model: selected,
+      system: TERM_ANNOTATION_SYSTEM_PROMPT,
+      messages,
+      onFinish: ({ text }) => {
+        saveMessage({
+          sessionId,
+          role: 'assistant',
+          content: text,
+          idempotencyKey: `${idempotencyKey}:assistant`,
         });
-      }
-    },
-  });
+      },
+    });
 
-  return createTextStreamResponse({
-    stream: toTextStream({ stream: result.stream }),
+    return createTextStreamResponse({
+      stream: toTextStream({ stream: result.stream }),
+    });
   });
 }

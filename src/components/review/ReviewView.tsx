@@ -5,6 +5,7 @@ import { PageShell } from '@/components/shell/PageShell';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
 
 type ReviewItem = {
   termId: string;
@@ -33,8 +34,9 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
 
   const current = queue[0];
 
-  async function grade(g: Grade) {
+  async function grade(g: Grade, previousIdempotencyKey?: string) {
     if (!current || busy) return;
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('review');
     setBusy(true);
     setError(null);
     let submitted = false;
@@ -42,7 +44,7 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
       await requestJson<{ next: unknown }>('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ termId: current.termId, grade: g }),
+        body: JSON.stringify({ termId: current.termId, grade: g, idempotencyKey }),
       });
       submitted = true;
       const data = await requestJson<{ reviews: ReviewItem[] }>('/api/review');
@@ -52,7 +54,7 @@ export function ReviewView({ initialReviews }: { initialReviews: ReviewItem[] })
     } catch (error) {
       setError({
         message: getErrorMessage(error, '复习结果提交失败'),
-        retry: submitted ? refreshQueue : () => grade(g),
+        retry: submitted ? refreshQueue : () => grade(g, idempotencyKey),
         label: submitted ? '刷新队列' : '重新提交',
       });
     } finally {

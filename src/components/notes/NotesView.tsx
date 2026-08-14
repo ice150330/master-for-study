@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
 
 type NoteContent = {
   coreConcepts: { name: string; explanation: string }[];
@@ -36,22 +37,23 @@ export function NotesView({
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [selectedId, setSelectedId] = useState(initialSessions[0]?.id ?? '');
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; idempotencyKey: string } | null>(null);
 
-  async function generate() {
+  async function generate(previousIdempotencyKey?: string) {
     if (!selectedId || generating) return;
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('note-create');
     setGenerating(true);
     setError(null);
     try {
       const data = await requestJson<{ note: Note }>('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: selectedId }),
+        body: JSON.stringify({ sessionId: selectedId, idempotencyKey }),
       });
       setNotes((items) => [data.note, ...items]);
       toast({ title: '笔记已生成', description: data.note.title, tone: 'success' });
     } catch (error) {
-      setError(getErrorMessage(error, '笔记生成失败'));
+      setError({ message: getErrorMessage(error, '笔记生成失败'), idempotencyKey });
     } finally {
       setGenerating(false);
     }
@@ -84,7 +86,7 @@ export function NotesView({
           ))}
         </select>
         <Button
-          onClick={generate}
+          onClick={() => generate()}
           disabled={!selectedId || generating}
           loading={generating}
         >
@@ -97,9 +99,9 @@ export function NotesView({
           className="mb-5"
           tone="error"
           title="笔记生成未完成"
-          description={`${error}。会话选择已保留，可直接重试。`}
+          description={`${error.message}。会话选择已保留，可直接重试。`}
           actionLabel="重新生成"
-          onAction={generate}
+          onAction={() => generate(error.idempotencyKey)}
         />
       ) : null}
 

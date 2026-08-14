@@ -1,4 +1,6 @@
 import { getSession, listMessages } from '@/lib/db';
+import { apiError, withApiErrors } from '@/lib/validation/api';
+import { sessionIdSchema } from '@/lib/validation/schemas';
 
 /**
  * 会话详情接口。
@@ -10,12 +12,12 @@ export async function GET(
   _req: Request,
   ctx: RouteContext<'/api/sessions/[id]'>,
 ) {
-  const { id } = await ctx.params;
-  const session = getSession(id);
-  if (!session) {
-    return Response.json({ error: '会话不存在' }, { status: 404 });
-  }
-
-  const messages = listMessages(id);
-  return Response.json({ session, messages });
+  return withApiErrors(async () => {
+    const params = await ctx.params;
+    const parsedId = sessionIdSchema.safeParse(params.id);
+    if (!parsedId.success) return apiError('VALIDATION_ERROR', '会话 ID 无效', 400);
+    const session = getSession(parsedId.data);
+    if (!session) return apiError('SESSION_NOT_FOUND', '会话不存在', 404);
+    return Response.json({ session, messages: listMessages(parsedId.data) });
+  });
 }

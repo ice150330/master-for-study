@@ -39,6 +39,30 @@ describe('HTTP 客户端', () => {
     } satisfies Partial<ApiError>);
   });
 
+  it('读取标准嵌套错误中的 code、message 和 details', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: '请求参数不符合要求',
+              details: [{ path: 'type', message: 'Invalid option' }],
+            },
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    await expect(requestJson('/api/resources')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: '请求参数不符合要求',
+      details: [{ path: 'type', message: 'Invalid option' }],
+    });
+  });
+
   it('超时后中止底层请求并返回明确错误', async () => {
     const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
       new Promise<Response>((_resolve, reject) => {

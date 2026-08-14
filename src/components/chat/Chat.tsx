@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/client';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { SessionDeck } from './SessionDeck';
 import { SessionPicker } from './SessionPicker';
 import type { TermAction } from './Term';
@@ -35,7 +36,11 @@ export function Chat() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [termDefs, setTermDefs] = useState<Record<string, string>>({});
-  const [requestError, setRequestError] = useState<{ message: string; retryText?: string } | null>(null);
+  const [requestError, setRequestError] = useState<{
+    message: string;
+    retryText?: string;
+    idempotencyKey?: string;
+  } | null>(null);
   const initRan = useRef(false);
   const currentSessionRef = useRef<string | null>(null);
   const requestSequence = useRef(0);
@@ -100,11 +105,16 @@ export function Chat() {
   async function createSession(
     parentId: string | null,
     title?: string,
+    previousIdempotencyKey?: string,
   ): Promise<string | null> {
     const data = await requestJson<{ session: { id: string } }>('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ parentId, title }),
+      body: JSON.stringify({
+        parentId,
+        title,
+        idempotencyKey: previousIdempotencyKey ?? createIdempotencyKey('session'),
+      }),
     });
     await refreshSessions();
     return data.session.id;
@@ -121,20 +131,25 @@ export function Chat() {
     }
   }
 
-  async function send(textOverride?: string, retry = false) {
+  async function send(textOverride?: string, retry = false, previousIdempotencyKey?: string) {
     const text = (textOverride ?? input).trim();
     if (!text || isStreaming) return;
 
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('chat');
     let sid = currentSessionId;
     try {
       if (!sid) {
-        sid = await createSession(null);
+        sid = await createSession(null, undefined, `${idempotencyKey}:session`);
         if (!sid) return;
         currentSessionRef.current = sid;
         setCurrentSessionId(sid);
       }
     } catch (error) {
-      setRequestError({ message: getErrorMessage(error, '新建会话失败'), retryText: text });
+      setRequestError({
+        message: getErrorMessage(error, '新建会话失败'),
+        retryText: text,
+        idempotencyKey,
+      });
       return;
     }
 
@@ -157,7 +172,7 @@ export function Chat() {
       const res = await request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, sessionId: sid, model }),
+        body: JSON.stringify({ messages: history, sessionId: sid, model, idempotencyKey }),
         signal: controller.signal,
         timeoutMs: 45_000,
       });
@@ -177,7 +192,7 @@ export function Chat() {
       // 第二段：术语结构化提取（名称 + 一句话解释）
       if (!isCurrentRequest(requestId, sid)) return;
       try {
-        await loadTermDefs(full, controller.signal, requestId, sid);
+        await loadTermDefs(full, controller.signal, requestId, sid, idempotencyKey);
       } catch (error) {
         if (!isCurrentRequest(requestId, sid) || isAbortError(error)) return;
         toast({
@@ -206,6 +221,7 @@ export function Chat() {
       setRequestError({
         message: getErrorMessage(error, '对话生成失败，请稍后重试'),
         retryText: text,
+        idempotencyKey,
       });
     } finally {
       if (activeRequest.current?.id === requestId) {
@@ -215,11 +231,20 @@ export function Chat() {
     }
   }
 
-  async function loadTermDefs(text: string, signal: AbortSignal, requestId: number, sessionId: string) {
+  async function loadTermDefs(
+    text: string,
+    signal: AbortSignal,
+    requestId: number,
+    sessionId: string,
+    chatIdempotencyKey: string,
+  ) {
     const data = await requestJson<{ terms: Array<{ name: string; definition: string }> }>('/api/terms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        text,
+        idempotencyKey: `${chatIdempotencyKey}:terms`,
+      }),
       signal,
     });
     if (!isCurrentRequest(requestId, sessionId)) return;
@@ -303,7 +328,7 @@ export function Chat() {
                 description: requestError.message,
                 actionLabel: requestError.retryText ? '重新发送' : undefined,
                 onAction: requestError.retryText
-                  ? () => send(requestError.retryText, true)
+                  ? () => send(requestError.retryText, true, requestError.idempotencyKey)
                   : undefined,
               }
             : null

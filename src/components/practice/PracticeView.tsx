@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
 import initSqlJs from 'sql.js';
 import type { Database } from 'sql.js';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
 
 /**
  * SQL 实验沙盒：用 sql.js（SQLite 编译到 WASM）在浏览器里跑 SQL。
@@ -56,7 +57,12 @@ export function PracticeView() {
       fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'code_run', metadata: { language: 'sql' } }),
+        body: JSON.stringify({
+          action: 'code_run',
+          result: { success: true },
+          context: { language: 'sql' },
+          idempotencyKey: createIdempotencyKey('code-run'),
+        }),
       }).catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

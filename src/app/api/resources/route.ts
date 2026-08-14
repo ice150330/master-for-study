@@ -1,10 +1,12 @@
 import {
   createResource,
+  getResource,
+  getTerm,
   listResources,
   updateResourceStatus,
-  type ResourceStatus,
-  type ResourceType,
 } from '@/lib/db';
+import { DomainError, parseJson, withApiErrors } from '@/lib/validation/api';
+import { resourceCreateSchema, resourcePatchSchema } from '@/lib/validation/schemas';
 
 /**
  * 资源库接口。
@@ -15,40 +17,28 @@ import {
  */
 
 export async function GET() {
-  const resources = listResources();
-  return Response.json({ resources });
+  return withApiErrors(() => Response.json({ resources: listResources() }));
 }
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as {
-    title?: string;
-    type?: ResourceType;
-    url?: string;
-    termId?: string | null;
-    note?: string | null;
-  };
-
-  if (!body.title?.trim() || !body.type || !body.url?.trim()) {
-    return Response.json({ error: '标题、类型、链接为必填' }, { status: 400 });
-  }
-
-  const resource = createResource({
-    title: body.title.trim(),
-    type: body.type,
-    url: body.url.trim(),
-    termId: body.termId ?? null,
-    note: body.note ?? null,
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, resourceCreateSchema);
+    if (!parsed.success) return parsed.response;
+    if (parsed.data.termId && !getTerm(parsed.data.termId)) {
+      throw new DomainError('TERM_NOT_FOUND', '关联术语不存在', 404);
+    }
+    const resource = createResource(parsed.data);
+    return Response.json({ resource }, { status: 201 });
   });
-  return Response.json({ resource }, { status: 201 });
 }
 
 export async function PATCH(req: Request) {
-  const body = (await req.json()) as { id?: string; status?: ResourceStatus };
-
-  if (!body.id || !body.status) {
-    return Response.json({ error: '缺少 id 或 status' }, { status: 400 });
-  }
-
-  updateResourceStatus(body.id, body.status);
-  return Response.json({ ok: true });
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, resourcePatchSchema);
+    if (!parsed.success) return parsed.response;
+    if (!getResource(parsed.data.id)) {
+      throw new DomainError('RESOURCE_NOT_FOUND', '资源不存在', 404);
+    }
+    return Response.json({ resource: updateResourceStatus(parsed.data) });
+  });
 }

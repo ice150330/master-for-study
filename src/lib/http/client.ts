@@ -13,7 +13,11 @@ export class ApiError extends Error {
 }
 
 type ErrorPayload = {
-  error?: string;
+  error?: string | {
+    code?: string;
+    message?: string;
+    details?: unknown;
+  };
   message?: string;
   code?: string;
   details?: unknown;
@@ -56,16 +60,19 @@ export async function request(input: RequestInfo | URL, options: RequestOptions 
     const payload = await readPayload(response);
     const errorPayload =
       payload && typeof payload === 'object' ? (payload as ErrorPayload) : undefined;
+    const nestedError =
+      errorPayload?.error && typeof errorPayload.error === 'object' ? errorPayload.error : undefined;
     const message =
-      errorPayload?.error ||
+      (typeof errorPayload?.error === 'string' ? errorPayload.error : undefined) ||
+      nestedError?.message ||
       errorPayload?.message ||
       (typeof payload === 'string' && payload.trim()) ||
       `请求失败（${response.status}）`;
 
     throw new ApiError(message, {
       status: response.status,
-      code: errorPayload?.code,
-      details: errorPayload?.details,
+      code: nestedError?.code ?? errorPayload?.code,
+      details: nestedError?.details ?? errorPayload?.details,
     });
   } catch (error) {
     if (timedOut) {

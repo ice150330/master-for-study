@@ -1,5 +1,14 @@
 import { generateNote, noteToMarkdown } from '@/lib/ai/note';
-import { createNote, listMessages, listNotes } from '@/lib/db';
+import {
+  createNote,
+  findEventByIdempotencyKey,
+  getNote,
+  getSession,
+  listMessages,
+  listNotes,
+} from '@/lib/db';
+import { DomainError, parseJson, withApiErrors } from '@/lib/validation/api';
+import { notesCreateSchema } from '@/lib/validation/schemas';
 
 /**
  * 学习笔记接口。
@@ -10,33 +19,37 @@ import { createNote, listMessages, listNotes } from '@/lib/db';
  */
 
 export async function GET() {
-  const notes = listNotes();
-  return Response.json({ notes });
+  return withApiErrors(() => Response.json({ notes: listNotes() }));
 }
 
 export async function POST(req: Request) {
-  const { sessionId } = (await req.json()) as { sessionId?: string };
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, notesCreateSchema);
+    if (!parsed.success) return parsed.response;
+    const previous = findEventByIdempotencyKey(parsed.data.idempotencyKey);
+    if (previous?.objectId) {
+      const note = getNote(previous.objectId);
+      if (note) return Response.json({ note }, { status: 200 });
+    }
 
-  if (!sessionId) {
-    return Response.json({ error: '缺少 sessionId' }, { status: 400 });
-  }
+    if (!getSession(parsed.data.sessionId)) {
+      throw new DomainError('SESSION_NOT_FOUND', '会话不存在', 404);
+    }
 
-  const messages = listMessages(sessionId);
-  if (messages.length === 0) {
-    return Response.json({ error: '该会话还没有消息' }, { status: 400 });
-  }
-
-  const generated = await generateNote(
-    messages.map((m) => ({ role: m.role, content: m.content })),
-  );
-  const markdown = noteToMarkdown(generated);
-
-  const note = createNote({
-    sessionId,
-    title: generated.title,
-    content: generated as unknown as Record<string, unknown>,
-    markdown,
+    const messages = listMessages(parsed.data.sessionId);
+    if (messages.length === 0) {
+      throw new DomainError('SESSION_EMPTY', '该会话还没有消息', 400);
+    }
+    const generated = await generateNote(
+      messages.map((message) => ({ role: message.role, content: message.content })),
+    );
+    const note = createNote({
+      sessionId: parsed.data.sessionId,
+      title: generated.title,
+      content: generated as unknown as Record<string, unknown>,
+      markdown: noteToMarkdown(generated),
+      idempotencyKey: parsed.data.idempotencyKey,
+    });
+    return Response.json({ note }, { status: 201 });
   });
-
-  return Response.json({ note }, { status: 201 });
 }

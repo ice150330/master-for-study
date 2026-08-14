@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
 
 type Interview = {
   id: string;
@@ -23,37 +24,52 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{ correct: boolean; feedback: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; action: 'question' | 'answer' } | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    action: 'question' | 'answer';
+    idempotencyKey: string;
+  } | null>(null);
 
-  async function askQuestion() {
+  async function askQuestion(previousIdempotencyKey?: string) {
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('interview-question');
     setBusy(true);
     setError(null);
     try {
       const data = await requestJson<{ interview: Interview }>('/api/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'question' }),
+        body: JSON.stringify({ action: 'question', idempotencyKey }),
       });
       setCurrent(data.interview);
       setAnswer('');
       setFeedback(null);
       setHistory((items) => [data.interview, ...items]);
     } catch (error) {
-      setError({ message: getErrorMessage(error, '出题失败'), action: 'question' });
+      setError({
+        message: getErrorMessage(error, '出题失败'),
+        action: 'question',
+        idempotencyKey,
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  async function submit() {
+  async function submit(previousIdempotencyKey?: string) {
     if (!current || !answer.trim() || busy) return;
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('interview-answer');
     setBusy(true);
     setError(null);
     try {
       const data = await requestJson<{ correct: boolean; feedback: string }>('/api/interview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'answer', id: current.id, answer: answer.trim() }),
+        body: JSON.stringify({
+          action: 'answer',
+          id: current.id,
+          answer: answer.trim(),
+          idempotencyKey,
+        }),
       });
       setFeedback(data);
       setHistory((items) =>
@@ -65,7 +81,11 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
       );
       toast({ title: '回答已完成评估', tone: 'success' });
     } catch (error) {
-      setError({ message: getErrorMessage(error, '判分失败'), action: 'answer' });
+      setError({
+        message: getErrorMessage(error, '判分失败'),
+        action: 'answer',
+        idempotencyKey,
+      });
     } finally {
       setBusy(false);
     }
@@ -82,13 +102,17 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
             title={error.action === 'question' ? '暂时无法生成题目' : '回答尚未完成评估'}
             description={`${error.message}。${error.action === 'answer' ? '你的回答已保留。' : '当前面试状态未改变。'}`}
             actionLabel="重试"
-            onAction={error.action === 'question' ? askQuestion : submit}
+            onAction={
+              error.action === 'question'
+                ? () => askQuestion(error.idempotencyKey)
+                : () => submit(error.idempotencyKey)
+            }
           />
         ) : null}
         {!current ? (
           <div className="py-10 text-center">
             <Button
-              onClick={askQuestion}
+              onClick={() => askQuestion()}
               disabled={busy}
               loading={busy}
               size="lg"
@@ -113,7 +137,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={submit}
+                  onClick={() => submit()}
                   disabled={!answer.trim() || busy}
                   className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
@@ -132,7 +156,7 @@ export function InterviewView({ initialInterviews }: { initialInterviews: Interv
                 <p className="whitespace-pre-wrap">{feedback.feedback}</p>
                 <button
                   type="button"
-                  onClick={askQuestion}
+                  onClick={() => askQuestion()}
                   disabled={busy}
                   className="mt-3 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50"
                 >

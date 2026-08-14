@@ -7,6 +7,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
 import { scheduleReview, type ReviewGrade } from '../fsrs';
+import {
+  LEARNING_EVENT_SCHEMA_VERSION,
+  type LearningEventAction,
+  type LearningObjectType,
+} from '../learning-events';
 
 /**
  * SQLite 连接与仓库层（服务端 only，勿在客户端引用）。
@@ -19,6 +24,7 @@ import { scheduleReview, type ReviewGrade } from '../fsrs';
 export type Workspace = typeof schema.workspaces.$inferSelect;
 export type Session = typeof schema.sessions.$inferSelect;
 export type Message = typeof schema.messages.$inferSelect;
+export type Term = typeof schema.terms.$inferSelect;
 export type Note = typeof schema.notes.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
 export type TermMastery = typeof schema.termMasteries.$inferSelect;
@@ -38,11 +44,12 @@ export type ReviewItem = {
 };
 
 function createDb() {
-  const dataDir = path.join(process.cwd(), 'data');
+  const dbPath = process.env.MENTOR_DB_PATH ?? path.join(process.cwd(), 'data', 'mentor.db');
+  const dataDir = path.dirname(dbPath);
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
-  const sqlite = new Database(path.join(dataDir, 'mentor.db'));
+  const sqlite = new Database(dbPath);
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
   const db = drizzle(sqlite, { schema });
@@ -55,6 +62,16 @@ let _db: ReturnType<typeof createDb> | null = null;
 function getDb() {
   if (!_db) _db = createDb();
   return _db;
+}
+
+/** 测试进程切换临时数据库时关闭懒加载连接。 */
+export function resetDbForTests() {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('resetDbForTests 只能在测试环境调用');
+  }
+  const client = (_db as unknown as { $client?: { close: () => void } } | null)?.$client;
+  client?.close();
+  _db = null;
 }
 
 export const DEFAULT_WORKSPACE_TITLE = '默认工作区';
@@ -80,6 +97,16 @@ export function getSession(id: string): Session | undefined {
   return getDb().select().from(schema.sessions).where(eq(schema.sessions.id, id)).limit(1).get();
 }
 
+/** 按幂等键查询消息，供流式重试复用已经完成的回答。 */
+export function findMessageByIdempotencyKey(idempotencyKey: string): Message | undefined {
+  return getDb()
+    .select()
+    .from(schema.messages)
+    .where(eq(schema.messages.idempotencyKey, idempotencyKey))
+    .limit(1)
+    .get();
+}
+
 /** 按 id 查询单条面试记录。 */
 export function getInterview(id: string): Interview | undefined {
   return getDb()
@@ -88,6 +115,60 @@ export function getInterview(id: string): Interview | undefined {
     .where(eq(schema.interviews.id, id))
     .limit(1)
     .get();
+}
+
+/** 按 id 查询笔记。 */
+export function getNote(id: string): Note | undefined {
+  return getDb().select().from(schema.notes).where(eq(schema.notes.id, id)).limit(1).get();
+}
+
+/** 按 id 查询术语。 */
+export function getTerm(id: string): Term | undefined {
+  return getDb().select().from(schema.terms).where(eq(schema.terms.id, id)).limit(1).get();
+}
+
+/** 按 id 查询资源。 */
+export function getResource(id: string): Resource | undefined {
+  return getDb().select().from(schema.resources).where(eq(schema.resources.id, id)).limit(1).get();
+}
+
+/** 按幂等键读取已经完成的事件。 */
+export function findEventByIdempotencyKey(idempotencyKey: string): LearningEvent | undefined {
+  return getDb()
+    .select()
+    .from(schema.learningEvents)
+    .where(eq(schema.learningEvents.idempotencyKey, idempotencyKey))
+    .limit(1)
+    .get();
+}
+
+function eventValues(input: {
+  workspaceId: string;
+  sessionId?: string | null;
+  action: LearningEventAction;
+  objectType: LearningObjectType;
+  objectId?: string | null;
+  result?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  idempotencyKey: string;
+}) {
+  return {
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    sessionId: input.sessionId ?? null,
+    action: input.action,
+    objectType: input.objectType,
+    objectId: input.objectId ?? null,
+    result: input.result ?? {},
+    context: input.context ?? {},
+    schemaVersion: LEARNING_EVENT_SCHEMA_VERSION,
+    idempotencyKey: input.idempotencyKey,
+    // 兼容旧分析投影：type/action 与 entityId/objectId 同步写入。
+    type: input.action,
+    entityId: input.objectId ?? null,
+    metadata: input.context ?? {},
+    createdAt: new Date(),
+  };
 }
 
 /** 列出默认工作区下的全部会话（按创建时间升序）。 */
@@ -105,7 +186,14 @@ export function listSessions(): Session[] {
 export function createSession(input: {
   parentId?: string | null;
   title?: string;
+  idempotencyKey: string;
 }): Session {
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent?.objectId) {
+    const existingSession = getSession(existingEvent.objectId);
+    if (existingSession) return existingSession;
+  }
+
   const ws = ensureWorkspace();
   const now = new Date();
   const session = {
@@ -117,7 +205,23 @@ export function createSession(input: {
     createdAt: now,
     updatedAt: now,
   };
-  getDb().insert(schema.sessions).values(session).run();
+  getDb().transaction((tx) => {
+    tx.insert(schema.sessions).values(session).run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          sessionId: session.id,
+          action: 'session_created',
+          objectType: 'session',
+          objectId: session.id,
+          result: { title: session.title },
+          context: { parentId: session.parentId },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
   return session;
 }
 
@@ -126,22 +230,49 @@ export function saveMessage(input: {
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
-}): void {
+  idempotencyKey: string;
+}): Message {
   const db = getDb();
-  db.insert(schema.messages)
-    .values({
-      id: randomUUID(),
-      sessionId: input.sessionId,
-      role: input.role,
-      content: input.content,
-      createdAt: new Date(),
-    })
-    .run();
+  const existing = db
+    .select()
+    .from(schema.messages)
+    .where(eq(schema.messages.idempotencyKey, input.idempotencyKey))
+    .limit(1)
+    .get();
+  if (existing) return existing;
 
-  db.update(schema.sessions)
-    .set({ updatedAt: new Date() })
-    .where(eq(schema.sessions.id, input.sessionId))
-    .run();
+  const session = getSession(input.sessionId);
+  if (!session) throw new Error(`会话不存在：${input.sessionId}`);
+  const message = {
+    id: randomUUID(),
+    sessionId: input.sessionId,
+    role: input.role,
+    content: input.content,
+    idempotencyKey: input.idempotencyKey,
+    createdAt: new Date(),
+  };
+
+  db.transaction((tx) => {
+    tx.insert(schema.messages).values(message).run();
+    tx.update(schema.sessions)
+      .set({ updatedAt: new Date() })
+      .where(eq(schema.sessions.id, input.sessionId))
+      .run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: session.workspaceId,
+          sessionId: input.sessionId,
+          action: 'message_sent',
+          objectType: 'message',
+          objectId: message.id,
+          result: { role: input.role, length: input.content.length },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return message;
 }
 
 /** 读取某会话的历史消息（按时间升序）。 */
@@ -156,45 +287,86 @@ export function listMessages(sessionId: string): Message[] {
 
 /** 记录一条学习事件。 */
 export function recordEvent(input: {
-  type: string;
-  entityId?: string | null;
-  metadata?: Record<string, unknown>;
-}): void {
-  getDb()
-    .insert(schema.learningEvents)
-    .values({
-      id: randomUUID(),
-      type: input.type,
-      entityId: input.entityId ?? null,
-      metadata: input.metadata ?? {},
-      createdAt: new Date(),
-    })
-    .run();
+  action: LearningEventAction;
+  objectType: LearningObjectType;
+  objectId?: string | null;
+  sessionId?: string | null;
+  result?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  idempotencyKey: string;
+}): LearningEvent {
+  const existing = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existing) return existing;
+  const ws = ensureWorkspace();
+  const values = eventValues({ workspaceId: ws.id, ...input });
+  getDb().insert(schema.learningEvents).values(values).run();
+  return values;
 }
 
 /** 术语不存在则插入，存在则忽略（单源卡片）。 */
-export function upsertTerm(input: { name: string; definition: string }): void {
+export function upsertTerm(input: {
+  name: string;
+  definition: string;
+  idempotencyKey: string;
+}): Term {
   const db = getDb();
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent?.objectId) {
+    const eventTerm = db
+      .select()
+      .from(schema.terms)
+      .where(eq(schema.terms.id, existingEvent.objectId))
+      .limit(1)
+      .get();
+    if (eventTerm) return eventTerm;
+  }
+
+  const ws = ensureWorkspace();
   const existing = db
     .select()
     .from(schema.terms)
     .where(eq(schema.terms.name, input.name))
     .limit(1)
     .get();
-  if (existing) return;
-
-  const termId = randomUUID();
-  db.insert(schema.terms)
-    .values({
-      id: termId,
+  const term =
+    existing ??
+    ({
+      id: randomUUID(),
       name: input.name,
       definition: input.definition,
       createdAt: new Date(),
-    })
-    .run();
+    } satisfies Term);
 
-  // 新术语加入复习队列
-  ensureMastery(termId);
+  db.transaction((tx) => {
+    if (!existing) {
+      tx.insert(schema.terms).values(term).run();
+      tx.insert(schema.termMasteries)
+        .values({
+          id: randomUUID(),
+          termId: term.id,
+          state: 'new',
+          stability: 0,
+          difficulty: 5,
+          dueAt: new Date(),
+          lastReviewedAt: null,
+        })
+        .run();
+    }
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          action: 'term_seen',
+          objectType: 'term',
+          objectId: term.id,
+          result: { created: !existing },
+          context: { name: term.name },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return term;
 }
 
 /** 新建一条学习笔记。 */
@@ -203,7 +375,18 @@ export function createNote(input: {
   title: string;
   content: Record<string, unknown>;
   markdown: string;
+  idempotencyKey: string;
 }): Note {
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent?.objectId) {
+    const existingNote = getDb()
+      .select()
+      .from(schema.notes)
+      .where(eq(schema.notes.id, existingEvent.objectId))
+      .limit(1)
+      .get();
+    if (existingNote) return existingNote;
+  }
   const ws = ensureWorkspace();
   const note = {
     id: randomUUID(),
@@ -214,7 +397,22 @@ export function createNote(input: {
     markdown: input.markdown,
     createdAt: new Date(),
   };
-  getDb().insert(schema.notes).values(note).run();
+  getDb().transaction((tx) => {
+    tx.insert(schema.notes).values(note).run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          sessionId: note.sessionId,
+          action: 'note_created',
+          objectType: 'note',
+          objectId: note.id,
+          result: { title: note.title },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
   return note;
 }
 
@@ -230,7 +428,17 @@ export function listNotes(): Note[] {
 }
 
 /** 新建一条面试问答（只含问题）。 */
-export function createInterview(input: { question: string; sessionId?: string | null }): Interview {
+export function createInterview(input: {
+  question: string;
+  sessionId?: string | null;
+  idempotencyKey: string;
+}): Interview {
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent?.objectId) {
+    const existingInterview = getInterview(existingEvent.objectId);
+    if (existingInterview) return existingInterview;
+  }
+  const ws = ensureWorkspace();
   const interview = {
     id: randomUUID(),
     sessionId: input.sessionId ?? null,
@@ -240,20 +448,63 @@ export function createInterview(input: { question: string; sessionId?: string | 
     correct: null,
     createdAt: new Date(),
   };
-  getDb().insert(schema.interviews).values(interview).run();
+  getDb().transaction((tx) => {
+    tx.insert(schema.interviews).values(interview).run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          sessionId: interview.sessionId,
+          action: 'interview_question_created',
+          objectType: 'interview',
+          objectId: interview.id,
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
   return interview;
 }
 
 /** 回填面试问答的作答与判分。 */
 export function finishInterview(
   id: string,
-  input: { answer: string; feedback: string; correct: boolean },
-): void {
-  getDb()
-    .update(schema.interviews)
-    .set({ answer: input.answer, feedback: input.feedback, correct: input.correct })
-    .where(eq(schema.interviews.id, id))
-    .run();
+  input: {
+    answer: string;
+    feedback: string;
+    correct: boolean;
+    level: 'advance' | 'stay' | 'downgrade';
+    idempotencyKey: string;
+  },
+): Interview {
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent) {
+    const existingInterview = getInterview(id);
+    if (existingInterview) return existingInterview;
+  }
+  const interview = getInterview(id);
+  if (!interview) throw new Error(`面试记录不存在：${id}`);
+  const ws = ensureWorkspace();
+  getDb().transaction((tx) => {
+    tx.update(schema.interviews)
+      .set({ answer: input.answer, feedback: input.feedback, correct: input.correct })
+      .where(eq(schema.interviews.id, id))
+      .run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          sessionId: interview.sessionId,
+          action: 'interview_answered',
+          objectType: 'interview',
+          objectId: id,
+          result: { correct: input.correct, level: input.level },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return { ...interview, answer: input.answer, feedback: input.feedback, correct: input.correct };
 }
 
 /** 列出全部面试记录（按时间倒序）。 */
@@ -309,17 +560,22 @@ export function getDueReviews(limit = 20): ReviewItem[] {
 }
 
 /** 复习一个术语：按评级更新掌握度，并记录 reviewed 事件。 */
-export function reviewTerm(termId: string, grade: ReviewGrade) {
+export function reviewTerm(input: {
+  termId: string;
+  grade: ReviewGrade;
+  idempotencyKey: string;
+}) {
   const db = getDb();
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent?.result) {
+    return existingEvent.result as ReturnType<typeof scheduleReview>;
+  }
   const mastery = db
     .select()
     .from(schema.termMasteries)
-    .where(eq(schema.termMasteries.termId, termId))
+    .where(eq(schema.termMasteries.termId, input.termId))
     .limit(1)
     .get();
-  if (!mastery) {
-    ensureMastery(termId);
-  }
   const current = mastery ?? {
     state: 'new' as const,
     stability: 0,
@@ -332,21 +588,48 @@ export function reviewTerm(termId: string, grade: ReviewGrade) {
       stability: current.stability ?? 0,
       difficulty: current.difficulty ?? 5,
     },
-    grade,
+    input.grade,
   );
 
-  db.update(schema.termMasteries)
-    .set({
-      state: result.state,
-      stability: result.stability,
-      difficulty: result.difficulty,
-      dueAt: new Date(Date.now() + result.dueDays * 24 * 3600 * 1000),
-      lastReviewedAt: new Date(),
-    })
-    .where(eq(schema.termMasteries.termId, termId))
-    .run();
-
-  recordEvent({ type: 'reviewed', entityId: termId, metadata: { grade } });
+  const ws = ensureWorkspace();
+  db.transaction((tx) => {
+    if (!mastery) {
+      tx.insert(schema.termMasteries)
+        .values({
+          id: randomUUID(),
+          termId: input.termId,
+          state: 'new',
+          stability: 0,
+          difficulty: 5,
+          dueAt: new Date(),
+          lastReviewedAt: null,
+        })
+        .run();
+    }
+    tx.update(schema.termMasteries)
+      .set({
+        state: result.state,
+        stability: result.stability,
+        difficulty: result.difficulty,
+        dueAt: new Date(Date.now() + result.dueDays * 24 * 3600 * 1000),
+        lastReviewedAt: new Date(),
+      })
+      .where(eq(schema.termMasteries.termId, input.termId))
+      .run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          action: 'reviewed',
+          objectType: 'term_mastery',
+          objectId: input.termId,
+          result: { ...result },
+          context: { grade: input.grade },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
   return result;
 }
 
@@ -444,7 +727,18 @@ export function createResource(input: {
   url: string;
   termId?: string | null;
   note?: string | null;
+  idempotencyKey: string;
 }): Resource {
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent?.objectId) {
+    const existingResource = getDb()
+      .select()
+      .from(schema.resources)
+      .where(eq(schema.resources.id, existingEvent.objectId))
+      .limit(1)
+      .get();
+    if (existingResource) return existingResource;
+  }
   const ws = ensureWorkspace();
   const resource = {
     id: randomUUID(),
@@ -457,7 +751,22 @@ export function createResource(input: {
     note: input.note ?? null,
     createdAt: new Date(),
   };
-  getDb().insert(schema.resources).values(resource).run();
+  getDb().transaction((tx) => {
+    tx.insert(schema.resources).values(resource).run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: ws.id,
+          action: 'resource_created',
+          objectType: 'resource',
+          objectId: resource.id,
+          result: { status: resource.status, type: resource.type },
+          context: { termId: resource.termId },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
   return resource;
 }
 
@@ -473,10 +782,40 @@ export function listResources(): Resource[] {
 }
 
 /** 更新资源阅读状态。 */
-export function updateResourceStatus(id: string, status: ResourceStatus): void {
-  getDb()
-    .update(schema.resources)
-    .set({ status })
-    .where(eq(schema.resources.id, id))
-    .run();
+export function updateResourceStatus(input: {
+  id: string;
+  status: ResourceStatus;
+  idempotencyKey: string;
+}): Resource {
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  const db = getDb();
+  const resource = db
+    .select()
+    .from(schema.resources)
+    .where(eq(schema.resources.id, input.id))
+    .limit(1)
+    .get();
+  if (!resource) throw new Error(`资源不存在：${input.id}`);
+  if (existingEvent) return resource;
+
+  db.transaction((tx) => {
+    tx.update(schema.resources)
+      .set({ status: input.status })
+      .where(eq(schema.resources.id, input.id))
+      .run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: resource.workspaceId,
+          action: 'resource_status_changed',
+          objectType: 'resource',
+          objectId: input.id,
+          result: { status: input.status },
+          context: { previousStatus: resource.status },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return { ...resource, status: input.status };
 }

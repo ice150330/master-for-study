@@ -5,6 +5,7 @@ import {
   text,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
+import { LEARNING_EVENT_ACTIONS, LEARNING_OBJECT_TYPES } from '../learning-events';
 
 /**
  * 数据模型（Drizzle + SQLite）。
@@ -40,6 +41,7 @@ export const messages = sqliteTable('messages', {
     .references(() => sessions.id),
   role: text('role', { enum: ['user', 'assistant'] }).notNull(),
   content: text('content').notNull(),
+  idempotencyKey: text('idempotency_key').unique(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
@@ -72,6 +74,16 @@ export const termMasteries = sqliteTable('term_masteries', {
 /** 学习事件：不可变事件流（Event Sourcing），一切学习行为在此留痕。 */
 export const learningEvents = sqliteTable('learning_events', {
   id: text('id').primaryKey(),
+  workspaceId: text('workspace_id').references(() => workspaces.id),
+  sessionId: text('session_id').references(() => sessions.id),
+  action: text('action', { enum: LEARNING_EVENT_ACTIONS }).notNull().default('legacy'),
+  objectType: text('object_type', { enum: LEARNING_OBJECT_TYPES }).notNull().default('unknown'),
+  objectId: text('object_id'),
+  result: text('result', { mode: 'json' }).$type<Record<string, unknown>>(),
+  context: text('context', { mode: 'json' }).$type<Record<string, unknown>>(),
+  schemaVersion: integer('schema_version').notNull().default(1),
+  idempotencyKey: text('idempotency_key').unique(),
+  /** 兼容阶段 4 前的分析查询，后续投影完成后移除。 */
   type: text('type').notNull(),
   entityId: text('entity_id'),
   metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),

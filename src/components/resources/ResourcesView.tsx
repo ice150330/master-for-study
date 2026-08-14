@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
 
 type Resource = {
   id: string;
@@ -43,15 +44,16 @@ export function ResourcesView({
 
   const termName = new Map(initialTerms.map((t) => [t.id, t.name]));
 
-  async function add() {
+  async function add(previousIdempotencyKey?: string) {
     if (!title.trim() || !url.trim() || busy) return;
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('resource-create');
     setBusy(true);
     setError(null);
     try {
       const data = await requestJson<{ resource: Resource }>('/api/resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, type, url, termId: termId || null }),
+        body: JSON.stringify({ title, type, url, termId: termId || null, idempotencyKey }),
       });
       setResources((items) => [data.resource, ...items]);
       setTitle('');
@@ -59,28 +61,32 @@ export function ResourcesView({
       setTermId('');
       toast({ title: '资源已添加', description: data.resource.title, tone: 'success' });
     } catch (error) {
-      setError({ message: getErrorMessage(error, '资源保存失败'), retry: add });
+      setError({
+        message: getErrorMessage(error, '资源保存失败'),
+        retry: () => add(idempotencyKey),
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  async function changeStatus(id: string, status: string) {
+  async function changeStatus(id: string, status: string, previousIdempotencyKey?: string) {
     if (statusBusyId) return;
+    const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('resource-status');
     setStatusBusyId(id);
     setError(null);
     try {
       await requestJson<{ ok: true }>('/api/resources', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({ id, status, idempotencyKey }),
       });
       setResources((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
       toast({ title: '阅读状态已更新', tone: 'success' });
     } catch (error) {
       setError({
         message: getErrorMessage(error, '状态更新失败'),
-        retry: () => changeStatus(id, status),
+        retry: () => changeStatus(id, status, idempotencyKey),
       });
     } finally {
       setStatusBusyId(null);
@@ -135,7 +141,7 @@ export function ResourcesView({
               ))}
             </select>
             <Button
-              onClick={add}
+              onClick={() => add()}
               disabled={!title.trim() || !url.trim() || busy}
               loading={busy}
             >

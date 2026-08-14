@@ -1,5 +1,7 @@
 import { extractTerms } from '@/lib/ai/term-annotation';
-import { recordEvent, upsertTerm } from '@/lib/db';
+import { upsertTerm } from '@/lib/db';
+import { parseJson, withApiErrors } from '@/lib/validation/api';
+import { termsRequestSchema } from '@/lib/validation/schemas';
 
 /**
  * 术语结构化提取接口（术语标注「第二段」）。
@@ -10,18 +12,19 @@ import { recordEvent, upsertTerm } from '@/lib/db';
  */
 
 export async function POST(req: Request) {
-  const { text } = (await req.json()) as { text: string };
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, termsRequestSchema);
+    if (!parsed.success) return parsed.response;
+    if (!parsed.data.text.trim()) return Response.json({ terms: [] });
 
-  if (!text || !text.trim()) {
-    return Response.json({ terms: [] });
-  }
-
-  const terms = await extractTerms(text);
-
-  for (const t of terms) {
-    upsertTerm({ name: t.name, definition: t.definition });
-    recordEvent({ type: 'term_seen', metadata: { term: t.name } });
-  }
-
-  return Response.json({ terms });
+    const terms = await extractTerms(parsed.data.text);
+    for (const [index, term] of terms.entries()) {
+      upsertTerm({
+        name: term.name,
+        definition: term.definition,
+        idempotencyKey: `${parsed.data.idempotencyKey}:term:${index}`,
+      });
+    }
+    return Response.json({ terms });
+  });
 }
