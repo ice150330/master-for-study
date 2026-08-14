@@ -29,6 +29,8 @@ export type Message = typeof schema.messages.$inferSelect;
 export type Term = typeof schema.terms.$inferSelect;
 export type ConceptMention = typeof schema.conceptMentions.$inferSelect;
 export type Note = typeof schema.notes.$inferSelect;
+export type NoteVersion = typeof schema.noteVersions.$inferSelect;
+export type NoteSource = typeof schema.noteSources.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
 export type TermMastery = typeof schema.termMasteries.$inferSelect;
 export type LearningEvent = typeof schema.learningEvents.$inferSelect;
@@ -730,6 +732,20 @@ function extractConceptNames(content: Record<string, unknown>) {
   return candidates;
 }
 
+function extractConceptLabels(content: Record<string, unknown>) {
+  const labels: string[] = [];
+  for (const key of ['coreConcepts', 'terms']) {
+    const entries = content[key];
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      if (entry && typeof entry === 'object' && 'name' in entry && typeof entry.name === 'string') {
+        labels.push(entry.name);
+      }
+    }
+  }
+  return [...new Set(labels)];
+}
+
 /** 新建一条学习笔记。 */
 export function createNote(input: {
   sessionId?: string | null;
@@ -750,6 +766,8 @@ export function createNote(input: {
   }
   const ws = ensureWorkspace();
   const conceptNames = extractConceptNames(input.content);
+  const tags = extractConceptLabels(input.content).slice(0, 12);
+  const sourceMessages = input.sessionId ? listMessages(input.sessionId) : [];
   const noteConcepts = getDb()
     .select()
     .from(schema.terms)
@@ -765,11 +783,42 @@ export function createNote(input: {
     sessionId: input.sessionId ?? null,
     title: input.title,
     content: input.content,
+    aiSnapshot: input.content,
+    userContent: null,
+    tags,
+    version: 1,
     markdown: input.markdown,
     createdAt: new Date(),
+    updatedAt: new Date(),
   };
   getDb().transaction((tx) => {
     tx.insert(schema.notes).values(note).run();
+    tx.insert(schema.noteVersions)
+      .values({
+        id: randomUUID(),
+        noteId: note.id,
+        version: 1,
+        origin: 'ai',
+        title: note.title,
+        markdown: note.markdown,
+        tags: note.tags,
+        createdAt: note.createdAt,
+      })
+      .run();
+    if (sourceMessages.length > 0) {
+      tx.insert(schema.noteSources)
+        .values({
+          id: randomUUID(),
+          noteId: note.id,
+          blockKey: 'document',
+          sessionId: note.sessionId,
+          startMessageId: sourceMessages[0].id,
+          endMessageId: sourceMessages.at(-1)?.id ?? sourceMessages[0].id,
+          excerpt: sourceMessages[0].content.slice(0, 240),
+          createdAt: note.createdAt,
+        })
+        .run();
+    }
     for (const [index, concept] of noteConcepts.entries()) {
       tx.insert(schema.conceptMentions)
         .values({
@@ -800,6 +849,98 @@ export function createNote(input: {
       .run();
   });
   return note;
+}
+
+/** 保存用户编辑并追加不可变版本；AI 初始快照保持不变。 */
+export function updateNote(input: {
+  id: string;
+  title: string;
+  markdown: string;
+  tags: string[];
+  idempotencyKey: string;
+}): Note {
+  const db = getDb();
+  const existingEvent = findEventByIdempotencyKey(input.idempotencyKey);
+  if (existingEvent) {
+    const existing = getNote(input.id);
+    if (existing) return existing;
+  }
+  const note = getNote(input.id);
+  if (!note) throw new Error(`笔记不存在：${input.id}`);
+  const version = note.version + 1;
+  const tags = [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))].slice(0, 20);
+  const updatedAt = new Date();
+
+  db.transaction((tx) => {
+    tx.update(schema.notes)
+      .set({
+        title: input.title,
+        markdown: input.markdown,
+        userContent: { title: input.title, markdown: input.markdown, tags },
+        tags,
+        version,
+        updatedAt,
+      })
+      .where(eq(schema.notes.id, input.id))
+      .run();
+    tx.insert(schema.noteVersions)
+      .values({
+        id: randomUUID(),
+        noteId: input.id,
+        version,
+        origin: 'user',
+        title: input.title,
+        markdown: input.markdown,
+        tags,
+        createdAt: updatedAt,
+      })
+      .run();
+    tx.insert(schema.learningEvents)
+      .values(
+        eventValues({
+          workspaceId: note.workspaceId,
+          sessionId: note.sessionId,
+          action: 'note_updated',
+          objectType: 'note',
+          objectId: note.id,
+          result: { version, title: input.title },
+          idempotencyKey: input.idempotencyKey,
+        }),
+      )
+      .run();
+  });
+  return getNote(input.id)!;
+}
+
+export function listNoteVersions(noteId: string): NoteVersion[] {
+  return getDb()
+    .select()
+    .from(schema.noteVersions)
+    .where(eq(schema.noteVersions.noteId, noteId))
+    .orderBy(desc(schema.noteVersions.version))
+    .all();
+}
+
+export function listNoteSources(
+  noteId: string,
+): Array<NoteSource & { valid: boolean; sessionTitle: string | null }> {
+  return getDb()
+    .select()
+    .from(schema.noteSources)
+    .where(eq(schema.noteSources.noteId, noteId))
+    .all()
+    .map((source) => ({
+      ...source,
+      valid: Boolean(
+        source.sessionId &&
+          source.startMessageId &&
+          source.endMessageId &&
+          getSession(source.sessionId) &&
+          getMessage(source.startMessageId) &&
+          getMessage(source.endMessageId),
+      ),
+      sessionTitle: source.sessionId ? getSession(source.sessionId)?.title ?? null : null,
+    }));
 }
 
 /** 列出默认工作区下的全部笔记（按时间倒序）。 */

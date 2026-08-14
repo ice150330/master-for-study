@@ -9,6 +9,7 @@ export const LEARNING_EVENT_ACTIONS = [
   'message_sent',
   'term_seen',
   'note_created',
+  'note_updated',
   'interview_question_created',
   'interview_answered',
   'reviewed',

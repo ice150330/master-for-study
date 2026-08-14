@@ -59,6 +59,16 @@ export const notesCreateSchema = z
   .object({ sessionId: id, idempotencyKey })
   .strict();
 
+export const noteUpdateSchema = z
+  .object({
+    id,
+    title: z.string().trim().min(1).max(240),
+    markdown: z.string().max(200_000),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20),
+    idempotencyKey,
+  })
+  .strict();
+
 export const interviewRequestSchema = z.discriminatedUnion('action', [
   z
     .object({

@@ -16,7 +16,7 @@ const NoteSchema = z.object({
     .array(z.object({ name: z.string(), definition: z.string() }))
     .describe('术语表'),
   codeExamples: z
-    .array(z.object({ label: z.string(), code: z.string() }))
+    .array(z.object({ label: z.string(), language: z.string().default('text'), code: z.string() }))
     .describe('代码示例，没有则为空数组'),
   gaps: z
     .array(z.string())
@@ -74,7 +74,7 @@ export function noteToMarkdown(note: GeneratedNote): string {
     lines.push('## 代码示例', '');
     for (const e of note.codeExamples) {
       lines.push(`### ${e.label}`, '');
-      lines.push('```', e.code, '```', '');
+      lines.push(`\`\`\`${e.language || 'text'}`, e.code, '```', '');
     }
   }
 

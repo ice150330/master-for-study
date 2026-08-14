@@ -5,10 +5,13 @@ import {
   getNote,
   getSession,
   listMessages,
+  listNoteSources,
+  listNoteVersions,
   listNotes,
+  updateNote,
 } from '@/lib/db';
 import { DomainError, parseJson, withApiErrors } from '@/lib/validation/api';
-import { notesCreateSchema } from '@/lib/validation/schemas';
+import { noteUpdateSchema, notesCreateSchema } from '@/lib/validation/schemas';
 
 /**
  * 学习笔记接口。
@@ -19,7 +22,15 @@ import { notesCreateSchema } from '@/lib/validation/schemas';
  */
 
 export async function GET() {
-  return withApiErrors(() => Response.json({ notes: listNotes() }));
+  return withApiErrors(() =>
+    Response.json({
+      notes: listNotes().map((note) => ({
+        ...note,
+        versions: listNoteVersions(note.id),
+        sources: listNoteSources(note.id),
+      })),
+    }),
+  );
 }
 
 export async function POST(req: Request) {
@@ -50,6 +61,31 @@ export async function POST(req: Request) {
       markdown: noteToMarkdown(generated),
       idempotencyKey: parsed.data.idempotencyKey,
     });
-    return Response.json({ note }, { status: 201 });
+    return Response.json(
+      {
+        note: {
+          ...note,
+          versions: listNoteVersions(note.id),
+          sources: listNoteSources(note.id),
+        },
+      },
+      { status: 201 },
+    );
+  });
+}
+
+export async function PATCH(req: Request) {
+  return withApiErrors(async () => {
+    const parsed = await parseJson(req, noteUpdateSchema);
+    if (!parsed.success) return parsed.response;
+    if (!getNote(parsed.data.id)) throw new DomainError('NOTE_NOT_FOUND', '笔记不存在', 404);
+    const note = updateNote(parsed.data);
+    return Response.json({
+      note: {
+        ...note,
+        versions: listNoteVersions(note.id),
+        sources: listNoteSources(note.id),
+      },
+    });
   });
 }

@@ -382,4 +382,64 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
     expect(actions.every((action) => action.effort.length > 0 && action.source.length > 0)).toBe(true);
   });
+
+  it('用户编辑追加版本且不会覆盖 AI 快照，来源删除后显式失效', () => {
+    const session = repository.createSession({
+      title: '笔记版本来源',
+      idempotencyKey: 'session:test:note-version',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: '解释事务原子性',
+      idempotencyKey: 'message:test:note-version:user',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'assistant',
+      content: '事务中的操作要么全部成功，要么全部失败。',
+      idempotencyKey: 'message:test:note-version:assistant',
+    });
+    const note = repository.createNote({
+      sessionId: session.id,
+      title: '事务原子性',
+      content: { coreConcepts: [{ name: '原子性', explanation: '不可分割' }], terms: [] },
+      markdown: '# 事务原子性\n\nAI 原始内容',
+      idempotencyKey: 'note:test:version-create',
+    });
+    const originalSnapshot = structuredClone(note.aiSnapshot);
+    const updated = repository.updateNote({
+      id: note.id,
+      title: '事务原子性（已编辑）',
+      markdown: '# 事务原子性\n\n用户补充内容',
+      tags: ['数据库', '事务'],
+      idempotencyKey: 'note:test:version-update',
+    });
+    const retried = repository.updateNote({
+      id: note.id,
+      title: '不应重复保存',
+      markdown: '重复请求',
+      tags: [],
+      idempotencyKey: 'note:test:version-update',
+    });
+
+    expect(updated.version).toBe(2);
+    expect(retried.title).toBe('事务原子性（已编辑）');
+    expect(updated.aiSnapshot).toEqual(originalSnapshot);
+    expect(updated.userContent).toMatchObject({ markdown: '# 事务原子性\n\n用户补充内容' });
+    expect(repository.listNoteVersions(note.id).map((version) => version.origin)).toEqual([
+      'user',
+      'ai',
+    ]);
+    expect(repository.listNoteSources(note.id)[0]).toMatchObject({ valid: true });
+
+    repository.deleteSession(session.id, 'session:test:note-version-delete-source');
+    expect(repository.getNote(note.id)).toBeTruthy();
+    expect(repository.listNoteSources(note.id)[0]).toMatchObject({
+      valid: false,
+      sessionId: null,
+      startMessageId: null,
+      endMessageId: null,
+    });
+  });
 });

@@ -114,7 +114,40 @@ export const notes = sqliteTable('notes', {
   sessionId: text('session_id').references(() => sessions.id),
   title: text('title').notNull(),
   content: text('content', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+  aiSnapshot: text('ai_snapshot', { mode: 'json' }).$type<Record<string, unknown>>().notNull().default({}),
+  userContent: text('user_content', { mode: 'json' }).$type<Record<string, unknown>>(),
+  tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  version: integer('version').notNull().default(1),
   markdown: text('markdown').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
+});
+
+/** 笔记版本：AI 初始快照和每次用户保存都不可变追加。 */
+export const noteVersions = sqliteTable('note_versions', {
+  id: text('id').primaryKey(),
+  noteId: text('note_id')
+    .notNull()
+    .references(() => notes.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  origin: text('origin', { enum: ['ai', 'user'] }).notNull(),
+  title: text('title').notNull(),
+  markdown: text('markdown').notNull(),
+  tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+/** 笔记块来源：保留原会话消息范围；消息删除时显式失效。 */
+export const noteSources = sqliteTable('note_sources', {
+  id: text('id').primaryKey(),
+  noteId: text('note_id')
+    .notNull()
+    .references(() => notes.id, { onDelete: 'cascade' }),
+  blockKey: text('block_key').notNull(),
+  sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+  startMessageId: text('start_message_id').references(() => messages.id, { onDelete: 'set null' }),
+  endMessageId: text('end_message_id').references(() => messages.id, { onDelete: 'set null' }),
+  excerpt: text('excerpt'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 

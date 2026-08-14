@@ -77,10 +77,14 @@ export function Chat() {
       try {
         const list = await refreshSessions();
         const requestedSession = new URLSearchParams(window.location.search).get('session');
+        const requestedMessage = new URLSearchParams(window.location.search).get('message');
         const target = requestedSession && list.some((session) => session.id === requestedSession)
           ? requestedSession
           : list[0]?.id;
-        if (target) await openSession(target);
+        if (target) {
+          await openSession(target);
+          if (requestedMessage) window.setTimeout(() => focusMessage(requestedMessage), 80);
+        }
       } catch (error) {
         setRequestError({ message: getErrorMessage(error, '会话加载失败') });
       }
@@ -408,18 +412,24 @@ export function Chat() {
   async function openConceptSource(source: ConceptDetail['mentions'][number]) {
     if (source.sourceType === 'message' && source.sessionId) {
       await openSession(source.sessionId);
-      requestAnimationFrame(() => {
-        const target = document.querySelector<HTMLElement>(`[data-message-id="${source.sourceId}"]`);
-        target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        target?.animate(
-          [{ backgroundColor: 'transparent' }, { backgroundColor: 'var(--card-soft)' }, { backgroundColor: 'transparent' }],
-          { duration: 900 },
-        );
-      });
+      requestAnimationFrame(() => focusMessage(source.sourceId));
       return;
     }
     if (source.sourceType === 'note') router.push(`/notes?note=${source.sourceId}`);
     if (source.sourceType === 'resource') router.push(`/resources?resource=${source.sourceId}`);
+  }
+
+  function focusMessage(messageId: string) {
+    const target = document.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
+    target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    target?.animate(
+      [
+        { backgroundColor: 'transparent' },
+        { backgroundColor: 'var(--card-soft)' },
+        { backgroundColor: 'transparent' },
+      ],
+      { duration: 900 },
+    );
   }
 
   function branchFromMessage(messageId: string) {
