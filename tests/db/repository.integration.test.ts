@@ -283,4 +283,74 @@ describe('SQLite 仓库事务与幂等性', () => {
       }),
     ).toThrow('分支锚点不属于父会话');
   });
+
+  it('Concept 合并别名并统一聚合消息、笔记和资源来源', () => {
+    const session = repository.createSession({
+      title: 'Concept 来源测试',
+      idempotencyKey: 'session:test:concept-source',
+    });
+    const message = repository.saveMessage({
+      sessionId: session.id,
+      role: 'assistant',
+      content: 'Cache-Control 控制缓存复用。',
+      idempotencyKey: 'message:test:concept-source',
+    });
+    const concept = repository.upsertTerm({
+      name: 'Cache-Control',
+      canonicalName: 'HTTP Cache-Control',
+      aliases: ['缓存控制'],
+      definition: 'HTTP 缓存控制响应头。',
+      example: 'max-age=3600',
+      confidence: 0.8,
+      idempotencyKey: 'term:test:concept-v1',
+    });
+    const merged = repository.upsertTerm({
+      name: '缓存控制',
+      canonicalName: 'HTTP Cache-Control',
+      aliases: ['Cache-Control'],
+      definition: '用于声明缓存复用条件和有效期的 HTTP 响应头。',
+      example: 'Cache-Control: no-store',
+      confidence: 0.96,
+      idempotencyKey: 'term:test:concept-v2',
+    });
+    expect(merged.id).toBe(concept.id);
+    expect(merged.definition).toContain('复用条件');
+    expect(merged.aliases).toContain('缓存控制');
+
+    repository.recordConceptMention({
+      termId: concept.id,
+      sourceType: 'message',
+      sourceId: message.id,
+      sessionId: session.id,
+      excerpt: message.content,
+      idempotencyKey: 'mention:test:concept-message',
+    });
+    const note = repository.createNote({
+      sessionId: session.id,
+      title: '缓存笔记',
+      content: {
+        coreConcepts: [{ name: 'HTTP Cache-Control', explanation: '缓存策略入口' }],
+        terms: [],
+      },
+      markdown: '# 缓存笔记',
+      idempotencyKey: 'note:test:concept-source',
+    });
+    const resource = repository.createResource({
+      title: 'MDN 缓存文档',
+      type: '文档',
+      url: 'https://developer.mozilla.org/docs/Web/HTTP/Headers/Cache-Control',
+      termId: concept.id,
+      idempotencyKey: 'resource:test:concept-source',
+    });
+
+    const detail = repository.getConceptDetail({ name: '缓存控制' });
+    expect(detail?.concept.id).toBe(concept.id);
+    expect(detail?.mentions.map((mention) => mention.sourceType).sort()).toEqual([
+      'message',
+      'note',
+      'resource',
+    ]);
+    expect(detail?.relatedNotes).toContainEqual({ id: note.id, title: note.title, sessionId: session.id });
+    expect(detail?.relatedResources[0]).toMatchObject({ id: resource.id, title: resource.title });
+  });
 });

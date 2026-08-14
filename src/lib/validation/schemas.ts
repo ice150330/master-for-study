@@ -42,9 +42,18 @@ export const chatRequestSchema = z
 export const termsRequestSchema = z
   .object({
     text: z.string().max(100_000),
+    sessionId: id.optional(),
+    sourceMessageIdempotencyKey: z.string().trim().min(8).max(128).optional(),
     idempotencyKey,
   })
   .strict();
+
+export const conceptLookupSchema = z
+  .object({
+    id: id.optional(),
+    name: z.string().trim().min(1).max(240).optional(),
+  })
+  .refine((value) => Boolean(value.id || value.name), '必须提供 Concept id 或 name');
 
 export const notesCreateSchema = z
   .object({ sessionId: id, idempotencyKey })

@@ -121,11 +121,30 @@ test('会话工作区支持历史术语、搜索和完整管理流程', async ({
     }
     await route.fulfill({ status: 404, json: { error: { code: 'SESSION_NOT_FOUND', message: '会话不存在' } } });
   });
+  await page.route('**/api/concepts?*', async (route) => {
+    await route.fulfill({
+      json: {
+        concept: {
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          name: 'Cache-Control',
+          canonicalName: 'Cache-Control',
+          aliases: [],
+          definition: '控制浏览器和中间缓存如何复用响应。',
+          example: '例如 max-age=3600 允许响应在一小时内复用。',
+          confidence: 0.96,
+        },
+        mastery: { state: 'learning' },
+        mentions: [],
+        relatedNotes: [],
+        relatedResources: [],
+      },
+    });
+  });
 
   await page.goto('/', { waitUntil: 'networkidle' });
   await expect(page.getByRole('heading', { name: 'HTTP 缓存策略' })).toBeVisible();
-  const term = page.locator('span.cursor-help', { hasText: 'Cache-Control' });
-  await term.hover();
+  const term = page.getByRole('button', { name: '打开概念：Cache-Control' });
+  await term.click();
   await expect(page.getByText('控制浏览器和中间缓存如何复用响应。')).toBeVisible();
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-history-term-${testInfo.project.name}.png`),

@@ -29,15 +29,20 @@ type Session = { id: string; parentId: string | null; title: string };
 export function NotesView({
   initialNotes,
   initialSessions,
+  initialTerms,
 }: {
   initialNotes: Note[];
   initialSessions: Session[];
+  initialTerms: Array<{ id: string; name: string }>;
 }) {
   const toast = useToast();
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [selectedId, setSelectedId] = useState(initialSessions[0]?.id ?? '');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<{ message: string; idempotencyKey: string } | null>(null);
+  const conceptByName = new Map(
+    initialTerms.map((term) => [term.name.toLocaleLowerCase(), term.id]),
+  );
 
   async function generate(previousIdempotencyKey?: string) {
     if (!selectedId || generating) return;
@@ -112,7 +117,12 @@ export function NotesView({
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (
-            <NoteCard key={n.id} note={n} onExport={() => exportMarkdown(n)} />
+            <NoteCard
+              key={n.id}
+              note={n}
+              conceptByName={conceptByName}
+              onExport={() => exportMarkdown(n)}
+            />
           ))}
         </div>
       )}
@@ -120,7 +130,15 @@ export function NotesView({
   );
 }
 
-function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
+function NoteCard({
+  note,
+  conceptByName,
+  onExport,
+}: {
+  note: Note;
+  conceptByName: Map<string, string>;
+  onExport: () => void;
+}) {
   const content = note.content as unknown as NoteContent;
 
   return (
@@ -140,7 +158,7 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
         <Section title="核心概念">
           {content.coreConcepts.map((c, i) => (
             <p key={i} className="text-sm leading-relaxed text-card-foreground/80">
-              <span className="font-medium text-card-foreground">{c.name}</span>：{c.explanation}
+              <ConceptLink name={c.name} conceptByName={conceptByName} />：{c.explanation}
             </p>
           ))}
         </Section>
@@ -150,7 +168,7 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
         <Section title="术语表">
           {content.terms.map((t, i) => (
             <p key={i} className="text-sm leading-relaxed text-card-foreground/80">
-              <span className="font-medium text-card-foreground">{t.name}</span>：{t.definition}
+              <ConceptLink name={t.name} conceptByName={conceptByName} />：{t.definition}
             </p>
           ))}
         </Section>
@@ -179,6 +197,17 @@ function NoteCard({ note, onExport }: { note: Note; onExport: () => void }) {
         </Section>
       )}
     </article>
+  );
+}
+
+function ConceptLink({ name, conceptByName }: { name: string; conceptByName: Map<string, string> }) {
+  const id = conceptByName.get(name.toLocaleLowerCase());
+  return id ? (
+    <a href={`/?concept=${id}`} className="font-medium text-accent underline-offset-4 hover:underline">
+      {name}
+    </a>
+  ) : (
+    <span className="font-medium text-card-foreground">{name}</span>
   );
 }
 

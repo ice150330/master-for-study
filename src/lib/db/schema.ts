@@ -60,7 +60,11 @@ export const messages = sqliteTable('messages', {
 export const terms = sqliteTable('terms', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
+  canonicalName: text('canonical_name').notNull().default(''),
+  aliases: text('aliases', { mode: 'json' }).$type<string[]>().notNull().default([]),
   definition: text('definition').notNull(),
+  example: text('example'),
+  confidence: real('confidence').notNull().default(0.8),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
@@ -141,5 +145,20 @@ export const resources = sqliteTable('resources', {
     .notNull()
     .default('想读'),
   note: text('note'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+/** Concept 来源：统一记录消息、笔记块和资源中的出现位置。 */
+export const conceptMentions = sqliteTable('concept_mentions', {
+  id: text('id').primaryKey(),
+  termId: text('term_id')
+    .notNull()
+    .references(() => terms.id, { onDelete: 'cascade' }),
+  sourceType: text('source_type', { enum: ['message', 'note', 'resource'] }).notNull(),
+  sourceId: text('source_id').notNull(),
+  sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+  locator: text('locator'),
+  excerpt: text('excerpt'),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });

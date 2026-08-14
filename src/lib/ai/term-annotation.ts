@@ -21,14 +21,18 @@ const TermListSchema = z.object({
   terms: z.array(
     z.object({
       name: z.string().describe('术语名称'),
+      canonicalName: z.string().describe('统一、无歧义的规范名称'),
+      aliases: z.array(z.string()).max(6).describe('正文中可能出现的别名或缩写'),
       definition: z.string().describe('一句话中文解释'),
+      example: z.string().describe('贴近正文上下文的一句话示例'),
+      confidence: z.number().min(0).max(1).describe('提取置信度，0 到 1'),
     }),
   ),
 });
 
 export type AnnotatedTerm = z.infer<typeof TermListSchema>['terms'][number];
 
-/** 从一段正文中二次提取术语结构化清单（名称 + 一句话解释）。 */
+/** 从一段正文中二次提取 Concept 结构化清单。 */
 export async function extractTerms(text: string): Promise<AnnotatedTerm[]> {
   const { object } = await generateObject({
     model: fastModel,
@@ -37,7 +41,7 @@ export async function extractTerms(text: string): Promise<AnnotatedTerm[]> {
     schemaDescription: '正文中出现的、需要解释的技术术语及其一句话中文解释',
     prompt: [
       '从下面的正文中提取所有技术术语 / 专有名词，',
-      '并为每个术语写一句通俗的中文解释。',
+      '为每个术语给出规范名、正文别名、一句话中文解释、上下文示例和置信度。',
       '只输出正文中实际出现过的术语，不要臆造。',
       '',
       '正文：',

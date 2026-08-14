@@ -16,7 +16,7 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
 
   const root = session(rootId, null, 'HTTP 缓存策略');
   const sibling = session(siblingId, rootId, '协商缓存', anchorId);
-  const child = session(childId, rootId, '术语：Cache-Control', anchorId);
+  const child = session(childId, rootId, '从消息继续', anchorId);
   const sessions = [root, sibling];
 
   await page.route('**/api/sessions', async (route) => {
@@ -80,7 +80,7 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
   await page.route('**/api/chat', async (route) => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     expect(body).toMatchObject({ sessionId: childId });
-    expect(body.message).toContain('结合刚才的上下文');
+    expect(body.message).toContain('请从这条消息继续深入');
     expect(body).not.toHaveProperty('messages');
     await route.fulfill({
       status: 200,
@@ -106,17 +106,17 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
   const animationStyle = await page.addStyleTag({
     content: '.animate-session-enter { animation-duration: 3s !important; }',
   });
-  const term = page.locator('span.cursor-help', { hasText: 'Cache-Control' });
-  await term.hover();
-  await page.getByRole('button', { name: '分支会话', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '术语：Cache-Control' })).toBeVisible();
+  const anchorMessage = page.locator(`[data-message-id="${anchorId}"]`);
+  await anchorMessage.hover();
+  await anchorMessage.getByRole('button', { name: '从这里分支' }).click();
+  await expect(page.getByRole('heading', { name: '从消息继续' })).toBeVisible();
   await page.waitForTimeout(90);
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-motion-mid-${testInfo.project.name}.png`),
   });
   await animationStyle.evaluate((element) => element.parentNode?.removeChild(element));
 
-  await expect(page.getByText(/结合刚才的上下文/)).toBeVisible();
+  await expect(page.getByText(/请从这条消息继续深入/)).toBeVisible();
   await expect(page.getByText(/决定响应能否直接复用/)).toBeVisible();
   await page.waitForTimeout(350);
   await page.screenshot({

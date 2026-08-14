@@ -1,5 +1,5 @@
 import { NotesView } from '@/components/notes/NotesView';
-import { listNotes, listSessions } from '@/lib/db';
+import { listNotes, listSessions, listTerms } from '@/lib/db';
 
 // 本地 SQLite 数据，每次请求实时渲染，不做静态预渲染。
 export const dynamic = 'force-dynamic';
@@ -19,5 +19,5 @@ export default function NotesPage() {
     title: s.title,
   }));
 
-  return <NotesView initialNotes={notes} initialSessions={sessions} />;
+  return <NotesView initialNotes={notes} initialSessions={sessions} initialTerms={listTerms()} />;
 }

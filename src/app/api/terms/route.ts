@@ -1,5 +1,5 @@
 import { extractTerms } from '@/lib/ai/term-annotation';
-import { upsertTerm } from '@/lib/db';
+import { findMessageByIdempotencyKey, recordConceptMention, upsertTerm } from '@/lib/db';
 import { parseJson, withApiErrors } from '@/lib/validation/api';
 import { termsRequestSchema } from '@/lib/validation/schemas';
 
@@ -18,13 +18,32 @@ export async function POST(req: Request) {
     if (!parsed.data.text.trim()) return Response.json({ terms: [] });
 
     const terms = await extractTerms(parsed.data.text);
-    for (const [index, term] of terms.entries()) {
-      upsertTerm({
+    const sourceMessage = parsed.data.sourceMessageIdempotencyKey
+      ? findMessageByIdempotencyKey(parsed.data.sourceMessageIdempotencyKey)
+      : undefined;
+    const concepts = terms.map((term, index) => {
+      const concept = upsertTerm({
         name: term.name,
+        canonicalName: term.canonicalName,
+        aliases: term.aliases,
         definition: term.definition,
+        example: term.example,
+        confidence: term.confidence,
         idempotencyKey: `${parsed.data.idempotencyKey}:term:${index}`,
       });
-    }
-    return Response.json({ terms });
+      if (sourceMessage) {
+        recordConceptMention({
+          termId: concept.id,
+          sourceType: 'message',
+          sourceId: sourceMessage.id,
+          sessionId: sourceMessage.sessionId,
+          locator: `message:${sourceMessage.id}`,
+          excerpt: parsed.data.text.slice(0, 280),
+          idempotencyKey: `${parsed.data.idempotencyKey}:mention:${index}`,
+        });
+      }
+      return concept;
+    });
+    return Response.json({ terms: concepts });
   });
 }

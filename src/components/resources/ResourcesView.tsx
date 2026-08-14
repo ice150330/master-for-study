@@ -195,9 +195,12 @@ export function ResourcesView({
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
                   <span className="rounded bg-card-soft px-1.5 py-0.5">{r.type}</span>
                   {r.termId && (
-                    <span className="rounded bg-accent/20 px-1.5 py-0.5 text-accent">
+                    <a
+                      href={`/?concept=${r.termId}`}
+                      className="rounded bg-accent/15 px-1.5 py-0.5 text-accent transition-colors hover:bg-accent/25"
+                    >
                       {termName.get(r.termId) ?? ''}
-                    </span>
+                    </a>
                   )}
                 </div>
               </div>

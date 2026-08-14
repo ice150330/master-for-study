@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
+import { ConceptRail, type ConceptDetail } from '@/components/context/ConceptRail';
 import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { SessionDeck } from './SessionDeck';
@@ -30,6 +32,7 @@ function subscribeModel(cb: () => void) {
 
 export function Chat() {
   const toast = useToast();
+  const router = useRouter();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [archivedSessions, setArchivedSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -41,6 +44,13 @@ export function Chat() {
     message: string;
     retryText?: string;
     idempotencyKey?: string;
+  } | null>(null);
+  const [conceptPanel, setConceptPanel] = useState<{
+    name: string;
+    sourceMessageId?: string;
+    detail: ConceptDetail | null;
+    loading: boolean;
+    error: string | null;
   } | null>(null);
   const initRan = useRef(false);
   const currentSessionRef = useRef<string | null>(null);
@@ -77,6 +87,12 @@ export function Chat() {
 
   useEffect(() => {
     return () => activeRequest.current?.controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const conceptId = new URLSearchParams(window.location.search).get('concept');
+    if (conceptId) void loadConcept({ id: conceptId });
+    // 仅消费首次进入页面时来自笔记或资源的 Concept 深链接。
   }, []);
 
   async function refreshSessions(): Promise<ChatSession[]> {
@@ -292,6 +308,8 @@ export function Chat() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text,
+        sessionId,
+        sourceMessageIdempotencyKey: `${chatIdempotencyKey}:assistant`,
         idempotencyKey: `${chatIdempotencyKey}:terms`,
       }),
       signal,
@@ -321,7 +339,9 @@ export function Chat() {
   }
 
   async function handleTermAction(action: TermAction, name: string, messageId: string) {
-    if (action === 'branch') {
+    if (action === 'open') {
+      await loadConcept({ name, sourceMessageId: messageId });
+    } else if (action === 'branch') {
       await createSemanticBranch(
         messageId,
         `术语：${name}`,
@@ -332,6 +352,70 @@ export function Chat() {
     } else if (action === 'followup') {
       await send(`请再详细解释一下「${name}」，并举一个例子。`);
     }
+  }
+
+  async function loadConcept({
+    id,
+    name,
+    sourceMessageId,
+  }: {
+    id?: string;
+    name?: string;
+    sourceMessageId?: string;
+  }) {
+    const label = name ?? '知识对象';
+    setConceptPanel({ name: label, sourceMessageId, detail: null, loading: true, error: null });
+    try {
+      const query = new URLSearchParams(id ? { id } : { name: name ?? '' });
+      const detail = await requestJson<ConceptDetail>(`/api/concepts?${query}`);
+      setConceptPanel({
+        name: detail.concept.canonicalName,
+        sourceMessageId,
+        detail,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      setConceptPanel({
+        name: label,
+        sourceMessageId,
+        detail: null,
+        loading: false,
+        error: getErrorMessage(error, '知识对象加载失败'),
+      });
+    }
+  }
+
+  function followupConcept() {
+    const concept = conceptPanel?.detail?.concept;
+    const sourceMessageId = conceptPanel?.sourceMessageId;
+    if (!concept) return;
+    if (sourceMessageId && currentSessionId) {
+      void createSemanticBranch(
+        sourceMessageId,
+        `概念：${concept.canonicalName}`,
+        `结合原消息继续解释「${concept.canonicalName}」，重点说明它和当前主题之间的关系。`,
+      );
+    } else {
+      void send(`继续解释「${concept.canonicalName}」，并结合当前会话给出一个例子。`);
+    }
+  }
+
+  async function openConceptSource(source: ConceptDetail['mentions'][number]) {
+    if (source.sourceType === 'message' && source.sessionId) {
+      await openSession(source.sessionId);
+      requestAnimationFrame(() => {
+        const target = document.querySelector<HTMLElement>(`[data-message-id="${source.sourceId}"]`);
+        target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        target?.animate(
+          [{ backgroundColor: 'transparent' }, { backgroundColor: 'var(--card-soft)' }, { backgroundColor: 'transparent' }],
+          { duration: 900 },
+        );
+      });
+      return;
+    }
+    if (source.sourceType === 'note') router.push(`/notes?note=${source.sourceId}`);
+    if (source.sourceType === 'resource') router.push(`/resources?resource=${source.sourceId}`);
   }
 
   function branchFromMessage(messageId: string) {
@@ -462,7 +546,12 @@ export function Chat() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 px-4 py-4">
+    <div
+      className={`grid h-full min-h-0 ${
+        conceptPanel ? 'min-[1180px]:grid-cols-[minmax(0,1fr)_20rem]' : ''
+      }`}
+    >
+      <div className="flex min-h-0 min-w-0 flex-col gap-3 px-4 py-4">
       {/* 工具行：全部会话 + 新话题 */}
       <div className="flex shrink-0 items-center">
         <SessionPicker
@@ -510,6 +599,20 @@ export function Chat() {
         onDelete={deleteCurrentSession}
         onBranchFromMessage={branchFromMessage}
       />
+      </div>
+      {conceptPanel ? (
+        <aside className="z-40 min-h-0 overflow-hidden border-l border-border bg-card max-[1179px]:fixed max-[1179px]:inset-x-0 max-[1179px]:bottom-0 max-[1179px]:h-[68vh] max-[1179px]:rounded-t-lg max-[1179px]:border max-[1179px]:shadow-[var(--shadow-lg)]">
+          <ConceptRail
+            name={conceptPanel.name}
+            detail={conceptPanel.detail}
+            loading={conceptPanel.loading}
+            error={conceptPanel.error}
+            onClose={() => setConceptPanel(null)}
+            onFollowup={followupConcept}
+            onOpenSource={openConceptSource}
+          />
+        </aside>
+      ) : null}
     </div>
   );
 }

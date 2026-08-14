@@ -27,6 +27,7 @@ export type Workspace = typeof schema.workspaces.$inferSelect;
 export type Session = typeof schema.sessions.$inferSelect;
 export type Message = typeof schema.messages.$inferSelect;
 export type Term = typeof schema.terms.$inferSelect;
+export type ConceptMention = typeof schema.conceptMentions.$inferSelect;
 export type Note = typeof schema.notes.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
 export type TermMastery = typeof schema.termMasteries.$inferSelect;
@@ -34,6 +35,14 @@ export type LearningEvent = typeof schema.learningEvents.$inferSelect;
 export type Resource = typeof schema.resources.$inferSelect;
 export type ResourceType = Resource['type'];
 export type ResourceStatus = Resource['status'];
+
+export type ConceptDetail = {
+  concept: Term;
+  mastery: TermMastery | null;
+  mentions: Array<ConceptMention & { sourceTitle: string }>;
+  relatedNotes: Array<Pick<Note, 'id' | 'title' | 'sessionId'>>;
+  relatedResources: Array<Pick<Resource, 'id' | 'title' | 'url' | 'status'>>;
+};
 
 /** 待复习术语（术语表 + 掌握度合并）。 */
 export type ReviewItem = {
@@ -500,10 +509,14 @@ export function recordEvent(input: {
   return values;
 }
 
-/** 术语不存在则插入，存在则忽略（单源卡片）。 */
+/** Concept 不存在则插入，存在则合并更可信的解释与别名。 */
 export function upsertTerm(input: {
   name: string;
+  canonicalName?: string;
+  aliases?: string[];
   definition: string;
+  example?: string | null;
+  confidence?: number;
   idempotencyKey: string;
 }): Term {
   const db = getDb();
@@ -519,20 +532,56 @@ export function upsertTerm(input: {
   }
 
   const ws = ensureWorkspace();
+  const canonicalName = input.canonicalName?.trim() || input.name.trim();
+  const lookupNames = new Set(
+    [input.name, canonicalName, ...(input.aliases ?? [])].map((name) => name.trim().toLocaleLowerCase()),
+  );
   const existing = db
     .select()
     .from(schema.terms)
-    .where(eq(schema.terms.name, input.name))
-    .limit(1)
-    .get();
+    .all()
+    .find((term) =>
+      [term.name, term.canonicalName, ...term.aliases]
+        .map((name) => name.toLocaleLowerCase())
+        .some((name) => lookupNames.has(name)),
+    );
+  const confidence = Math.min(1, Math.max(0, input.confidence ?? 0.8));
+  const resolvedCanonicalName =
+    existing && confidence < existing.confidence
+      ? (existing.canonicalName || canonicalName)
+      : canonicalName;
+  const aliases = [
+    ...new Set([
+      ...(existing?.aliases ?? []),
+      ...(input.aliases ?? []),
+      ...(existing?.canonicalName && existing.canonicalName !== resolvedCanonicalName
+        ? [existing.canonicalName]
+        : []),
+    ]),
+  ].filter(
+    (alias) => alias && alias.toLocaleLowerCase() !== resolvedCanonicalName.toLocaleLowerCase(),
+  );
   const term =
-    existing ??
-    ({
-      id: randomUUID(),
-      name: input.name,
-      definition: input.definition,
-      createdAt: new Date(),
-    } satisfies Term);
+    existing
+      ? {
+          ...existing,
+          canonicalName: resolvedCanonicalName,
+          aliases,
+          definition:
+            confidence >= existing.confidence ? input.definition : existing.definition,
+          example: confidence >= existing.confidence ? (input.example ?? existing.example) : existing.example,
+          confidence: Math.max(existing.confidence, confidence),
+        }
+      : ({
+          id: randomUUID(),
+          name: input.name.trim(),
+          canonicalName,
+          aliases,
+          definition: input.definition,
+          example: input.example ?? null,
+          confidence,
+          createdAt: new Date(),
+        } satisfies Term);
 
   db.transaction((tx) => {
     if (!existing) {
@@ -548,6 +597,8 @@ export function upsertTerm(input: {
           lastReviewedAt: null,
         })
         .run();
+    } else {
+      tx.update(schema.terms).set(term).where(eq(schema.terms.id, term.id)).run();
     }
     tx.insert(schema.learningEvents)
       .values(
@@ -557,13 +608,115 @@ export function upsertTerm(input: {
           objectType: 'term',
           objectId: term.id,
           result: { created: !existing },
-          context: { name: term.name },
+          context: { name: term.name, canonicalName: term.canonicalName, confidence },
           idempotencyKey: input.idempotencyKey,
         }),
       )
       .run();
   });
   return term;
+}
+
+/** 记录 Concept 在消息、笔记或资源中的一次可回溯出现。 */
+export function recordConceptMention(input: {
+  termId: string;
+  sourceType: ConceptMention['sourceType'];
+  sourceId: string;
+  sessionId?: string | null;
+  locator?: string | null;
+  excerpt?: string | null;
+  idempotencyKey: string;
+}): ConceptMention {
+  const db = getDb();
+  const existing = db
+    .select()
+    .from(schema.conceptMentions)
+    .where(eq(schema.conceptMentions.idempotencyKey, input.idempotencyKey))
+    .limit(1)
+    .get();
+  if (existing) return existing;
+  const mention = {
+    id: randomUUID(),
+    termId: input.termId,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+    sessionId: input.sessionId ?? null,
+    locator: input.locator ?? null,
+    excerpt: input.excerpt ?? null,
+    idempotencyKey: input.idempotencyKey,
+    createdAt: new Date(),
+  };
+  db.insert(schema.conceptMentions).values(mention).run();
+  return mention;
+}
+
+/** 读取跨模块共享的 Concept 详情和来源关系。 */
+export function getConceptDetail(input: { id?: string; name?: string }): ConceptDetail | undefined {
+  const db = getDb();
+  const normalized = input.name?.trim().toLocaleLowerCase();
+  const concept = input.id
+    ? getTerm(input.id)
+    : db
+        .select()
+        .from(schema.terms)
+        .all()
+        .find((term) =>
+          [term.name, term.canonicalName, ...term.aliases]
+            .map((name) => name.toLocaleLowerCase())
+            .includes(normalized ?? ''),
+        );
+  if (!concept) return undefined;
+
+  const mastery =
+    db
+      .select()
+      .from(schema.termMasteries)
+      .where(eq(schema.termMasteries.termId, concept.id))
+      .limit(1)
+      .get() ?? null;
+  const mentions = db
+    .select()
+    .from(schema.conceptMentions)
+    .where(eq(schema.conceptMentions.termId, concept.id))
+    .orderBy(desc(schema.conceptMentions.createdAt))
+    .all()
+    .map((mention) => ({
+      ...mention,
+      sourceTitle:
+        mention.sourceType === 'message'
+          ? (mention.sessionId ? getSession(mention.sessionId)?.title : null) ?? '对话消息'
+          : mention.sourceType === 'note'
+            ? getNote(mention.sourceId)?.title ?? '学习笔记'
+            : getResource(mention.sourceId)?.title ?? '学习资源',
+    }));
+  const names = new Set(
+    [concept.name, concept.canonicalName, ...concept.aliases].map((name) => name.toLocaleLowerCase()),
+  );
+  const relatedNotes = listNotes()
+    .filter((note) => noteContainsConcept(note.content, names))
+    .map(({ id, title, sessionId }) => ({ id, title, sessionId }));
+  const relatedResources = listResources()
+    .filter((resource) => resource.termId === concept.id)
+    .map(({ id, title, url, status }) => ({ id, title, url, status }));
+  return { concept, mastery, mentions, relatedNotes, relatedResources };
+}
+
+function noteContainsConcept(content: Record<string, unknown>, names: Set<string>) {
+  return [...extractConceptNames(content)].some((name) => names.has(name));
+}
+
+function extractConceptNames(content: Record<string, unknown>) {
+  const candidates = new Set<string>();
+  for (const key of ['coreConcepts', 'terms']) {
+    const entries = content[key];
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      if (entry && typeof entry === 'object' && 'name' in entry && typeof entry.name === 'string') {
+        candidates.add(entry.name.toLocaleLowerCase());
+      }
+    }
+  }
+  return candidates;
 }
 
 /** 新建一条学习笔记。 */
@@ -585,6 +738,16 @@ export function createNote(input: {
     if (existingNote) return existingNote;
   }
   const ws = ensureWorkspace();
+  const conceptNames = extractConceptNames(input.content);
+  const noteConcepts = getDb()
+    .select()
+    .from(schema.terms)
+    .all()
+    .filter((term) =>
+      [term.name, term.canonicalName, ...term.aliases]
+        .map((name) => name.toLocaleLowerCase())
+        .some((name) => conceptNames.has(name)),
+    );
   const note = {
     id: randomUUID(),
     workspaceId: ws.id,
@@ -596,6 +759,21 @@ export function createNote(input: {
   };
   getDb().transaction((tx) => {
     tx.insert(schema.notes).values(note).run();
+    for (const [index, concept] of noteConcepts.entries()) {
+      tx.insert(schema.conceptMentions)
+        .values({
+          id: randomUUID(),
+          termId: concept.id,
+          sourceType: 'note',
+          sourceId: note.id,
+          sessionId: note.sessionId,
+          locator: `note:${note.id}:concept:${concept.id}`,
+          excerpt: note.title,
+          idempotencyKey: `${input.idempotencyKey}:mention:${index}`,
+          createdAt: new Date(),
+        })
+        .run();
+    }
     tx.insert(schema.learningEvents)
       .values(
         eventValues({
@@ -950,6 +1128,21 @@ export function createResource(input: {
   };
   getDb().transaction((tx) => {
     tx.insert(schema.resources).values(resource).run();
+    if (resource.termId) {
+      tx.insert(schema.conceptMentions)
+        .values({
+          id: randomUUID(),
+          termId: resource.termId,
+          sourceType: 'resource',
+          sourceId: resource.id,
+          sessionId: null,
+          locator: resource.url,
+          excerpt: resource.note ?? resource.title,
+          idempotencyKey: `${input.idempotencyKey}:mention`,
+          createdAt: new Date(),
+        })
+        .run();
+    }
     tx.insert(schema.learningEvents)
       .values(
         eventValues({

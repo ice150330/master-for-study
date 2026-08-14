@@ -165,6 +165,7 @@ export function SessionCard({
         {messages.map((m) => (
           <div
             key={m.id}
+            data-message-id={m.id}
             className={`group/message flex items-start gap-1.5 ${
               m.role === 'user' ? 'justify-end' : 'justify-start'
             }`}
