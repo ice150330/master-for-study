@@ -20,6 +20,7 @@
 - 新增「成长分析」模块：`/analytics` 仪表盘（术语掌握度分布、面试正确率、学习行为分布、最近活动）
 - 新增「白板」模块：`lib/tree-layout.ts` 树布局引擎 + `TreeGraph` SVG 渲染器，`/whiteboard` 页展示会话关系图与个人成长地图（内置后端能力树 + 掌握度热力）
 - 新增「资源库」模块：`resources` 表 + `/api/resources`（增/查/改状态）+ `/resources` 页（添加资源、按术语关联、想读/在读/已读状态）
+- 新增「实践区」模块：sql.js（WASM）SQL 沙盒 + `/practice` 页（内置示例表、运行查询、code_run 事件落库）
 
 ## 2026-08-13
 

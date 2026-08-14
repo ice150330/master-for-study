@@ -220,6 +220,12 @@ export function Chat() {
             >
               资源库
             </Link>
+            <Link
+              href="/practice"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              实践区
+            </Link>
           </nav>
         </header>
 
