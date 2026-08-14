@@ -23,6 +23,9 @@ export type Note = typeof schema.notes.$inferSelect;
 export type Interview = typeof schema.interviews.$inferSelect;
 export type TermMastery = typeof schema.termMasteries.$inferSelect;
 export type LearningEvent = typeof schema.learningEvents.$inferSelect;
+export type Resource = typeof schema.resources.$inferSelect;
+export type ResourceType = Resource['type'];
+export type ResourceStatus = Resource['status'];
 
 /** 待复习术语（术语表 + 掌握度合并）。 */
 export type ReviewItem = {
@@ -423,4 +426,57 @@ export function getAllMasteries(): Array<{ name: string; state: TermMastery['sta
     .from(schema.termMasteries)
     .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
     .all();
+}
+
+/** 全部术语（id + 名称），供资源关联下拉。 */
+export function listTerms(): Array<{ id: string; name: string }> {
+  return getDb()
+    .select({ id: schema.terms.id, name: schema.terms.name })
+    .from(schema.terms)
+    .orderBy(asc(schema.terms.name))
+    .all();
+}
+
+/** 新建一条学习资源。 */
+export function createResource(input: {
+  title: string;
+  type: ResourceType;
+  url: string;
+  termId?: string | null;
+  note?: string | null;
+}): Resource {
+  const ws = ensureWorkspace();
+  const resource = {
+    id: randomUUID(),
+    workspaceId: ws.id,
+    termId: input.termId ?? null,
+    title: input.title,
+    type: input.type,
+    url: input.url,
+    status: '想读' as const,
+    note: input.note ?? null,
+    createdAt: new Date(),
+  };
+  getDb().insert(schema.resources).values(resource).run();
+  return resource;
+}
+
+/** 列出默认工作区下的全部资源（按时间倒序）。 */
+export function listResources(): Resource[] {
+  const ws = ensureWorkspace();
+  return getDb()
+    .select()
+    .from(schema.resources)
+    .where(eq(schema.resources.workspaceId, ws.id))
+    .orderBy(desc(schema.resources.createdAt))
+    .all();
+}
+
+/** 更新资源阅读状态。 */
+export function updateResourceStatus(id: string, status: ResourceStatus): void {
+  getDb()
+    .update(schema.resources)
+    .set({ status })
+    .where(eq(schema.resources.id, id))
+    .run();
 }

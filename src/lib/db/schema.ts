@@ -101,3 +101,22 @@ export const interviews = sqliteTable('interviews', {
   correct: integer('correct', { mode: 'boolean' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
+
+/** 学习资源：教程 / 文档 / 书籍等，可关联术语（单源卡片）。 */
+export const resources = sqliteTable('resources', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  termId: text('term_id').references(() => terms.id),
+  title: text('title').notNull(),
+  type: text('type', {
+    enum: ['教程', '文档', '书籍', '视频', '博客', 'GitHub'],
+  }).notNull(),
+  url: text('url').notNull(),
+  status: text('status', { enum: ['想读', '在读', '已读'] })
+    .notNull()
+    .default('想读'),
+  note: text('note'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});

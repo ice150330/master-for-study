@@ -15,6 +15,13 @@
       "when": 1786681092835,
       "tag": "0001_flippant_norrin_radd",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786688530051,
+      "tag": "0002_plain_shotgun",
+      "breakpoints": true
     }
   ]
 }

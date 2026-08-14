@@ -214,6 +214,12 @@ export function Chat() {
             >
               白板
             </Link>
+            <Link
+              href="/resources"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              资源库
+            </Link>
           </nav>
         </header>
 
