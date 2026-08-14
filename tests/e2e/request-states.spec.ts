@@ -172,10 +172,6 @@ test('资源保存失败后保留表单，重试成功后再清空', async ({ pa
 test('复习提交失败后保留答案面并可恢复队列', async ({ page }, testInfo) => {
   let attempts = 0;
   await page.route('**/api/review', async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({ json: { reviews: [] } });
-      return;
-    }
     attempts += 1;
     if (attempts === 1) {
       await route.fulfill({
@@ -185,12 +181,13 @@ test('复习提交失败后保留答案面并可恢复队列', async ({ page }, 
       });
       return;
     }
-    await route.fulfill({ json: { next: { dueAt: '2026-08-15T00:00:00.000Z' } } });
+    await route.fulfill({ json: { next: { logId: 'review-log-success', intervalLabel: '3 天' } } });
   });
 
   await page.goto('/dev/request-states/review', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '显示答案' }).click();
-  await page.getByRole('button', { name: '一般' }).click();
+  await page.getByRole('textbox', { name: '主动回忆' }).fill('重复请求只产生一次结果');
+  await page.getByRole('button', { name: '查看答案' }).click();
+  await page.getByRole('button', { name: /记得/ }).click();
 
   await expect(page.getByRole('alert').filter({ hasText: '复习记录写入失败' })).toBeVisible();
   await expect(page.getByText('同一个操作重复执行多次')).toBeVisible();
@@ -200,5 +197,5 @@ test('复习提交失败后保留答案面并可恢复队列', async ({ page }, 
   });
 
   await page.getByRole('button', { name: '重新提交' }).click();
-  await expect(page.getByText('今日没有待复习的术语')).toBeVisible();
+  await expect(page.getByText('本轮复习完成')).toBeVisible();
 });

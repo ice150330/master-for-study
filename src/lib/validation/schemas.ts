@@ -87,13 +87,34 @@ export const interviewRequestSchema = z.discriminatedUnion('action', [
     .strict(),
 ]);
 
-export const reviewRequestSchema = z
-  .object({
-    termId: id,
-    grade: z.enum(['again', 'hard', 'good', 'easy']),
-    idempotencyKey,
-  })
-  .strict();
+export const reviewRequestSchema = z.union([
+  z
+    .object({
+      action: z.literal('review').optional(),
+      termId: id,
+      grade: z.enum(['again', 'hard', 'good', 'easy']),
+      answerMode: z.enum(['typed', 'oral']),
+      recallText: z.string().trim().max(8_000).nullable().optional(),
+      durationMs: z.number().int().min(0).max(3_600_000).default(0),
+      idempotencyKey,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('undo'),
+      reviewLogId: id,
+      idempotencyKey,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('flag'),
+      termId: id,
+      difficult: z.boolean(),
+      idempotencyKey,
+    })
+    .strict(),
+]);
 
 export const resourceCreateSchema = z
   .object({

@@ -118,7 +118,81 @@ describe('SQLite 仓库事务与幂等性', () => {
       idempotencyKey: 'review:test:one',
     });
     expect(secondReview).toEqual(firstReview);
-    expect(repository.findEventByIdempotencyKey('review:test:one')?.context).toEqual({ grade: 'good' });
+    expect(repository.findEventByIdempotencyKey('review:test:one')).toMatchObject({
+      result: { grade: 'good', algorithmVersion: 'ts-fsrs-6@5.4.1' },
+      context: { termId: term.id, answerMode: 'oral', recallProvided: false, durationMs: 0 },
+    });
+  });
+
+  it('正式 FSRS 的预览与提交一致，Again 不会立即回到队首', () => {
+    const term = repository.upsertTerm({
+      name: '检索练习',
+      definition: '从记忆中主动提取答案。',
+      idempotencyKey: 'term:review:preview',
+    });
+    const now = new Date('2027-01-01T08:00:00.000Z');
+    const item = repository.getReviewQueue(now).reviews.find((review) => review.termId === term.id);
+    expect(item).toBeTruthy();
+    const result = repository.reviewTerm({
+      termId: term.id,
+      grade: 'again',
+      answerMode: 'typed',
+      recallText: '先尝试回忆',
+      durationMs: 12_000,
+      reviewedAt: now,
+      idempotencyKey: 'review:preview:again',
+    });
+    expect(result.dueAt.toISOString()).toBe(item?.preview.again.dueAt);
+    expect(result.intervalLabel).toBe(item?.preview.again.intervalLabel);
+    expect(repository.getReviewQueue(now).reviews.some((review) => review.termId === term.id)).toBe(false);
+  });
+
+  it('撤销最近评级会恢复卡片，但不修改原 ReviewLog', () => {
+    const term = repository.upsertTerm({
+      name: '撤销复习',
+      definition: '撤销只追加新事实。',
+      idempotencyKey: 'term:review:undo',
+    });
+    const reviewedAt = new Date('2027-01-02T08:00:00.000Z');
+    const result = repository.reviewTerm({
+      termId: term.id,
+      grade: 'good',
+      answerMode: 'typed',
+      recallText: '不可变日志',
+      reviewedAt,
+      idempotencyKey: 'review:undo:grade',
+    });
+    const beforeUndo = repository.listReviewLogs(term.id)[0];
+    const undo = repository.undoReview({
+      reviewLogId: result.logId,
+      idempotencyKey: 'review:undo:one',
+    });
+    expect(undo).toMatchObject({ reviewLogId: result.logId, termId: term.id, restoredState: 'new' });
+    expect(repository.listReviewLogs(term.id)).toEqual([beforeUndo]);
+    expect(repository.getReviewQueue(reviewedAt).reviews.some((review) => review.termId === term.id)).toBe(true);
+  });
+
+  it('困难卡标记幂等并留下学习事件', () => {
+    const term = repository.upsertTerm({
+      name: '困难卡',
+      definition: '需要额外处理的复习卡。',
+      idempotencyKey: 'term:review:difficult',
+    });
+    const first = repository.setReviewCardDifficult({
+      termId: term.id,
+      difficult: true,
+      idempotencyKey: 'review:difficult:one',
+    });
+    const second = repository.setReviewCardDifficult({
+      termId: term.id,
+      difficult: false,
+      idempotencyKey: 'review:difficult:one',
+    });
+    expect(second).toEqual(first);
+    expect(repository.findEventByIdempotencyKey('review:difficult:one')).toMatchObject({
+      action: 'review_card_flagged',
+      result: { difficult: true },
+    });
   });
 
   it('事件写入失败时回滚同事务内的资源状态', () => {

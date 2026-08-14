@@ -13,6 +13,8 @@ export const LEARNING_EVENT_ACTIONS = [
   'interview_question_created',
   'interview_answered',
   'reviewed',
+  'review_undone',
+  'review_card_flagged',
   'resource_created',
   'resource_status_changed',
   'code_run',
@@ -29,6 +31,8 @@ export const LEARNING_OBJECT_TYPES = [
   'note',
   'interview',
   'term_mastery',
+  'review_card',
+  'review_log',
   'resource',
   'practice',
 ] as const;

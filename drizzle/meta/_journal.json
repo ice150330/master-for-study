@@ -57,6 +57,20 @@
       "when": 1786727796918,
       "tag": "0007_slippery_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786729342619,
+      "tag": "0008_rare_tiger_shark",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1786729675566,
+      "tag": "0009_previous_wallow",
+      "breakpoints": true
     }
   ]
 }

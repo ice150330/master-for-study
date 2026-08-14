@@ -1,10 +1,9 @@
 import { ReviewView } from '@/components/review/ReviewView';
-import { getDueReviews } from '@/lib/db';
+import { getReviewQueue } from '@/lib/db';
 
 // 本地 SQLite 数据，每次请求实时渲染。
 export const dynamic = 'force-dynamic';
 
 export default function ReviewPage() {
-  const reviews = getDueReviews();
-  return <ReviewView initialReviews={reviews} />;
+  return <ReviewView initialQueue={getReviewQueue()} />;
 }

@@ -1,5 +1,6 @@
 import {
   integer,
+  index,
   real,
   sqliteTable,
   text,
@@ -84,6 +85,96 @@ export const termMasteries = sqliteTable('term_masteries', {
   difficulty: real('difficulty'),
   dueAt: integer('due_at', { mode: 'timestamp_ms' }),
   lastReviewedAt: integer('last_reviewed_at', { mode: 'timestamp_ms' }),
+});
+
+/** FSRS 卡片：保存可继续调度的完整记忆状态，term_masteries 作为兼容投影。 */
+export const reviewCards = sqliteTable('review_cards', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  termId: text('term_id')
+    .notNull()
+    .references(() => terms.id, { onDelete: 'cascade' })
+    .unique(),
+  state: text('state', {
+    enum: ['new', 'learning', 'reviewing', 'relearning'],
+  }).notNull(),
+  dueAt: integer('due_at', { mode: 'timestamp_ms' }).notNull(),
+  stability: real('stability').notNull(),
+  difficulty: real('difficulty').notNull(),
+  scheduledDays: integer('scheduled_days').notNull().default(0),
+  learningSteps: integer('learning_steps').notNull().default(0),
+  reps: integer('reps').notNull().default(0),
+  lapses: integer('lapses').notNull().default(0),
+  lastReviewAt: integer('last_review_at', { mode: 'timestamp_ms' }),
+  isDifficult: integer('is_difficult', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  index('review_cards_due_at_idx').on(table.dueAt),
+]);
+
+/** 不可变复习日志：完整保留 FSRS 输入、输出与主动回忆证据。 */
+export const reviewLogs = sqliteTable('review_logs', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  cardId: text('card_id')
+    .notNull()
+    .references(() => reviewCards.id, { onDelete: 'cascade' }),
+  termId: text('term_id')
+    .notNull()
+    .references(() => terms.id, { onDelete: 'cascade' }),
+  rating: text('rating', { enum: ['again', 'hard', 'good', 'easy'] }).notNull(),
+  state: text('state', {
+    enum: ['new', 'learning', 'reviewing', 'relearning'],
+  }).notNull(),
+  dueAt: integer('due_at', { mode: 'timestamp_ms' }).notNull(),
+  stability: real('stability').notNull(),
+  difficulty: real('difficulty').notNull(),
+  elapsedDays: integer('elapsed_days').notNull(),
+  lastElapsedDays: integer('last_elapsed_days').notNull(),
+  scheduledDays: integer('scheduled_days').notNull(),
+  learningSteps: integer('learning_steps').notNull(),
+  reviewAt: integer('review_at', { mode: 'timestamp_ms' }).notNull(),
+  stateAfter: text('state_after', {
+    enum: ['new', 'learning', 'reviewing', 'relearning'],
+  }).notNull(),
+  dueAfter: integer('due_after', { mode: 'timestamp_ms' }).notNull(),
+  stabilityAfter: real('stability_after').notNull(),
+  difficultyAfter: real('difficulty_after').notNull(),
+  scheduledDaysAfter: integer('scheduled_days_after').notNull(),
+  learningStepsAfter: integer('learning_steps_after').notNull(),
+  repsAfter: integer('reps_after').notNull(),
+  lapsesAfter: integer('lapses_after').notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
+  answerMode: text('answer_mode', { enum: ['typed', 'oral'] }).notNull(),
+  recallText: text('recall_text'),
+  algorithmVersion: text('algorithm_version').notNull(),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  index('review_logs_card_review_idx').on(table.cardId, table.reviewAt),
+  index('review_logs_term_review_idx').on(table.termId, table.reviewAt),
+]);
+
+/** 撤销单独追加记录，保证 review_logs 本身永不修改。 */
+export const reviewUndos = sqliteTable('review_undos', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  cardId: text('card_id')
+    .notNull()
+    .references(() => reviewCards.id, { onDelete: 'cascade' }),
+  reviewLogId: text('review_log_id')
+    .notNull()
+    .references(() => reviewLogs.id, { onDelete: 'cascade' })
+    .unique(),
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
 /** 学习事件：不可变事件流（Event Sourcing），一切学习行为在此留痕。 */

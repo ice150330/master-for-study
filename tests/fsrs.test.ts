@@ -1,35 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { scheduleReview } from '../src/lib/fsrs';
+import {
+  REVIEW_ALGORITHM_VERSION,
+  createReviewCard,
+  previewReview,
+  rollbackReview,
+  scheduleReview,
+} from '../src/lib/fsrs';
 
-describe('scheduleReview 间隔重复调度', () => {
-  it('遗忘（again）重置稳定性并降为 relearning', () => {
-    const r = scheduleReview({ state: 'reviewing', stability: 30, difficulty: 5 }, 'again');
-    expect(r.state).toBe('relearning');
-    expect(r.stability).toBe(0);
-    expect(r.dueDays).toBe(0);
-    expect(r.difficulty).toBe(6);
+describe('正式 FSRS 调度适配器', () => {
+  const now = new Date('2026-08-15T08:00:00.000Z');
+
+  it('使用可追踪的 FSRS 6 实现版本', () => {
+    expect(REVIEW_ALGORITHM_VERSION).toBe('ts-fsrs-6@5.4.1');
   });
 
-  it('新术语答对（good）获得正稳定性', () => {
-    const r = scheduleReview({ state: 'new', stability: 0, difficulty: 5 }, 'good');
-    expect(r.stability).toBeGreaterThan(0);
-    expect(r.dueDays).toBeGreaterThan(0);
+  it('四档预览按同一时间生成且 Again 不会零间隔循环', () => {
+    const card = createReviewCard(now);
+    const preview = previewReview(card, now);
+    expect(preview.again.dueAt.getTime()).toBeGreaterThan(now.getTime());
+    expect(preview.hard.dueAt.getTime()).toBeGreaterThan(preview.again.dueAt.getTime());
+    expect(preview.good.dueAt.getTime()).toBeGreaterThan(preview.hard.dueAt.getTime());
+    expect(preview.easy.dueAt.getTime()).toBeGreaterThan(preview.good.dueAt.getTime());
   });
 
-  it('easy 比 good 的复习间隔更长', () => {
-    const good = scheduleReview({ state: 'learning', stability: 5, difficulty: 5 }, 'good');
-    const easy = scheduleReview({ state: 'learning', stability: 5, difficulty: 5 }, 'easy');
-    expect(easy.stability).toBeGreaterThan(good.stability);
+  it('按钮预览与最终 API 排期来自同一结果', () => {
+    const card = createReviewCard(now);
+    const preview = previewReview(card, now);
+    const outcome = scheduleReview(card, 'good', now);
+    expect(outcome.card).toEqual(preview.good);
+    expect(outcome.log.rating).toBe('good');
+    expect(outcome.log.reviewAt).toEqual(now);
   });
 
-  it('难度越高稳定性增长越慢', () => {
-    const easy = scheduleReview({ state: 'learning', stability: 5, difficulty: 2 }, 'good');
-    const hard = scheduleReview({ state: 'learning', stability: 5, difficulty: 9 }, 'good');
-    expect(hard.stability).toBeLessThan(easy.stability);
-  });
-
-  it('稳定性超过阈值进入 reviewing', () => {
-    const r = scheduleReview({ state: 'learning', stability: 20, difficulty: 2 }, 'easy');
-    expect(r.state).toBe('reviewing');
+  it('撤销恢复到评级前的完整卡片状态', () => {
+    const card = createReviewCard(now);
+    const outcome = scheduleReview(card, 'easy', now);
+    expect(rollbackReview(outcome.card, outcome.log)).toEqual(card);
   });
 });
