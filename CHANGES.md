@@ -13,6 +13,9 @@
 - 收尾：抽取会话树 / 术语解析两个纯函数到 `lib/`，引入 Vitest 并写单测（10 用例通过）
 - 修正 DeepSeek 模型 ID：`deepseek-chat`/`deepseek-reasoner` → `deepseek-v4-flash`/`deepseek-v4-pro`（旧 ID 已于 2026-07-24 下线）
 - 定位 401 根因：环境变量 `DEEPSEEK_API_KEY` 覆盖了 `.env` 中的有效 key（Next.js 不覆盖已存在的环境变量）
+- 新增「学习笔记」模块：`/api/notes` + `/notes` 页，结构化总结（核心概念/术语/代码示例/未懂点）+ 导出 Markdown
+- 新增「模拟面试」模块：`/api/interview` + `/interview` 页，出题 + 分层判分（advance/stay/downgrade）
+- 重构 DB 连接为懒加载单例，避免 `next build` 多 worker 并发初始化 SQLite 造成 SQLITE_BUSY
 
 ## 2026-08-13
 

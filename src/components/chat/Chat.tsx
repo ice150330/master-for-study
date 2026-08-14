@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
 import { MessageContent } from './MessageContent';
 import type { TermAction } from './Term';
@@ -182,6 +183,20 @@ export function Chat() {
         <header className="mb-4 text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Mentor</h1>
           <p className="mt-1 text-sm text-muted">本地 AI 学习老师 · 术语会高亮，悬停看解释</p>
+          <nav className="mt-3 flex justify-center gap-3">
+            <Link
+              href="/notes"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              学习笔记
+            </Link>
+            <Link
+              href="/interview"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              模拟面试
+            </Link>
+          </nav>
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl bg-background/40 p-4">

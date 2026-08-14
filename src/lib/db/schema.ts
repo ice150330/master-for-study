@@ -77,3 +77,27 @@ export const learningEvents = sqliteTable('learning_events', {
   metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
+
+/** 笔记：由会话 / 工作区总结生成的结构化学习笔记。 */
+export const notes = sqliteTable('notes', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  sessionId: text('session_id').references(() => sessions.id),
+  title: text('title').notNull(),
+  content: text('content', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+  markdown: text('markdown').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+/** 面试问答记录。 */
+export const interviews = sqliteTable('interviews', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').references(() => sessions.id),
+  question: text('question').notNull(),
+  answer: text('answer'),
+  feedback: text('feedback'),
+  correct: integer('correct', { mode: 'boolean' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+});
