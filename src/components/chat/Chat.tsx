@@ -208,6 +208,12 @@ export function Chat() {
             >
               成长分析
             </Link>
+            <Link
+              href="/whiteboard"
+              className="rounded-lg bg-card px-3 py-1.5 text-xs text-background transition-colors hover:bg-card-soft"
+            >
+              白板
+            </Link>
           </nav>
         </header>
 

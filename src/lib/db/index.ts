@@ -415,3 +415,12 @@ export function getRecentEvents(limit = 20): LearningEvent[] {
     .limit(limit)
     .all();
 }
+
+/** 全部术语掌握度（名称 → 状态），供成长地图热力。 */
+export function getAllMasteries(): Array<{ name: string; state: TermMastery['state'] }> {
+  return getDb()
+    .select({ name: schema.terms.name, state: schema.termMasteries.state })
+    .from(schema.termMasteries)
+    .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
+    .all();
+}

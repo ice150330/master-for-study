@@ -18,6 +18,7 @@
 - 重构 DB 连接为懒加载单例，避免 `next build` 多 worker 并发初始化 SQLite 造成 SQLITE_BUSY
 - 新增「隐性巩固」模块：简化版 FSRS 调度器 + `/api/review` + `/review` 复习卡片页（术语自动入队，答后按评级排期）
 - 新增「成长分析」模块：`/analytics` 仪表盘（术语掌握度分布、面试正确率、学习行为分布、最近活动）
+- 新增「白板」模块：`lib/tree-layout.ts` 树布局引擎 + `TreeGraph` SVG 渲染器，`/whiteboard` 页展示会话关系图与个人成长地图（内置后端能力树 + 掌握度热力）
 
 ## 2026-08-13
 
