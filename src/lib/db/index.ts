@@ -44,6 +44,17 @@ export type ConceptDetail = {
   relatedResources: Array<Pick<Resource, 'id' | 'title' | 'url' | 'status'>>;
 };
 
+export type TodayLearningAction = {
+  id: string;
+  kind: 'continue' | 'review' | 'practice' | 'resource' | 'note';
+  title: string;
+  description: string;
+  source: string;
+  effort: string;
+  href: string;
+  actionLabel: string;
+};
+
 /** 待复习术语（术语表 + 掌握度合并）。 */
 export type ReviewItem = {
   termId: string;
@@ -1075,6 +1086,111 @@ export function getRecentEvents(limit = 20): LearningEvent[] {
     .orderBy(desc(schema.learningEvents.createdAt))
     .limit(limit)
     .all();
+}
+
+/**
+ * 今日行动投影：只从已有状态表和事件构建，不生成虚假的日程或精确时长。
+ * 每一类最多一个动作，供“今日学习”页直接渲染。
+ */
+export function getTodayLearningActions(): TodayLearningAction[] {
+  const actions: TodayLearningAction[] = [];
+  const recentEvent = getRecentEvents(1)[0];
+  const recentSession = listSessions().find((session) => listMessages(session.id).length > 0);
+  if (recentSession) {
+    const latestMessage = listMessages(recentSession.id).at(-1);
+    actions.push({
+      id: `continue:${recentSession.id}`,
+      kind: 'continue',
+      title: `继续：${recentSession.title}`,
+      description: latestMessage?.content.slice(0, 96) || '回到最近一次对话上下文。',
+      source:
+        recentEvent?.sessionId === recentSession.id
+          ? `来自最近一次 ${recentEvent.action} 事件`
+          : '来自最近活动会话',
+      effort: '约 5–15 分钟',
+      href: `/?session=${recentSession.id}`,
+      actionLabel: '继续学习',
+    });
+  }
+
+  const due = getDueReviews(20);
+  if (due.length > 0) {
+    actions.push({
+      id: 'review:due',
+      kind: 'review',
+      title: `${due.length} 个概念已到期`,
+      description: `从「${due[0].name}」开始主动回忆，完成后自动排定下次复习。`,
+      source: `来自 term_masteries 到期时间`,
+      effort: due.length > 5 ? '约 10–20 分钟' : '约 5–10 分钟',
+      href: '/review',
+      actionLabel: '开始复习',
+    });
+  }
+
+  const weakConcept = getDb()
+    .select({
+      id: schema.terms.id,
+      name: schema.terms.canonicalName,
+      difficulty: schema.termMasteries.difficulty,
+      state: schema.termMasteries.state,
+    })
+    .from(schema.termMasteries)
+    .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
+    .all()
+    .sort((left, right) => (right.difficulty ?? 0) - (left.difficulty ?? 0))[0];
+  if (weakConcept) {
+    actions.push({
+      id: `practice:${weakConcept.id}`,
+      kind: 'practice',
+      title: `练习：${weakConcept.name}`,
+      description: '用一个可运行任务检查是否能把概念应用到具体问题。',
+      source: `来自掌握状态 ${weakConcept.state} 与难度记录`,
+      effort: '约 10–20 分钟',
+      href: `/practice?concept=${weakConcept.id}`,
+      actionLabel: '进入练习',
+    });
+  }
+
+  const resource = listResources().find((item) => item.status !== '已读');
+  if (resource) {
+    actions.push({
+      id: `resource:${resource.id}`,
+      kind: 'resource',
+      title: `继续资源：${resource.title}`,
+      description: resource.note || `${resource.type} · 当前状态「${resource.status}」`,
+      source: `来自资源库 ${resource.status} 队列`,
+      effort: '按内容自行安排',
+      href: `/resources?resource=${resource.id}`,
+      actionLabel: '打开资源',
+    });
+  }
+  const note = listNotes()[0];
+  if (note) {
+    actions.push({
+      id: `note:${note.id}`,
+      kind: 'note',
+      title: `回看笔记：${note.title}`,
+      description: '从最近沉淀的知识文档恢复上下文。',
+      source: '来自最近生成的学习笔记',
+      effort: '约 5–10 分钟',
+      href: `/notes?note=${note.id}`,
+      actionLabel: '查看笔记',
+    });
+  }
+
+  if (actions.length === 0) {
+    actions.push({
+      id: 'continue:first-chat',
+      kind: 'continue',
+      title: '从一个真实问题开始',
+      description: '提出你当前最想弄懂的问题，Mentor 会从对话中建立概念、笔记和复习队列。',
+      source: '当前工作区尚无学习记录',
+      effort: '没有固定时长',
+      href: '/',
+      actionLabel: '开始对话',
+    });
+  }
+  return actions;
 }
 
 /** 全部术语掌握度（名称 → 状态），供成长地图热力。 */

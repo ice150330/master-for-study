@@ -353,4 +353,33 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(detail?.relatedNotes).toContainEqual({ id: note.id, title: note.title, sessionId: session.id });
     expect(detail?.relatedResources[0]).toMatchObject({ id: resource.id, title: resource.title });
   });
+
+  it('今日行动投影只引用真实会话、到期记录和未完成资源', () => {
+    const session = repository.createSession({
+      title: '今日投影会话',
+      idempotencyKey: 'session:test:today-projection',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: '继续学习事务隔离级别',
+      idempotencyKey: 'message:test:today-projection',
+    });
+    const resource = repository.createResource({
+      title: '今日未读资源',
+      type: '教程',
+      url: 'https://example.com/today-resource',
+      idempotencyKey: 'resource:test:today-projection',
+    });
+
+    const actions = repository.getTodayLearningActions();
+    expect(actions.find((action) => action.kind === 'continue')).toMatchObject({
+      href: `/?session=${session.id}`,
+    });
+    expect(actions.find((action) => action.kind === 'review')?.source).toContain('到期时间');
+    expect(actions.find((action) => action.id === `resource:${resource.id}`)).toMatchObject({
+      href: `/resources?resource=${resource.id}`,
+    });
+    expect(actions.every((action) => action.effort.length > 0 && action.source.length > 0)).toBe(true);
+  });
 });

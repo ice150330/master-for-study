@@ -76,7 +76,11 @@ export function Chat() {
     (async () => {
       try {
         const list = await refreshSessions();
-        if (list.length > 0) await openSession(list[0].id);
+        const requestedSession = new URLSearchParams(window.location.search).get('session');
+        const target = requestedSession && list.some((session) => session.id === requestedSession)
+          ? requestedSession
+          : list[0]?.id;
+        if (target) await openSession(target);
       } catch (error) {
         setRequestError({ message: getErrorMessage(error, '会话加载失败') });
       }
