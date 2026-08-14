@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
+import { setThemeMode, useThemeMode } from '@/lib/theme-client';
 
 /**
  * 主题切换按钮：浅色（默认）/ 深色。
@@ -10,23 +11,17 @@ import { IconButton } from '@/components/ui/IconButton';
  * - 本组件只负责切换类与写 localStorage 持久化
  */
 
-const THEME_KEY = 'mentor-theme';
-
 export function ThemeToggle() {
+  const mode = useThemeMode();
+
   function toggle() {
-    const next = !document.documentElement.classList.contains('dark');
-    document.documentElement.classList.toggle('dark', next);
-    try {
-      localStorage.setItem(THEME_KEY, next ? 'dark' : 'light');
-    } catch {
-      // localStorage 不可用（隐私模式等）时静默降级，仅本次会话生效
-    }
+    setThemeMode(mode === 'dark' ? 'light' : 'dark');
   }
 
   return (
     <IconButton
       onClick={toggle}
-      label="切换浅色 / 深色主题"
+      label={mode === 'dark' ? '切换为浅色主题' : '切换为深色主题'}
       className="size-8 rounded-full"
     >
       {/* 浅色时显示月亮（点击去深色），深色时显示太阳（点击回浅色） */}

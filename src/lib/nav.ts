@@ -1,10 +1,7 @@
-/**
- * 全局导航配置（纯数据）：学习 / 测验两大分组 + 全局工具入口。
- * 路由字面量集中收敛在此，供 AppShell 的胶囊与子标签复用（typed routes）。
- */
+/** 全局导航配置：今日、学习、测验、洞察四个任务区域。 */
 
-/** 应用页面路由字面量（与 src/app 目录一一对应）。 */
 export type AppRoute =
+  | '/today'
   | '/'
   | '/notes'
   | '/resources'
@@ -14,45 +11,86 @@ export type AppRoute =
   | '/analytics'
   | '/whiteboard';
 
-export type NavItem = { href: AppRoute; label: string };
-export type NavGroupKey = 'learn' | 'test';
+export type NavIconKey =
+  | 'today'
+  | 'chat'
+  | 'notes'
+  | 'resources'
+  | 'practice'
+  | 'interview'
+  | 'review'
+  | 'analytics'
+  | 'whiteboard';
 
-export type NavGroup = {
-  key: NavGroupKey;
+export type NavItem = {
+  href: AppRoute;
   label: string;
+  shortLabel: string;
+  icon: NavIconKey;
+};
+
+export type NavSectionKey = 'today' | 'learn' | 'test' | 'insight';
+
+export type NavSection = {
+  key: NavSectionKey;
+  label: string;
+  shortLabel: string;
   items: NavItem[];
 };
 
-/** 学习 / 测验两大分组（顶栏大胶囊内的两个小胶囊）。 */
-export const NAV_GROUPS: NavGroup[] = [
+export const NAV_SECTIONS: NavSection[] = [
+  {
+    key: 'today',
+    label: '今日',
+    shortLabel: '今日',
+    items: [{ href: '/today', label: '今日学习', shortLabel: '今日', icon: 'today' }],
+  },
   {
     key: 'learn',
     label: '学习',
+    shortLabel: '学习',
     items: [
-      { href: '/', label: '聊天' },
-      { href: '/notes', label: '笔记' },
-      { href: '/resources', label: '资源库' },
-      { href: '/practice', label: '实践区' },
+      { href: '/', label: '对话学习', shortLabel: '对话', icon: 'chat' },
+      { href: '/notes', label: '学习笔记', shortLabel: '笔记', icon: 'notes' },
+      { href: '/resources', label: '资源库', shortLabel: '资源', icon: 'resources' },
+      { href: '/practice', label: '实践区', shortLabel: '实践', icon: 'practice' },
     ],
   },
   {
     key: 'test',
     label: '测验',
+    shortLabel: '测验',
     items: [
-      { href: '/interview', label: '模拟面试' },
-      { href: '/review', label: '复习' },
+      { href: '/interview', label: '模拟面试', shortLabel: '面试', icon: 'interview' },
+      { href: '/review', label: '复习', shortLabel: '复习', icon: 'review' },
+    ],
+  },
+  {
+    key: 'insight',
+    label: '洞察',
+    shortLabel: '洞察',
+    items: [
+      { href: '/analytics', label: '成长分析', shortLabel: '分析', icon: 'analytics' },
+      { href: '/whiteboard', label: '知识白板', shortLabel: '白板', icon: 'whiteboard' },
     ],
   },
 ];
 
-/** 全局工具（顶栏右侧独立入口，不属于学习/测验任何一组）。 */
-export const TOOL_ITEMS: NavItem[] = [
-  { href: '/analytics', label: '成长分析' },
-  { href: '/whiteboard', label: '白板' },
-];
-
-/** 路由激活判断：首页全等，其余允许前缀匹配（为未来动态段预留）。 */
 export function isNavActive(pathname: string, href: AppRoute): boolean {
   if (href === '/') return pathname === '/';
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function findActiveSection(pathname: string): NavSection | null {
+  return NAV_SECTIONS.find((section) =>
+    section.items.some((item) => isNavActive(pathname, item.href)),
+  ) ?? null;
+}
+
+export function findActiveItem(pathname: string): NavItem | null {
+  for (const section of NAV_SECTIONS) {
+    const item = section.items.find((candidate) => isNavActive(pathname, candidate.href));
+    if (item) return item;
+  }
+  return null;
 }
