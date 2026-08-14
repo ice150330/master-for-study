@@ -12,10 +12,10 @@
 ## 前置准备 · 环境与依赖
 
 - [ ] **P1. 读 Next.js 16 文档**：`node_modules/next/dist/docs/01-app/` 下 route handlers、streaming、`serverExternalPackages` 三篇。这是有破坏性变更的版本，动手前先确认当前 API 形态，勿凭记忆写。
-- [ ] **P2. 安装 AI 依赖**：`npm i ai @ai-sdk/deepseek zod`
-- [ ] **P3. 安装数据库依赖**：`npm i better-sqlite3 drizzle-orm` + `npm i -D drizzle-kit @types/better-sqlite3`
+- [x] **P2. 安装 AI 依赖**：`npm i ai @ai-sdk/deepseek zod`（AI SDK 实装 v7）
+- [x] **P3. 安装数据库依赖**：`npm i better-sqlite3 drizzle-orm` + `npm i -D drizzle-kit @types/better-sqlite3`
 - [ ] **P4. 安装状态/UI**：`npm i zustand`，初始化 shadcn/ui（`npx shadcn@latest init`，只引入会用到的组件）
-- [ ] **P5. 确认 DeepSeek 模型 ID**：`v4-flash` / `v4-pro` 是项目代号，落地时对照 `@ai-sdk/deepseek` 文档确认真实 model 字符串，写入 `lib/ai/provider.ts` 常量，不要硬编码在 route 里。
+- [x] **P5. 确认 DeepSeek 模型 ID**：映射为 `deepseek-chat`（快）/ `deepseek-reasoner`（重），见 `lib/ai/provider.ts`。
 - [ ] **P6. 数据目录**：建 `data/` 目录存放 SQLite 文件，并把 `data/*.db` 加入 `.gitignore`。
 
 ---
@@ -25,26 +25,26 @@
 - [x] **0.1 初始化项目**：Next.js 16 + TS + Tailwind v4 + card-stack 令牌（已完成）。
 - [x] **0.2 配置密钥**：`.env`（`DEEPSEEK_API_KEY`）+ `.env.example` 占位（已完成，勿提交真实 key）。
 
-- [ ] **0.3 封装 provider** —— `src/lib/ai/provider.ts`
+- [x] **0.3 封装 provider** —— `src/lib/ai/provider.ts`
   - 导出 `fastModel`（默认）与 `proModel`（重任务），基于 P5 确认的模型 ID。
   - 读 key 用 `process.env.DEEPSEEK_API_KEY`，缺失时抛明确错误。
   - 验证：临时脚本调一次返回正常文本。
 
-- [ ] **0.4 流式对话 API** —— `src/app/api/chat/route.ts`
+- [x] **0.4 流式对话 API** —— `src/app/api/chat/route.ts`
   - `export async function POST`，接收 `{ messages, model? }`。
   - 用 AI SDK `streamText` 返回流式响应（确认当前版本返回流的方式，如 `toDataStreamResponse`）。
   - 验证：`curl` 或页面逐字流式返回。
 
-- [ ] **0.5 术语标注两段式** —— `src/lib/ai/term-annotation.ts`
+- [x] **0.5 术语标注两段式** —— `src/lib/ai/term-annotation.ts`
   - 第一段（流式正文）：prompt 要求正文中技术名词用 `[[术语]]` 内联包裹，规避流式偏移错位。
   - 第二段（结构化）：`generateObject` + zod 提取 `[{ name, definition }]` 术语清单，失败重试。
   - 验证：返回内容里术语被 `[[ ]]` 包裹，且附带结构化 terms。
 
-- [ ] **0.6 前端 Term 高亮** —— `src/components/chat/`
+- [x] **0.6 前端 Term 高亮** —— `src/components/chat/`
   - 流式解析器把 `[[term]]` 渲染成高亮/下划线组件（点缀色 accent/pink/yellow + 下划线，见 `DESIGN.md`）。
   - 验证：页面术语呈高亮样式。
 
-- [ ] **0.7 悬停弹窗** —— `src/components/chat/`（Term 组件 hover）
+- [x] **0.7 悬停弹窗** —— `src/components/chat/`（Term 组件 hover）
   - 显示一句话解释 + 「分支会话 / 新会话 / 追问」三选项（阶段 0 仅 UI，动作在 1.x 接上）。
   - 验证：悬停弹窗出现，选项可点（暂打桩）。
 
