@@ -55,7 +55,7 @@ test('基础组件具备完整视觉状态和键盘行为', async ({ page }, tes
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: '显示通知' }).click();
-  await expect(page.getByRole('status')).toContainText('已加入复习队列');
+  await expect(page.getByRole('status').filter({ hasText: '已加入复习队列' })).toBeVisible();
 
   await page.evaluate(() => document.documentElement.classList.add('dark'));
   await page.screenshot({

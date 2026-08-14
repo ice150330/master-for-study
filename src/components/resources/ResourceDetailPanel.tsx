@@ -65,7 +65,7 @@ export function ResourceDetailPanel({
 
       <div className="grid gap-7 px-6 py-5 min-[1180px]:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="min-w-0">
-          {resource.description ? <p className="text-sm leading-6 text-muted">{resource.description}</p> : null}
+          {resource.description ? <p className="break-words text-sm leading-6 text-muted [overflow-wrap:anywhere]">{resource.description}</p> : null}
 
           <section className="mt-6 border-y border-border py-5" aria-labelledby="resource-highlights-title">
             <div className="flex items-center justify-between gap-3">
@@ -109,11 +109,11 @@ export function ResourceDetailPanel({
                   <blockquote key={highlight.id} className="group border-l-2 border-primary pl-4">
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="whitespace-pre-wrap text-sm leading-6 text-card-foreground">{highlight.excerpt}</p>
-                        {highlight.note ? <p className="mt-2 text-xs leading-5 text-muted">注释：{highlight.note}</p> : null}
-                        {highlight.locator ? <p className="mt-1 text-[11px] text-primary">来源：{highlight.locator}</p> : null}
+                        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-card-foreground [overflow-wrap:anywhere]">{highlight.excerpt}</p>
+                        {highlight.note ? <p className="mt-2 break-words text-xs leading-5 text-muted [overflow-wrap:anywhere]">注释：{highlight.note}</p> : null}
+                        {highlight.locator ? <p className="mt-1 break-words text-[11px] text-primary [overflow-wrap:anywhere]">来源：{highlight.locator}</p> : null}
                       </div>
-                      <button type="button" aria-label="删除摘录" title="删除摘录" onClick={() => onDeleteHighlight(highlight.id)} className="opacity-0 text-muted transition-opacity hover:text-danger group-hover:opacity-100 focus-visible:opacity-100">
+                      <button type="button" aria-label="删除摘录" title="删除摘录" onClick={() => onDeleteHighlight(highlight.id)} className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-0 text-muted transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100">
                         <Trash2 aria-hidden="true" className="size-4" />
                       </button>
                     </div>
@@ -125,7 +125,7 @@ export function ResourceDetailPanel({
 
           <section className="mt-6" aria-labelledby="resource-note-title">
             <h3 id="resource-note-title" className="text-sm font-semibold text-card-foreground">文档笔记</h3>
-            {resource.note ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted">{resource.note}</p> : <p className="mt-3 text-xs text-muted">尚未记录这份资源的学习目的或总结。</p>}
+            {resource.note ? <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted [overflow-wrap:anywhere]">{resource.note}</p> : <p className="mt-3 text-xs text-muted">尚未记录这份资源的学习目的或总结。</p>}
           </section>
         </div>
 

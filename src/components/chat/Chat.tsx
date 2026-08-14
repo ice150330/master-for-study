@@ -670,7 +670,7 @@ export function Chat() {
       />
       </div>
       {conceptPanel ? (
-        <aside className="z-40 min-h-0 overflow-hidden border-l border-border bg-card max-[1179px]:fixed max-[1179px]:inset-x-0 max-[1179px]:bottom-0 max-[1179px]:h-[68vh] max-[1179px]:rounded-t-lg max-[1179px]:border max-[1179px]:shadow-[var(--shadow-lg)]">
+        <aside aria-label="概念详情" className="z-40 min-h-0 overflow-hidden border-l border-border bg-card max-[1179px]:fixed max-[1179px]:inset-x-0 max-[1179px]:bottom-0 max-[1179px]:h-[68vh] max-[1179px]:rounded-t-lg max-[1179px]:border max-[1179px]:shadow-[var(--shadow-lg)]">
           <ConceptRail
             name={conceptPanel.name}
             detail={conceptPanel.detail}

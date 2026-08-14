@@ -138,9 +138,9 @@ function TodayBand({ data }: { data: LearningAnalytics }) {
     <section className="grid overflow-hidden rounded-md border border-border bg-card shadow-sm min-[900px]:grid-cols-[minmax(0,1.2fr)_minmax(31rem,0.8fr)]">
       <div className="relative min-h-56 bg-primary px-7 py-6 text-primary-foreground">
         <Sparkles aria-hidden="true" className="size-5 opacity-75" />
-        <p className="mt-5 text-[11px] font-semibold text-primary-foreground/70">{recommendation.eyebrow}</p>
+        <p className="mt-5 text-[11px] font-semibold text-primary-foreground">{recommendation.eyebrow}</p>
         <h2 className="mt-1 max-w-2xl text-[25px] font-semibold leading-tight">{recommendation.title}</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-primary-foreground/78">{recommendation.description}</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-primary-foreground">{recommendation.description}</p>
         <Link
           href={recommendation.href}
           className="mt-6 inline-flex h-9 items-center gap-2 rounded-md bg-card px-3.5 text-xs font-semibold text-card-foreground shadow-sm transition-[filter] hover:brightness-95"
@@ -181,7 +181,7 @@ function LoadValue({
 
 function TrendLegend() {
   return (
-    <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-[11px] text-muted" aria-label="趋势图图例">
+    <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-[11px] text-muted">
       {Object.entries(categoryMeta).map(([key, meta]) => (
         <span key={key} className="inline-flex items-center gap-1.5"><i className={`size-2 rounded-[2px] ${meta.color}`} />{meta.label}</span>
       ))}
@@ -214,7 +214,7 @@ function ActivityTrend({
           <p className="mt-1 text-xs text-muted">完成一次对话、练习或复习后，节律会出现在这里。</p>
         </div>
       ) : null}
-      <div className="absolute inset-0 flex items-end gap-1.5 pb-7" aria-label="每日学习行为">
+      <div className="absolute inset-0 flex items-end gap-1.5 pb-7" role="group" aria-label="每日学习行为">
         {days.map((day, index) => {
           const selected = selectedDate === day.date;
           const height = day.total === 0 ? 2 : Math.max(12, Math.round((day.total / max) * 176));
@@ -237,7 +237,7 @@ function ActivityTrend({
                 {day.total === 0 ? <i className="h-0.5 bg-border" /> : null}
               </span>
               {(index % labelEvery === 0 || index === days.length - 1) ? (
-                <span className={`absolute bottom-0 text-[10px] ${selected ? 'font-semibold text-primary' : 'text-muted'}`}>{day.label}</span>
+                <span className={`absolute bottom-0 rounded-sm bg-background px-1 text-[10px] ${selected ? 'font-semibold text-primary' : 'text-muted'}`}>{day.label}</span>
               ) : null}
             </button>
           );
@@ -300,7 +300,7 @@ function MetricStrip({ metrics }: { metrics: LearningAnalytics['metrics'] }) {
           </div>
           <p className={`mt-4 font-semibold ${metric.status === 'insufficient' ? 'text-base text-warning' : 'text-2xl text-foreground'}`}>{metric.value}</p>
           <p className="mt-1.5 text-[11px] leading-4 text-muted">{metric.detail}</p>
-          <p className="mt-2 truncate font-mono text-[9px] text-muted/75">{metric.source}</p>
+          <p className="mt-2 truncate font-mono text-[9px] text-muted">{metric.source}</p>
         </Link>
       ))}
     </section>
@@ -320,7 +320,7 @@ function ProgressStrip({ progress }: { progress: LearningAnalytics['progress'] }
           <Link key={item.id} href={item.href} className="group px-4 py-3 first:pl-0 last:pr-0">
             <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary">{item.title}</p>
             <p className="mt-1 text-[11px] text-muted">{item.detail}</p>
-            <time className="mt-1.5 block text-[10px] text-muted/75">{formatTime(item.createdAt)}</time>
+            <time className="mt-1.5 block text-[10px] text-muted">{formatTime(item.createdAt)}</time>
           </Link>
         ))}
       </div>

@@ -105,7 +105,7 @@ export function WhiteboardView({
               </div> : null}
             </div>
             {mode === 'knowledge' ? <>
-              <div className="flex rounded-md border border-border p-0.5" aria-label="关系深度">
+              <div className="flex rounded-md border border-border p-0.5" role="group" aria-label="关系深度">
                 {([1, 2] as const).map((value) => <button key={value} type="button" aria-pressed={depth === value} onClick={() => void loadKnowledge({ depth: value })} className={`h-8 rounded-[4px] px-2.5 text-xs ${depth === value ? 'bg-primary text-primary-foreground' : 'text-muted'}`}>{value} 跳</button>)}
               </div>
               <Popover>

@@ -23,7 +23,12 @@ export function useThemeMode(): 'light' | 'dark' {
 }
 
 export function setThemeMode(mode: 'light' | 'dark') {
-  document.documentElement.classList.toggle('dark', mode === 'dark');
+  const root = document.documentElement;
+  root.classList.add('theme-switching');
+  root.classList.toggle('dark', mode === 'dark');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => root.classList.remove('theme-switching'));
+  });
   try {
     localStorage.setItem(THEME_KEY, mode);
   } catch {

@@ -37,4 +37,29 @@ describe('正式 FSRS 调度适配器', () => {
     const outcome = scheduleReview(card, 'easy', now);
     expect(rollbackReview(outcome.card, outcome.log)).toEqual(card);
   });
+
+  it('旧版非新卡的零稳定性可安全进入正式调度', () => {
+    const legacyCard = {
+      ...createReviewCard(now),
+      state: 'learning' as const,
+      stability: 0,
+      difficulty: 5,
+      reps: 1,
+    };
+    const preview = previewReview(legacyCard, now);
+    expect(preview.again.stability).toBeGreaterThan(0);
+    expect(scheduleReview(legacyCard, 'good', now).card.stability).toBeGreaterThan(0);
+  });
+
+  it('带旧难度投影的新卡会按正式空卡参数调度', () => {
+    const legacyNewCard = {
+      ...createReviewCard(now),
+      difficulty: 5,
+      reps: 1,
+    };
+    const outcome = scheduleReview(legacyNewCard, 'good', now);
+    expect(outcome.log.difficulty).toBe(0);
+    expect(outcome.card.reps).toBe(1);
+    expect(outcome.card.stability).toBeGreaterThan(0);
+  });
 });

@@ -68,6 +68,11 @@ export function ConceptRail({
     <div
       data-context-focus={contextFocusRef(learningContext) ?? undefined}
       tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.stopPropagation();
+        onClose();
+      }}
       className="flex h-full min-h-0 flex-col bg-card outline-none"
     >
       <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">

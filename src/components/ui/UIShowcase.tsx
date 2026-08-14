@@ -171,7 +171,7 @@ export function UIShowcase() {
 
         <ShowcaseSection title="内容状态" description="状态直接说明发生了什么，以及用户接下来能做什么。">
           <div className="grid gap-6 lg:grid-cols-3">
-            <div aria-label="加载状态" className="space-y-3 py-2">
+            <div role="status" aria-label="加载状态" className="space-y-3 py-2">
               <Skeleton className="h-4 w-28" />
               <Skeleton className="h-3 w-full" />
               <Skeleton className="h-3 w-4/5" />

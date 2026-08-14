@@ -34,7 +34,7 @@ export function Field({
 }
 
 const controlClasses =
-  'w-full rounded-md border border-border bg-card px-3 text-sm text-card-foreground shadow-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted/70 hover:border-muted/60 focus:border-primary focus:ring-2 focus:ring-primary/15 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/15 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60';
+  'w-full rounded-md border border-border bg-card px-3 text-sm text-card-foreground shadow-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted hover:border-muted/60 focus:border-primary focus:ring-2 focus:ring-primary/15 aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger/15 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...props }, ref) {

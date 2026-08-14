@@ -66,7 +66,7 @@ export function InterviewFeedback({
             </div>
           </div>
 
-          <div className="mt-7 grid gap-0 border-y border-border" aria-label="评分维度">
+          <div className="mt-7 grid gap-0 border-y border-border" role="group" aria-label="评分维度">
             {dimensions.map((dimension) => {
               const current = attempt.scores[dimension.key];
               const previous = previousAttempt?.scores[dimension.key];
@@ -74,7 +74,7 @@ export function InterviewFeedback({
               return (
                 <div key={dimension.key} className="grid items-center gap-3 border-b border-border px-1 py-4 last:border-b-0 min-[900px]:grid-cols-[6rem_9rem_minmax(0,1fr)_3rem]">
                   <p className="text-sm font-semibold text-card-foreground">{dimension.label}</p>
-                  <div className="flex gap-1" aria-label={`${dimension.label} ${current.score} 分`}>
+                  <div className="flex gap-1" role="img" aria-label={`${dimension.label} ${current.score} 分`}>
                     {Array.from({ length: 5 }, (_, index) => (
                       <span key={index} className={`h-1.5 w-6 rounded-sm ${index < current.score ? 'bg-primary' : 'bg-border'}`} />
                     ))}

@@ -86,6 +86,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh min-w-0 bg-background">
+      <a
+        href="#mentor-main"
+        className="fixed left-3 top-3 z-[120] -translate-y-20 rounded-md bg-foreground px-3 py-2 text-sm font-semibold text-background shadow-lg transition-transform focus:translate-y-0"
+      >
+        跳到主要内容
+      </a>
       <aside className="hidden w-16 shrink-0 flex-col border-r border-border bg-card md:flex min-[1180px]:w-56">
         <div className="flex h-16 shrink-0 items-center border-b border-border px-3 min-[1180px]:px-4">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">

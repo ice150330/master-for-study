@@ -14,11 +14,11 @@
   --card-foreground: #1b1d22;
   --primary: #6558d9;
   --primary-foreground: #ffffff;
-  --accent: #087f76;
+  --accent: #066d65;
   --accent-foreground: #ffffff;
   --warning: #b96d0b;
   --warning-foreground: #ffffff;
-  --danger: #c44e63;
+  --danger: #a93650;
   --danger-foreground: #ffffff;
   --pink: #c44e63;
   --pink-foreground: #ffffff;
@@ -109,13 +109,20 @@ select {
   letter-spacing: 0;
 }
 
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--primary) 24%, transparent);
 }
 
 :focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 3px solid var(--ring);
   outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--background);
 }
 
 @keyframes ui-enter {
@@ -173,5 +180,19 @@ select {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight !important;
+    box-shadow: none !important;
+  }
+
+  [aria-current="page"],
+  [aria-pressed="true"],
+  [aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
   }
 }

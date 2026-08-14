@@ -16,7 +16,7 @@ export function Term({
       type="button"
       aria-label={`打开概念：${name}`}
       onClick={() => onAction?.('open', name, sourceMessageId)}
-      className="inline rounded-sm px-0.5 font-medium text-accent underline decoration-dotted decoration-accent/70 underline-offset-4 transition-colors hover:bg-accent/10 hover:text-foreground"
+      className="inline-flex min-h-6 items-center rounded-sm px-0.5 align-baseline font-medium text-accent underline decoration-dotted decoration-accent/70 underline-offset-4 transition-colors hover:bg-accent/10 hover:text-foreground"
     >
       {name}
     </button>

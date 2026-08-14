@@ -167,7 +167,7 @@ export function SessionCard({
       </div>
 
       {/* 消息流 */}
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4 [contain:layout_paint]">
         {messages.length === 0 && (
           <p className="py-16 text-center text-sm text-muted">
             随便问个技术问题，比如「什么是 DNS？」
@@ -185,7 +185,7 @@ export function SessionCard({
               <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
             ) : null}
             <div
-              className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md ${
+              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md [overflow-wrap:anywhere] ${
                 m.role === 'user'
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-card-soft text-card-foreground'
@@ -269,11 +269,11 @@ export function SessionCard({
           ) : null}
         </div>
         {selectedResourceIds.length > 0 ? (
-          <div className="mb-2 flex flex-wrap gap-1.5" aria-label="本轮已选资源">
+          <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="本轮已选资源">
             {resourceOptions.filter((resource) => selectedResourceIds.includes(resource.id)).map((resource) => (
               <span key={resource.id} className="inline-flex max-w-56 items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] text-primary">
                 <span className="truncate">{resource.title}</span>
-                <button type="button" aria-label={`移除资源 ${resource.title}`} onClick={() => onToggleResource(resource.id)} className="rounded-sm hover:bg-primary/10">
+                <button type="button" aria-label={`移除资源 ${resource.title}`} onClick={() => onToggleResource(resource.id)} className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-primary/10">
                   <X aria-hidden="true" className="size-3" />
                 </button>
               </span>

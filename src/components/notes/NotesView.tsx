@@ -211,7 +211,7 @@ export function NotesView({
 
   return (
     <PageShell title="学习笔记" description="可编辑、可回溯、保留 AI 原始快照" width="xl">
-      <div className="grid min-h-[680px] grid-cols-[17rem_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-card">
+      <div className="grid min-h-[680px] grid-cols-1 overflow-hidden rounded-lg border border-border bg-card min-[760px]:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="flex min-h-0 flex-col border-r border-border">
           <div className="space-y-2 border-b border-border p-3">
             <div className="flex gap-2">
@@ -452,7 +452,7 @@ function NoteReader({
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_13rem]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 min-[900px]:grid-cols-[minmax(0,1fr)_13rem]">
         <div className="min-h-0 overflow-y-auto px-7 py-6">
           <MarkdownDocument blocks={blocks} conceptByName={conceptByName} noteId={note.id} learningContext={learningContext} />
         </div>
@@ -561,7 +561,7 @@ function MarkdownDocument({
   learningContext: LearningContext;
 }) {
   return (
-    <article className="space-y-3 text-sm leading-6 text-card-foreground">
+    <article className="space-y-3 break-words text-sm leading-6 text-card-foreground [overflow-wrap:anywhere]">
       {blocks.map((block, index) => {
         if (block.type === 'heading') {
           const Tag = block.level === 1 ? 'h2' : block.level === 2 ? 'h3' : 'h4';
@@ -612,7 +612,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     <div className="overflow-hidden rounded-md border border-border bg-card-soft">
       <div className="flex h-8 items-center justify-between border-b border-border px-3 text-[11px] text-muted">
         <span>{language}</span>
-        <button type="button" onClick={copy} className="inline-flex items-center gap-1 hover:text-foreground">
+        <button type="button" onClick={copy} className="inline-flex min-h-6 items-center gap-1 rounded-sm px-1 hover:text-foreground">
           {copied ? <Check className="size-3" /> : <Copy className="size-3" />}{copied ? '已复制' : '复制'}
         </button>
       </div>

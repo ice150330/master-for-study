@@ -1,5 +1,7 @@
 import {
   Rating,
+  S_MAX,
+  S_MIN,
   State,
   createEmptyCard,
   fsrs,
@@ -96,17 +98,49 @@ const ratingFromFsrs: Record<Rating, ReviewGrade | null> = {
 };
 
 function toFsrsCard(card: StoredReviewCard): Card {
+  const normalized = normalizeReviewCard(card);
   return {
-    due: card.dueAt,
-    stability: card.stability,
-    difficulty: card.difficulty,
+    due: normalized.dueAt,
+    stability: normalized.stability,
+    difficulty: normalized.difficulty,
     elapsed_days: 0,
-    scheduled_days: card.scheduledDays,
-    learning_steps: card.learningSteps,
-    reps: card.reps,
-    lapses: card.lapses,
-    state: stateToFsrs[card.state],
-    last_review: card.lastReviewAt ?? undefined,
+    scheduled_days: normalized.scheduledDays,
+    learning_steps: normalized.learningSteps,
+    reps: normalized.reps,
+    lapses: normalized.lapses,
+    state: stateToFsrs[normalized.state],
+    last_review: normalized.lastReviewAt ?? undefined,
+  };
+}
+
+/** 兼容简化调度器留下的非新卡零值；新卡的 0/0 是 ts-fsrs 的合法初始态。 */
+function normalizeReviewCard(card: StoredReviewCard): StoredReviewCard {
+  if (card.state === 'new') {
+    return {
+      ...card,
+      stability: 0,
+      difficulty: 0,
+      scheduledDays: 0,
+      learningSteps: 0,
+      reps: 0,
+      lapses: 0,
+      lastReviewAt: null,
+    };
+  }
+  const stability = Number.isFinite(card.stability)
+    ? Math.min(S_MAX, Math.max(S_MIN, card.stability))
+    : S_MIN;
+  const difficulty = Number.isFinite(card.difficulty)
+    ? Math.min(10, Math.max(1, card.difficulty))
+    : 5;
+  return {
+    ...card,
+    stability,
+    difficulty,
+    scheduledDays: Math.max(0, Math.round(card.scheduledDays || 0)),
+    learningSteps: Math.max(0, Math.round(card.learningSteps || 0)),
+    reps: Math.max(0, Math.round(card.reps || 0)),
+    lapses: Math.max(0, Math.round(card.lapses || 0)),
   };
 }
 

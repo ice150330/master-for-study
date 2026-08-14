@@ -103,7 +103,7 @@ export function TodayView({ initialActions }: { initialActions: TodayLearningAct
                     <span className="shrink-0 text-[11px] text-muted">{action.effort}</span>
                   </div>
                   <p className="mt-1 line-clamp-2 text-sm leading-5 text-muted">{action.description}</p>
-                  <p className="mt-1.5 text-[11px] text-muted/80">{action.source}</p>
+                  <p className="mt-1.5 text-[11px] text-muted">{action.source}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <IconButton label={`今天稍后处理：${action.title}`} onClick={() => defer(action.id)}>

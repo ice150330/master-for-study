@@ -1,8 +1,9 @@
 'use client';
 
-import { ArchiveRestore, ListTree, Pin, Plus, Search } from 'lucide-react';
+import { ArchiveRestore, ListTree, Pin, Plus, Search, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
 import type { ChatSession } from './chat-types';
 
@@ -43,32 +44,34 @@ export function SessionPicker({
   const tree = buildSessionTree(visibleSessions);
 
   return (
-    <div className="relative">
-      {open ? (
-        <button
-          type="button"
-          aria-label="关闭会话列表"
-          className="fixed inset-0 z-30 cursor-default"
-          onClick={() => setOpen(false)}
-        />
-      ) : null}
+    <Popover open={open} onOpenChange={setOpen} modal>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setOpen((value) => !value)}>
-          <ListTree aria-hidden="true" className="size-4" />
-          会话列表
-          {sessions.length > 0 ? (
-            <span className="rounded bg-surface px-1.5 text-[10px] text-muted">{sessions.length}</span>
-          ) : null}
-        </Button>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={open ? '关闭会话列表' : '打开会话列表'}
+          >
+            <ListTree aria-hidden="true" className="size-4" />
+            会话列表
+            {sessions.length > 0 ? (
+              <span className="rounded bg-surface px-1.5 text-[10px] text-muted">{sessions.length}</span>
+            ) : null}
+          </Button>
+        </PopoverTrigger>
         <Button size="sm" onClick={onNew}>
           <Plus aria-hidden="true" className="size-4" />
           新话题
         </Button>
       </div>
 
-      {open ? (
-        <div className="absolute left-0 top-10 z-40 w-[22rem] rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-lg)] animate-ui-enter">
-          <label className="relative block">
+      <PopoverContent
+        align="start"
+        sideOffset={8}
+        className="w-[min(22rem,calc(100vw-2rem))] p-2 shadow-[var(--shadow-lg)]"
+      >
+        <div className="flex items-center gap-2">
+          <label className="relative block min-w-0 flex-1">
             <Search aria-hidden="true" className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted" />
             <input
               value={query}
@@ -79,46 +82,55 @@ export function SessionPicker({
               className="h-9 w-full rounded-md border border-border bg-card-soft pl-8 pr-3 text-sm outline-none focus:border-primary"
             />
           </label>
-
-          <div className="mt-2 max-h-[52vh] overflow-y-auto">
-            {tree.length === 0 ? (
-              <p className="px-2 py-4 text-xs text-muted">
-                {normalizedQuery ? '没有匹配的活跃会话' : '暂无会话，创建一个新话题开始'}
-              </p>
-            ) : (
-              renderTree(tree, currentId, (id) => {
-                setOpen(false);
-                onSelect(id);
-              })
-            )}
-
-            {visibleArchived.length > 0 ? (
-              <section className="mt-2 border-t border-border pt-2">
-                <p className="px-2 py-1 text-[11px] font-medium text-muted">已归档</p>
-                <ul className="space-y-0.5">
-                  {visibleArchived.map((session) => (
-                    <li key={session.id} className="flex items-center gap-1 rounded px-2 py-1 hover:bg-surface">
-                      <span className="min-w-0 flex-1 truncate text-xs text-muted">{session.title}</span>
-                      <button
-                        type="button"
-                        aria-label={`恢复会话 ${session.title}`}
-                        onClick={() => {
-                          setOpen(false);
-                          onRestore(session.id);
-                        }}
-                        className="inline-flex size-7 items-center justify-center rounded text-muted hover:bg-card hover:text-foreground"
-                      >
-                        <ArchiveRestore aria-hidden="true" className="size-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-          </div>
+          <PopoverClose asChild>
+            <button
+              type="button"
+              aria-label="关闭会话列表"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-card-soft hover:text-card-foreground"
+            >
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          </PopoverClose>
         </div>
-      ) : null}
-    </div>
+
+        <div className="mt-2 max-h-[52vh] overflow-y-auto">
+          {tree.length === 0 ? (
+            <p className="px-2 py-4 text-xs text-muted">
+              {normalizedQuery ? '没有匹配的活跃会话' : '暂无会话，创建一个新话题开始'}
+            </p>
+          ) : (
+            renderTree(tree, currentId, (id) => {
+              setOpen(false);
+              onSelect(id);
+            })
+          )}
+
+          {visibleArchived.length > 0 ? (
+            <section className="mt-2 border-t border-border pt-2">
+              <p className="px-2 py-1 text-[11px] font-medium text-muted">已归档</p>
+              <ul className="space-y-0.5">
+                {visibleArchived.map((session) => (
+                  <li key={session.id} className="flex items-center gap-1 rounded px-2 py-1 hover:bg-surface">
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted">{session.title}</span>
+                    <button
+                      type="button"
+                      aria-label={`恢复会话 ${session.title}`}
+                      onClick={() => {
+                        setOpen(false);
+                        onRestore(session.id);
+                      }}
+                      className="inline-flex size-7 items-center justify-center rounded text-muted hover:bg-card hover:text-foreground"
+                    >
+                      <ArchiveRestore aria-hidden="true" className="size-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

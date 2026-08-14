@@ -51,7 +51,7 @@ export function InterviewQuestionStage({
                 <p className="mt-0.5 text-xs text-muted">{question.skill}</p>
               </div>
             </div>
-            <div className="flex h-9 min-w-24 items-center justify-center gap-2 rounded-md bg-surface px-3 font-mono text-sm tabular-nums text-card-foreground" aria-label="本题计时">
+            <div role="timer" className="flex h-9 min-w-24 items-center justify-center gap-2 rounded-md bg-surface px-3 font-mono text-sm tabular-nums text-card-foreground" aria-label="本题计时">
               <Clock3 aria-hidden="true" className="size-4 text-muted" />
               {formatDuration(elapsedSeconds)}
             </div>
@@ -109,7 +109,7 @@ export function InterviewQuestionStage({
 
         <aside className="border-l border-border bg-surface/65 p-5" aria-label="面试进度">
           <p className="text-xs font-semibold text-foreground">本场进度</p>
-          <div className="mt-3 grid grid-cols-5 gap-1" aria-label={`${detail.session.currentRound}/${detail.session.totalRounds} 题`}>
+          <div className="mt-3 grid grid-cols-5 gap-1" role="group" aria-label={`${detail.session.currentRound}/${detail.session.totalRounds} 题`}>
             {Array.from({ length: detail.session.totalRounds }, (_, index) => {
               const round = index + 1;
               const completed = detail.questions.some((item) => item.roundIndex === round && item.attempts.length > 0);
