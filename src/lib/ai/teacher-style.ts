@@ -84,3 +84,40 @@ export function isAnswerDepth(value: unknown): value is AnswerDepth {
 export function answerDepthDirective(depth: string): string {
   return isAnswerDepth(depth) ? DEPTH_DIRECTIVES[depth] : DEPTH_DIRECTIVES[DEFAULT_ANSWER_DEPTH];
 }
+
+/**
+ * 场景绑定（蓝图 §5 第 2 层）：把 6 型老师风格映射到面试模块自有的三型风格。
+ * 严师→严格型；实战→简洁型；其余（苏格拉底/讲师/费曼/陪伴）→引导型。
+ */
+export type InterviewStyleOption = 'guided' | 'rigorous' | 'concise';
+
+const INTERVIEW_STYLE_BY_TEACHER: Record<TeacherStyle, InterviewStyleOption> = {
+  socratic: 'guided',
+  lecturer: 'guided',
+  feynman: 'guided',
+  practical: 'concise',
+  companion: 'guided',
+  strict: 'rigorous',
+};
+
+export function interviewStyleFromTeacher(style: string): InterviewStyleOption {
+  return isTeacherStyle(style) ? INTERVIEW_STYLE_BY_TEACHER[style] : 'guided';
+}
+
+/** 复习完成语按场景风格措辞（默认与未知风格用中性文案）。 */
+export function reviewCompletionCopy(style: string): { title: string; note: string } {
+  switch (isTeacherStyle(style) ? style : DEFAULT_TEACHER_STYLE) {
+    case 'strict':
+      return { title: '本轮复习完成', note: '别松劲——没记牢的概念会在最短间隔内回来。' };
+    case 'companion':
+      return { title: '今天的复习完成啦', note: '已经很棒了，剩下的交给时间与间隔。' };
+    case 'feynman':
+      return { title: '本轮复习完成', note: '能讲出来的才算记住——答不出的记得回去复述一遍。' };
+    case 'socratic':
+      return { title: '本轮复习完成', note: '今天的追问都问到点子上了吗？' };
+    case 'practical':
+      return { title: '本轮复习完成', note: '下次动手时试着用上今天复习的概念。' };
+    default:
+      return { title: '本轮复习完成', note: '今日到期内容已处理完。' };
+  }
+}

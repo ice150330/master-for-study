@@ -6,6 +6,7 @@ import { PageShell } from '@/components/shell/PageShell';
 import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { useToast } from '@/components/ui/Toast';
+import { interviewStyleFromTeacher } from '@/lib/ai/teacher-style';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
 import type { InterviewSettings } from '@/lib/interview/types';
@@ -67,6 +68,28 @@ export function InterviewView({
     }, 1_000);
     return () => window.clearInterval(timer);
   }, [mode, current?.id]);
+
+  // 场景绑定（B6）：面试默认风格 = 设置里的面试场景覆盖 ?? 全局默认风格，映射到三型枚举；仅首次同步
+  const styleSynced = useRef(false);
+  useEffect(() => {
+    if (styleSynced.current) return;
+    styleSynced.current = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (!res.ok) return;
+        const raw = (await res.json()) as {
+          settings?: { teacherStyle?: unknown; interviewStyle?: unknown };
+        };
+        const scene = raw.settings?.interviewStyle ?? raw.settings?.teacherStyle;
+        if (typeof scene === 'string' && scene) {
+          setSettings((current) => ({ ...current, teacherStyle: interviewStyleFromTeacher(scene) }));
+        }
+      } catch {
+        // 拉不到设置维持内置默认
+      }
+    })();
+  }, []);
 
   async function start(previousIdempotencyKey?: string) {
     const idempotencyKey = previousIdempotencyKey ?? createIdempotencyKey('interview-start');

@@ -20,6 +20,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
+import { reviewCompletionCopy } from '@/lib/ai/teacher-style';
 
 type Grade = 'again' | 'hard' | 'good' | 'easy';
 type AnswerMode = 'typed' | 'oral';
@@ -104,7 +105,27 @@ export function ReviewView({
   const [busy, setBusy] = useState(false);
   const [lastReview, setLastReview] = useState<LastReview | null>(null);
   const [error, setError] = useState<{ message: string; retry: () => void; label: string } | null>(null);
+  // 场景绑定（B6）：完成语按「复习场景覆盖 ?? 全局风格」措辞
+  const [sceneStyle, setSceneStyle] = useState('lecturer');
   const startedAt = useRef(Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (!res.ok) return;
+        const raw = (await res.json()) as { settings?: { teacherStyle?: unknown; reviewStyle?: unknown } };
+        const style = raw.settings?.reviewStyle ?? raw.settings?.teacherStyle;
+        if (!cancelled && typeof style === 'string' && style) setSceneStyle(style);
+      } catch {
+        // 维持默认文案
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const current = queue[0];
   const readyToReveal = mode === 'typed' ? recall.trim().length > 0 : oralDone;
@@ -393,8 +414,8 @@ export function ReviewView({
       {!current ? (
         <section className="paper-panel flex min-h-[430px] rotate-[-0.1deg] flex-col items-center justify-center rounded-[2px] border-2 border-dashed px-8 text-center">
           <span className="mb-4 grid size-11 rotate-[-2deg] place-items-center rounded-[2px] border-2 border-dashed border-accent bg-accent/12 text-accent-foreground shadow-[3px_3px_0_var(--marker-yellow)]"><Check className="size-5" /></span>
-          <h2 className="doodle-heading text-lg font-extrabold">本轮复习完成</h2>
-          <p className="mt-2 max-w-md text-sm text-muted">今日到期内容已处理完。</p>
+          <h2 className="doodle-heading text-lg font-extrabold">{reviewCompletionCopy(sceneStyle).title}</h2>
+          <p className="mt-2 max-w-md text-sm text-muted">{reviewCompletionCopy(sceneStyle).note}</p>
           {pending.length > 0 ? (
             <div className="mt-6 w-full max-w-lg text-left">
               <div className="mb-2 flex items-center justify-between">

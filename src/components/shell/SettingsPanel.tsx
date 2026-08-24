@@ -14,12 +14,15 @@ import {
   TEACHER_STYLES,
   isAnswerDepth,
   isTeacherStyle,
+  teacherStyleLabel,
 } from '@/lib/ai/teacher-style';
 import { setThemeMode, useThemeMode } from '@/lib/theme-client';
 
 /** 面板关心的设置字段子集（服务端还有场景覆盖等保留列）。 */
 type PanelSettings = {
   teacherStyle: string;
+  interviewStyle: string | null;
+  reviewStyle: string | null;
   growthGoal: string | null;
   dailyNewLimit: number;
   retentionTarget: number;
@@ -173,6 +176,25 @@ export function SettingsPanel() {
               {item.label}
             </button>
           ))}
+        </div>
+      </section>
+
+      {/* 场景绑定（B6）：面试 / 复习各自的风格覆盖，null = 跟随全局 */}
+      <section>
+        <p className="text-xs font-medium text-foreground">场景绑定</p>
+        <div className="mt-1.5 space-y-1.5">
+          <SceneStyleRow
+            label="面试风格"
+            value={settings.interviewStyle}
+            fallbackLabel={teacherStyleLabel(settings.teacherStyle)}
+            onChange={(next) => void patch({ interviewStyle: next })}
+          />
+          <SceneStyleRow
+            label="复习语气"
+            value={settings.reviewStyle}
+            fallbackLabel={teacherStyleLabel(settings.teacherStyle)}
+            onChange={(next) => void patch({ reviewStyle: next })}
+          />
         </div>
       </section>
 
@@ -409,6 +431,8 @@ function applySettings(
 ) {
   const next: PanelSettings = {
     teacherStyle: isTeacherStyle(raw.teacherStyle) ? raw.teacherStyle : DEFAULT_TEACHER_STYLE,
+    interviewStyle: isTeacherStyle(raw.interviewStyle) ? raw.interviewStyle : null,
+    reviewStyle: isTeacherStyle(raw.reviewStyle) ? raw.reviewStyle : null,
     growthGoal: typeof raw.growthGoal === 'string' ? raw.growthGoal : null,
     dailyNewLimit: typeof raw.dailyNewLimit === 'number' ? raw.dailyNewLimit : 10,
     retentionTarget: raw.retentionTarget === 0.9 ? 0.9 : 0.85,
@@ -418,4 +442,57 @@ function applySettings(
   setSettings(next);
   setGoalDraft(next.growthGoal ?? '');
   setLimitDraft(String(next.dailyNewLimit));
+}
+
+/** 场景绑定行：当前生效风格 + chips（跟随全局 / 六型）。 */
+function SceneStyleRow({
+  label,
+  value,
+  fallbackLabel,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  fallbackLabel: string;
+  onChange: (next: string | null) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <p className="mt-1 text-[11px] text-muted">
+        {label}
+        <span className="ml-1 text-foreground">
+          （{value ? teacherStyleLabel(value) : `跟随全局 · ${fallbackLabel}`}）
+        </span>
+      </p>
+      <div className="flex max-w-[13rem] flex-wrap justify-end gap-1">
+        <button
+          type="button"
+          aria-pressed={value === null}
+          onClick={() => onChange(null)}
+          className={`rounded-[2px] border border-dashed px-1.5 py-0.5 text-[11px] transition-[background-color,border-color] ${
+            value === null
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-border text-muted hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground'
+          }`}
+        >
+          跟随全局
+        </button>
+        {TEACHER_STYLES.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            aria-pressed={value === item.value}
+            onClick={() => onChange(item.value)}
+            className={`rounded-[2px] border border-dashed px-1.5 py-0.5 text-[11px] transition-[background-color,border-color] ${
+              value === item.value
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-muted hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }

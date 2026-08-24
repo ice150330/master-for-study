@@ -3,7 +3,9 @@ import {
   DEFAULT_TEACHER_STYLE,
   TEACHER_STYLES,
   TEACHER_STYLE_VALUES,
+  interviewStyleFromTeacher,
   isTeacherStyle,
+  reviewCompletionCopy,
   teacherStyleDirective,
   teacherStyleLabel,
 } from '../src/lib/ai/teacher-style';
@@ -35,5 +37,25 @@ describe('老师风格系统', () => {
     expect(teacherStyleLabel('wizard')).toBe(teacherStyleLabel(DEFAULT_TEACHER_STYLE));
     // 空串、历史脏值同样回退
     expect(teacherStyleDirective('')).toBe(teacherStyleDirective(DEFAULT_TEACHER_STYLE));
+  });
+
+  it('场景绑定：六型映射到面试三型，未知回退引导型（B6）', () => {
+    expect(interviewStyleFromTeacher('strict')).toBe('rigorous');
+    expect(interviewStyleFromTeacher('practical')).toBe('concise');
+    expect(interviewStyleFromTeacher('socratic')).toBe('guided');
+    expect(interviewStyleFromTeacher('lecturer')).toBe('guided');
+    expect(interviewStyleFromTeacher('feynman')).toBe('guided');
+    expect(interviewStyleFromTeacher('companion')).toBe('guided');
+    expect(interviewStyleFromTeacher('wizard')).toBe('guided');
+  });
+
+  it('复习完成语按场景风格区分且未知回退中性（B6）', () => {
+    const strict = reviewCompletionCopy('strict');
+    const companion = reviewCompletionCopy('companion');
+    expect(strict.note).not.toBe(companion.note);
+    expect(strict.note).toContain('别松劲');
+    expect(companion.title).toContain('啦');
+    // 中性默认
+    expect(reviewCompletionCopy('lecturer')).toEqual(reviewCompletionCopy('wizard'));
   });
 });
