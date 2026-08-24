@@ -253,10 +253,14 @@ export function SessionCard({
                 m.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
-              <div className={`flex min-w-0 max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {/* AI 老师头像：气泡正上方靠左，气泡折角尾巴指向它 */}
+              <div
+                className={`flex min-w-0 max-w-[85%] flex-col ${
+                  m.role === 'user' ? 'items-end' : 'items-start -mt-2.5'
+                }`}
+              >
+                {/* AI 老师头像：气泡正上方靠左，气泡折角尾巴指向它；上移收紧与提问的间距 */}
                 {m.role === 'assistant' ? (
-                  <MentorAvatar className="mb-1 ml-1.5 size-6" />
+                  <MentorAvatar className="mb-0.5 ml-1 size-8" />
                 ) : null}
                 <div
                   className={`relative break-words rounded-[2px] border-2 border-dashed px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere] ${
@@ -362,17 +366,8 @@ export function SessionCard({
             ))}
           </div>
         ) : null}
-        <div className="mb-1.5 flex items-center gap-1.5">
-          <StyleSwitch value={styleOverride} fallback={fallbackStyle} onChange={onStyleChange} />
-          <ModelToggle value={model} onChange={onModelChange} />
-          <ResourceSelector
-            resources={resourceOptions}
-            selectedIds={selectedResourceIds}
-            onToggle={onToggleResource}
-          />
-          <span aria-hidden className="min-w-0 flex-1" />
-        </div>
-        <div className="flex items-end gap-2">
+        {/* 输入行：输入框 | 三个功能图标（风格/模型/引用资源）| 发送；输入框与按钮同高 */}
+        <div className="flex items-end gap-1.5">
           <textarea
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
@@ -386,6 +381,16 @@ export function SessionCard({
             placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
             className="paper-subtle field-sizing-content min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-[2px] border-2 border-dashed border-border bg-card-soft px-3.5 py-2 text-sm leading-5 text-card-foreground outline-none placeholder:text-card-foreground/50 transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)]"
           />
+          {/* 功能图标组：贴输入框右侧，与发送钮同行 */}
+          <div className="flex h-11 shrink-0 items-center gap-0.5 self-end">
+            <StyleSwitch value={styleOverride} fallback={fallbackStyle} onChange={onStyleChange} />
+            <ModelToggle value={model} onChange={onModelChange} />
+            <ResourceSelector
+              resources={resourceOptions}
+              selectedIds={selectedResourceIds}
+              onToggle={onToggleResource}
+            />
+          </div>
           {/* 发送 / 停止：图标即可表意，悬停 Tooltip 显示功能 */}
           {isStreaming ? (
             <IconButton className="size-11" label="停止生成" onClick={onStop}>
