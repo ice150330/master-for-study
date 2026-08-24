@@ -28,6 +28,8 @@ export type KnowledgeGraphNode = {
   href: string | null;
   forkedFromMessageId?: string | null;
   position: { x: number; y: number } | null;
+  /** B3 目标主线：设置成长目标后，标签 / 描述命中的节点为 true */
+  mainline?: boolean;
 };
 
 export type KnowledgeGraphEdge = {

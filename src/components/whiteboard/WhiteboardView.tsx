@@ -16,9 +16,12 @@ import { KnowledgeNodeRail } from './KnowledgeNodeRail';
 export function WhiteboardView({
   initialKnowledgeGraph,
   initialSessionGraph,
+  growthGoal,
 }: {
   initialKnowledgeGraph: KnowledgeGraph;
   initialSessionGraph: KnowledgeGraph;
+  /** B3 目标主线：展示当前成长目标，命中节点已在服务端打 mainline 标 */
+  growthGoal?: string | null;
 }) {
   const [graph, setGraph] = useState(initialKnowledgeGraph);
   const [sessionGraph] = useState(initialSessionGraph);
@@ -97,6 +100,11 @@ export function WhiteboardView({
             <button role="tab" aria-selected={mode === 'session'} type="button" onClick={() => switchMode('session')} className={`h-7 rounded-[2px] border border-dashed px-3 text-xs font-semibold transition-[transform,box-shadow,background-color] ${mode === 'session' ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]' : 'border-transparent text-muted hover:border-accent/60 hover:bg-accent/10'}`}>会话分支</button>
           </div>
           <div className="flex items-center gap-2">
+            {growthGoal ? (
+              <span className="paper-subtle hidden rotate-[0.3deg] items-center gap-1 rounded-[2px] border border-dashed border-accent px-2 py-1 text-[11px] text-muted lg:inline-flex">
+                目标主线 · {growthGoal}
+              </span>
+            ) : null}
             <div className="relative">
               <Search aria-hidden="true" className="absolute left-3 top-2 size-4 text-muted" />
               <Input aria-label="搜索白板节点" className="w-64 pl-9" value={query} onFocus={() => setSearchOpen(true)} onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }} placeholder="搜索知识对象" />

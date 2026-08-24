@@ -536,6 +536,24 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(slow.id).toBeTruthy();
   });
 
+  it('目标主线：设置成长目标后知识图命中节点打标（B3）', () => {
+    repository.updateWorkspaceSettings({ growthGoal: '后端工程师' });
+    // 以 SQL 种子节点为中心取一跳，邻居必含「后端基础」领域节点
+    const sqlNode = repository.getKnowledgeGraph({ depth: 2 }).searchOptions
+      .find((option) => option.label === 'SQL');
+    expect(sqlNode).toBeTruthy();
+    const graph = repository.getKnowledgeGraph({ centerId: sqlNode?.id, depth: 1 });
+    expect(graph.nodes.length).toBeGreaterThan(0);
+    expect(graph.nodes.some((node) => node.mainline)).toBe(true);
+    const mainlineLabels = graph.nodes.filter((node) => node.mainline).map((node) => node.label);
+    expect(mainlineLabels).toContain('后端基础');
+
+    // 清除目标后不再打标
+    repository.updateWorkspaceSettings({ growthGoal: null });
+    const plain = repository.getKnowledgeGraph({ centerId: sqlNode?.id, depth: 1 });
+    expect(plain.nodes.every((node) => !node.mainline)).toBe(true);
+  });
+
   it('全局内容搜索跨会话、消息、概念、笔记与资源命中（C1）', () => {
     const marker = `搜索标记${Date.now() % 100_000}`;
     const session = repository.createSession({

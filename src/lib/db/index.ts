@@ -35,6 +35,7 @@ import { DEFAULT_TEACHER_STYLE } from '../ai/teacher-style';
 import type { LearnerProfileSnapshot } from '../ai/learner-memory';
 import { weaknessScore } from '../analytics/weakness';
 import { KNOWLEDGE_SEED_EDGES, KNOWLEDGE_SEED_NODES } from '../knowledge/seed';
+import { isGoalMainline } from '../knowledge/goal';
 import type {
   KnowledgeEvidence,
   KnowledgeGraph,
@@ -3469,7 +3470,7 @@ export function getKnowledgeGraph(input: {
     .where(eq(schema.knowledgeNodeLayouts.viewKey, 'knowledge')).all()
     .map((layout) => [layout.nodeId, { x: layout.x, y: layout.y }]));
   const termById = new Map(db.select().from(schema.terms).all().map((term) => [term.id, term]));
-  const nodes = allNodes.filter((node) => included.has(node.id)).map((node) => {
+  const nodes: KnowledgeGraphNode[] = allNodes.filter((node) => included.has(node.id)).map((node) => {
     const term = node.termId ? termById.get(node.termId) : undefined;
     return {
       id: node.id,
@@ -3492,6 +3493,13 @@ export function getKnowledgeGraph(input: {
       weight: edge.weight,
       evidenceType: edge.evidenceType,
     } satisfies KnowledgeGraphEdge));
+  // B3 目标主线：设置成长目标后，命中关键词的节点打标，白板高亮
+  const growthGoal = getWorkspaceSettings().growthGoal;
+  if (growthGoal) {
+    for (const node of nodes) {
+      if (isGoalMainline(growthGoal, node)) node.mainline = true;
+    }
+  }
   return {
     mode: 'knowledge',
     centerId,
