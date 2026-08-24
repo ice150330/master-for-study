@@ -24,11 +24,12 @@ import type {
  * 设计原则：一切学习行为写入不可变的 LearningEvent 事件流，可溯源、可聚合分析。
  */
 
-/** 工作区：一个学习主题，内含多条会话。 */
+/** 工作区：一个学习主题，内含多条会话；isActive 标记当前工作区（全表至多一个）。 */
 export const workspaces = sqliteTable('workspaces', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   goal: text('goal'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Database, Search, Settings2 } from 'lucide-react';
+import { Search, Settings2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover
 import { NAV_SECTIONS, type AppRoute } from '@/lib/nav';
 import { SettingsPanel } from './SettingsPanel';
 import { ThemeToggle } from './ThemeToggle';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 const pages = NAV_SECTIONS.flatMap((section) =>
   section.items.map((item) => ({ ...item, section: section.label })),
@@ -36,10 +37,7 @@ export function ShellTools() {
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <span className="paper-subtle mr-1 hidden h-7 rotate-[0.35deg] items-center gap-1.5 rounded-[2px] border border-dashed px-2 text-[11px] text-muted sm:inline-flex">
-        <Database aria-hidden="true" className="size-3.5 text-accent" />
-        本地工作区
-      </span>
+      <WorkspaceSwitcher />
 
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
         <DialogTrigger asChild>

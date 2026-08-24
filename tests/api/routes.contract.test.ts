@@ -20,6 +20,10 @@ let termsPost: PostHandler;
 let knowledgePatch: PostHandler;
 let analyticsGet: GetHandler;
 let exportGet: GetHandler;
+let workspacesPost: PostHandler;
+let workspacesGet: GetHandler;
+// [id] 路由带动态段上下文（Next 16 的 params 是 Promise）
+let workspacesPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -47,6 +51,9 @@ beforeAll(async () => {
   knowledgePatch = (await import('../../src/app/api/knowledge-graph/route')).PATCH;
   analyticsGet = (await import('../../src/app/api/analytics/route')).GET;
   exportGet = (await import('../../src/app/api/export/route')).GET;
+  workspacesPost = (await import('../../src/app/api/workspaces/route')).POST;
+  workspacesGet = (await import('../../src/app/api/workspaces/route')).GET;
+  workspacesPatch = (await import('../../src/app/api/workspaces/[id]/route')).PATCH;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -148,6 +155,41 @@ describe('Route Handler zod 合同', () => {
     // Date 已序列化为 ISO 字符串
     expect(typeof data.generatedAt).toBe('string');
     expect(data.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('工作区接口：非法标题 400、新建即激活、切换不存在 404', async () => {
+    const invalid = await workspacesPost(jsonRequest('/api/workspaces', { title: '' }));
+    expect(invalid.status).toBe(400);
+
+    const created = await workspacesPost(jsonRequest('/api/workspaces', { title: '合同测试主题' }));
+    expect(created.status).toBe(201);
+    const createdBody = (await created.json()) as { workspace: { id: string; isActive: boolean } };
+    expect(createdBody.workspace.isActive).toBe(true);
+
+    const listResponse = await workspacesGet(new Request('http://localhost/api/workspaces'));
+    expect(listResponse.status).toBe(200);
+    const listed = (await listResponse.json()) as {
+      workspaces: Array<{ id: string; title: string; isActive: boolean }>;
+      activeId: string | null;
+    };
+    expect(listed.workspaces.length).toBeGreaterThanOrEqual(2);
+    expect(listed.activeId).toBe(createdBody.workspace.id);
+
+    const missing = await workspacesPatch(
+      jsonRequest(`/api/workspaces/${crypto.randomUUID()}`, { activate: true }),
+      { params: Promise.resolve({ id: crypto.randomUUID() }) },
+    );
+    expect(missing.status).toBe(404);
+
+    // 收尾：切回原工作区，不影响后续断言
+    const restore = listed.workspaces.find((workspace) => workspace.id !== createdBody.workspace.id);
+    if (restore) {
+      const restored = await workspacesPatch(
+        jsonRequest(`/api/workspaces/${restore.id}`, { activate: true }),
+        { params: Promise.resolve({ id: restore.id }) },
+      );
+      expect(restored.status).toBe(200);
+    }
   });
 
   it('重复资源请求返回同一对象且数据库只有一条记录', async () => {

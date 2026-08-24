@@ -193,17 +193,84 @@ export const DEFAULT_WORKSPACE_TITLE = '默认工作区';
 /** 获取或创建默认工作区。 */
 export function ensureWorkspace(): Workspace {
   const db = getDb();
-  const existing = db.select().from(schema.workspaces).limit(1).get();
-  if (existing) return existing;
+  const active = db.select().from(schema.workspaces)
+    .where(eq(schema.workspaces.isActive, true)).limit(1).get();
+  if (active) return active;
+
+  // 历史数据没有激活标记：激活最早的工作区，保证单工作区时代的数据无缝延续
+  const existing = db.select().from(schema.workspaces)
+    .orderBy(asc(schema.workspaces.createdAt)).limit(1).get();
+  if (existing) {
+    db.update(schema.workspaces).set({ isActive: true })
+      .where(eq(schema.workspaces.id, existing.id)).run();
+    return { ...existing, isActive: true };
+  }
 
   const ws = {
     id: randomUUID(),
     title: DEFAULT_WORKSPACE_TITLE,
     goal: null,
+    isActive: true,
     createdAt: new Date(),
   };
   db.insert(schema.workspaces).values(ws).run();
   return ws;
+}
+
+/** 工作区列表：激活的排最前，其余按创建时间倒序。 */
+export function listWorkspaces(): Workspace[] {
+  const db = getDb();
+  return db.select().from(schema.workspaces)
+    .orderBy(desc(schema.workspaces.isActive), desc(schema.workspaces.createdAt)).all();
+}
+
+/** 新建工作区并立即激活（新建即切换）。 */
+export function createWorkspace(input: { title: string; goal?: string | null }): Workspace {
+  const db = getDb();
+  const ws = {
+    id: randomUUID(),
+    title: input.title.trim(),
+    goal: input.goal?.trim() || null,
+    isActive: true,
+    createdAt: new Date(),
+  } satisfies Workspace;
+  db.transaction((tx) => {
+    tx.update(schema.workspaces).set({ isActive: false }).run();
+    tx.insert(schema.workspaces).values(ws).run();
+  });
+  return ws;
+}
+
+/** 编辑工作区元数据（标题 / 目标）。 */
+export function renameWorkspace(
+  id: string,
+  input: { title?: string; goal?: string | null },
+): Workspace | undefined {
+  const db = getDb();
+  const existing = db.select().from(schema.workspaces)
+    .where(eq(schema.workspaces.id, id)).limit(1).get();
+  if (!existing) return undefined;
+  const patch: Partial<{ title: string; goal: string | null }> = {};
+  if (input.title !== undefined) patch.title = input.title.trim();
+  if (input.goal !== undefined) patch.goal = input.goal?.trim() || null;
+  if (Object.keys(patch).length > 0) {
+    db.update(schema.workspaces).set(patch).where(eq(schema.workspaces.id, id)).run();
+  }
+  return db.select().from(schema.workspaces).where(eq(schema.workspaces.id, id)).limit(1).get();
+}
+
+/** 切换当前工作区：事务内先全部去激活再激活目标，保证至多一个激活。 */
+export function switchWorkspace(id: string): Workspace | undefined {
+  const db = getDb();
+  const target = db.select().from(schema.workspaces)
+    .where(eq(schema.workspaces.id, id)).limit(1).get();
+  if (!target) return undefined;
+  db.transaction((tx) => {
+    tx.update(schema.workspaces).set({ isActive: false }).run();
+    tx.update(schema.workspaces).set({ isActive: true })
+      .where(eq(schema.workspaces.id, id)).run();
+  });
+  return db.select().from(schema.workspaces).where(eq(schema.workspaces.id, id)).limit(1).get();
 }
 
 export type WorkspaceSettings = typeof schema.workspaceSettings.$inferSelect;

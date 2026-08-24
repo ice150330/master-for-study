@@ -403,6 +403,39 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(dump.generatedAt.getTime()).toBeLessThanOrEqual(Date.now());
   });
 
+  it('多工作区：新建即切换、数据按工作区隔离、可切回并重命名', () => {
+    const original = repository.ensureWorkspace();
+    const sessionInOriginal = repository.createSession({
+      title: '原工作区会话',
+      idempotencyKey: 'session:workspace:original',
+    });
+
+    // 新建即激活，后续查询全部落在新工作区
+    const created = repository.createWorkspace({ title: '第二主题' });
+    expect(created.isActive).toBe(true);
+    expect(repository.ensureWorkspace().id).toBe(created.id);
+    expect(repository.listSessions().some((session) => session.id === sessionInOriginal.id)).toBe(false);
+
+    repository.createSession({
+      title: '新工作区会话',
+      idempotencyKey: 'session:workspace:second',
+    });
+    expect(repository.listSessions()).toHaveLength(1);
+
+    // 切回原工作区：数据恢复可见，新工作区数据隐藏
+    const back = repository.switchWorkspace(original.id);
+    expect(back?.isActive).toBe(true);
+    const restored = repository.listSessions();
+    expect(restored.some((session) => session.id === sessionInOriginal.id)).toBe(true);
+    expect(restored.some((session) => session.title === '新工作区会话')).toBe(false);
+
+    // 重命名生效，列表激活项排最前
+    repository.renameWorkspace(created.id, { title: '改名主题' });
+    const list = repository.listWorkspaces();
+    expect(list[0].id).toBe(original.id);
+    expect(list.some((workspace) => workspace.title === '改名主题')).toBe(true);
+  });
+
   it('结构化面试按评分策略调整三题难度，并保留重答版本', () => {
     const skill = repository.upsertTerm({
       name: '索引设计',

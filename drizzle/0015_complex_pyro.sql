@@ -1,0 +1,1 @@
+ALTER TABLE `workspaces` ADD `is_active` integer DEFAULT false NOT NULL;

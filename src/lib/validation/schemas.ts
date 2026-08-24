@@ -45,6 +45,24 @@ export const chatRequestSchema = z
   })
   .strict();
 
+export const workspaceCreateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(60),
+    goal: z.string().trim().min(1).max(60).nullish(),
+  })
+  .strict();
+
+export const workspaceIdSchema = z.string().uuid('必须是有效 UUID');
+
+/** 工作区编辑：标题 / 目标 / 激活（切换）可任意组合，全缺省为无操作。 */
+export const workspaceUpdateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(60).optional(),
+    goal: z.string().trim().min(1).max(60).nullish(),
+    activate: z.boolean().optional(),
+  })
+  .strict();
+
 /** 工作区设置部分更新：全部字段可缺省，场景覆盖 / 目标传 null 恢复默认。 */
 export const settingsPatchSchema = z
   .object({
