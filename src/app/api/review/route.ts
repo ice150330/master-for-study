@@ -20,10 +20,17 @@ import { reviewRequestSchema } from '@/lib/validation/schemas';
  *                     queue 队列状态流转（确认入队/移出/恢复）、defer 跳过或降频。
  */
 
-export async function GET() {
-  return withApiErrors(() =>
-    Response.json({ ...getReviewQueue(), pending: listPendingQueueTerms() }),
-  );
+export async function GET(req: Request) {
+  return withApiErrors(() => {
+    // ?summary=1 轻量模式：只返回负荷摘要与待确认数，供标题徽标 / 到期提醒轮询
+    if (new URL(req.url).searchParams.get('summary') === '1') {
+      return Response.json({
+        summary: getReviewQueue().summary,
+        pendingCount: listPendingQueueTerms().length,
+      });
+    }
+    return Response.json({ ...getReviewQueue(), pending: listPendingQueueTerms() });
+  });
 }
 
 export async function POST(req: Request) {

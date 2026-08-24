@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/cn';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
+import { ReviewReminder } from './ReviewReminder';
 import { ShellTools } from './ShellTools';
 import { LearningContextBar } from '@/components/context/LearningContextBar';
 import { RouteScrollRegion, saveCurrentRouteScrollPosition } from '@/components/context/RouteScrollRegion';
@@ -169,6 +170,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
           </div>
           <ShellTools />
+          {/* 到期提醒：标题徽标 + 浏览器通知（A4） */}
+          <ReviewReminder />
         </header>
         <Suspense fallback={null}><LearningContextBar /></Suspense>
         <Suspense fallback={<main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}</main>}>

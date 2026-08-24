@@ -24,6 +24,7 @@ let workspacesPost: PostHandler;
 let workspacesGet: GetHandler;
 // [id] 路由带动态段上下文（Next 16 的 params 是 Promise）
 let workspacesPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
+let reviewGet: GetHandler;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -54,6 +55,7 @@ beforeAll(async () => {
   workspacesPost = (await import('../../src/app/api/workspaces/route')).POST;
   workspacesGet = (await import('../../src/app/api/workspaces/route')).GET;
   workspacesPatch = (await import('../../src/app/api/workspaces/[id]/route')).PATCH;
+  reviewGet = (await import('../../src/app/api/review/route')).GET;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -142,6 +144,19 @@ describe('Route Handler zod 合同', () => {
     );
     expect(valid.status).toBe(200);
     expect(await valid.json()).toMatchObject({ settings: { teacherStyle: 'feynman' } });
+  });
+
+  it('复习摘要接口返回轻量负荷（A4 提醒轮询用）', async () => {
+    const response = await reviewGet(new Request('http://localhost/api/review?summary=1'));
+    expect(response.status).toBe(200);
+    const data = (await response.json()) as {
+      summary: { due: number; overdue: number; estimatedMinutes: number };
+      pendingCount: number;
+    };
+    expect(data.summary).toMatchObject({ due: expect.any(Number), overdue: expect.any(Number) });
+    expect(typeof data.pendingCount).toBe('number');
+    // 轻量模式不返回完整队列
+    expect('reviews' in data).toBe(false);
   });
 
   it('导出接口返回带附件头的完整 JSON', async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Flag, GraduationCap, Gauge, Layers } from 'lucide-react';
+import { Download, Flag, GraduationCap, Gauge, Layers, Bell } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/Field';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -38,6 +38,10 @@ export function SettingsPanel() {
   const [settings, setSettings] = useState<PanelSettings | null>(null);
   const [goalDraft, setGoalDraft] = useState('');
   const [limitDraft, setLimitDraft] = useState('');
+  // 弹层内容仅在客户端打开时挂载，惰性读取通知权限是安全的
+  const [notifyPermission, setNotifyPermission] = useState<'unsupported' | 'default' | 'granted' | 'denied'>(
+    () => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission),
+  );
   const loadRan = useRef(false);
 
   useEffect(() => {
@@ -255,6 +259,42 @@ export function SettingsPanel() {
             ]}
             onValueChange={(value) => setThemeMode(value === 'dark' ? 'dark' : 'light')}
           />
+        </div>
+      </section>
+
+      {/* 复习提醒（A4）：浏览器通知授权，应用打开期间每日至多提醒一次 */}
+      <section>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Bell aria-hidden="true" className="size-3.5 text-primary" />
+              <p className="text-xs font-medium text-foreground">复习提醒</p>
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted">
+              {notifyPermission === 'granted'
+                ? '已开启 · 有到期卡时每日提醒一次'
+                : notifyPermission === 'denied'
+                  ? '已被浏览器拒绝，可在浏览器设置中重新允许'
+                  : notifyPermission === 'unsupported'
+                    ? '当前浏览器不支持通知'
+                    : '开启后应用打开期间到期即提醒'}
+            </p>
+          </div>
+          {notifyPermission === 'default' ? (
+            <button
+              type="button"
+              onClick={() => {
+                void Notification.requestPermission().then((result) => setNotifyPermission(result));
+              }}
+              className="rounded-[2px] border-2 border-dashed border-foreground bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground transition-[transform,box-shadow] hover:-translate-x-px hover:-translate-y-px active:translate-x-[2px] active:translate-y-[2px]"
+            >
+              开启提醒
+            </button>
+          ) : (
+            <span aria-hidden className="text-[11px] text-muted">
+              {notifyPermission === 'granted' ? '✓' : '—'}
+            </span>
+          )}
         </div>
       </section>
 
