@@ -21,6 +21,8 @@ export function SessionDeck({
   input,
   onInputChange,
   onSend,
+  starters,
+  onStarter,
   onStop,
   onRegenerate,
   onContinue,
@@ -46,6 +48,8 @@ export function SessionDeck({
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
+  starters?: string[];
+  onStarter?: (prompt: string) => void;
   onStop: () => void;
   onRegenerate: () => void;
   onContinue: () => void;
@@ -185,6 +189,8 @@ export function SessionDeck({
               input={input}
               onInputChange={onInputChange}
               onSend={onSend}
+              starters={starters}
+              onStarter={onStarter}
               onStop={onStop}
               onRegenerate={onRegenerate}
               onContinue={onContinue}

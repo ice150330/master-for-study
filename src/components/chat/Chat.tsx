@@ -21,6 +21,7 @@ import {
 } from '@/lib/ai/teacher-style';
 import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
+import { starterPrompts } from '@/lib/chat-starters';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { SessionDeck } from './SessionDeck';
 import { SessionPicker } from './SessionPicker';
@@ -131,8 +132,9 @@ export function Chat() {
     (): TeacherStyle | null => null,
   );
   const [globalStyle, setGlobalStyle] = useState<TeacherStyle>(DEFAULT_TEACHER_STYLE);
+  const [growthGoal, setGrowthGoal] = useState<string | null>(null);
 
-  // 拉取全局默认风格（仅用于展示与缺省值，请求时 override 为空则不携带）
+  // 拉取全局默认风格与成长目标（风格用于展示与缺省值；目标定制冷启动引导问题）
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -140,8 +142,9 @@ export function Chat() {
         const res = await fetch('/api/settings');
         if (!res.ok) return;
         const data: unknown = await res.json();
-        const value = (data as { settings?: { teacherStyle?: unknown } })?.settings?.teacherStyle;
-        if (!cancelled && isTeacherStyle(value)) setGlobalStyle(value);
+        const settings = (data as { settings?: { teacherStyle?: unknown; growthGoal?: unknown } })?.settings;
+        if (!cancelled && isTeacherStyle(settings?.teacherStyle)) setGlobalStyle(settings.teacherStyle);
+        if (!cancelled && typeof settings?.growthGoal === 'string') setGrowthGoal(settings.growthGoal);
       } catch {
         // 拉不到设置就维持内置默认
       }
@@ -742,6 +745,8 @@ export function Chat() {
         input={input}
         onInputChange={setInput}
         onSend={() => send()}
+        starters={starterPrompts(growthGoal)}
+        onStarter={(prompt) => void send(prompt)}
         onStop={() => stopStreaming()}
         onRegenerate={regenerateLastAnswer}
         onContinue={continueAnswer}

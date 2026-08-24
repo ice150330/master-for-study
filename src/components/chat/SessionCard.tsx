@@ -59,6 +59,8 @@ export function SessionCard({
   input,
   onInputChange,
   onSend,
+  starters,
+  onStarter,
   onStop,
   onRegenerate,
   onContinue,
@@ -87,6 +89,9 @@ export function SessionCard({
   input: string;
   onInputChange: (v: string) => void;
   onSend: () => void;
+  /** 冷启动引导问题（C2）：空会话一键发送 */
+  starters?: string[];
+  onStarter?: (prompt: string) => void;
   onStop: () => void;
   onRegenerate: () => void;
   onContinue: () => void;
@@ -173,7 +178,26 @@ export function SessionCard({
       {/* 消息流 */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4 [contain:layout_paint]">
         {messages.length === 0 && (
-          <p className="marker-highlight mx-auto my-16 w-fit rotate-[-0.5deg] text-sm font-semibold text-muted">还没有消息</p>
+          <div className="mx-auto my-14 w-fit max-w-md text-center">
+            <p className="marker-highlight rotate-[-0.5deg] text-sm font-semibold text-muted">还没有消息</p>
+            {starters && starters.length > 0 ? (
+              <>
+                <p className="mt-4 text-[11px] text-muted">从这里开始，或直接输入你的问题</p>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {starters.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => onStarter?.(prompt)}
+                      className="doodle-row paper-subtle rounded-[2px] border border-dashed px-3 py-2 text-left text-xs text-card-foreground transition-[transform,background-color,border-color] hover:-translate-x-px hover:-translate-y-px hover:border-accent/60 hover:bg-highlight/15"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
         )}
         {messages.map((m) => (
           <div
