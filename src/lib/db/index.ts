@@ -381,6 +381,37 @@ export function getLearnerProfileSnapshot(): LearnerProfileSnapshot {
   return { recentTopics, weakConcepts };
 }
 
+/** Token 用量摘要（C3 成本感知）：今日与累计（仅统计助手消息）。 */
+export function getTokenUsageSummary(now = new Date()): {
+  today: { input: number; output: number; total: number };
+  total: { input: number; output: number; total: number };
+} {
+  const db = getDb();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  const sum = (rows: Array<{ usageInput: number | null; usageOutput: number | null; usageTotal: number | null }>) => ({
+    input: rows.reduce((sum, row) => sum + (row.usageInput ?? 0), 0),
+    output: rows.reduce((sum, row) => sum + (row.usageOutput ?? 0), 0),
+    total: rows.reduce((sum, row) => sum + (row.usageTotal ?? (row.usageInput ?? 0) + (row.usageOutput ?? 0)), 0),
+  });
+  const columns = {
+    usageInput: schema.messages.usageInput,
+    usageOutput: schema.messages.usageOutput,
+    usageTotal: schema.messages.usageTotal,
+  };
+  const all = db.select(columns).from(schema.messages)
+    .where(and(eq(schema.messages.role, 'assistant'), isNotNull(schema.messages.usageTotal)))
+    .all();
+  const todayRows = db.select(columns).from(schema.messages)
+    .where(and(
+      eq(schema.messages.role, 'assistant'),
+      isNotNull(schema.messages.usageTotal),
+      gte(schema.messages.createdAt, startOfDay),
+    ))
+    .all();
+  return { today: sum(todayRows), total: sum(all) };
+}
+
 /** 回忆耗时统计（B4 隐性感知）：每概念均值 + 全局中位；0 值日志（历史/口头快评）不计入。 */
 function recallDurationStats(workspaceId: string): {
   perTerm: Map<string, number>;
@@ -771,6 +802,8 @@ export function saveMessage(input: {
   content: string;
   idempotencyKey: string;
   resourceIds?: string[];
+  /** C3 成本感知：助手消息可携带本次生成的 token 用量 */
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
 }): Message {
   const db = getDb();
   const existing = db
@@ -790,6 +823,9 @@ export function saveMessage(input: {
     content: input.content,
     status: 'complete' as const,
     error: null,
+    usageInput: input.usage?.inputTokens ?? null,
+    usageOutput: input.usage?.outputTokens ?? null,
+    usageTotal: input.usage?.totalTokens ?? null,
     idempotencyKey: input.idempotencyKey,
     createdAt: new Date(),
   };

@@ -64,6 +64,23 @@ function readStoredStyle(): TeacherStyle | null {
   return isTeacherStyle(saved) ? saved : null;
 }
 
+/** C3 成本感知：把 AI 服务端错误翻译成可行动的提示，区分限流 / 余额 / 密钥。 */
+function describeChatError(message: string): string {
+  if (/rate.?limit|429|too many requests/i.test(message)) {
+    return 'AI 服务限流了，请稍等片刻再发一次。';
+  }
+  if (/balance|余额|402|insufficient|arrear/i.test(message)) {
+    return 'DeepSeek 账户余额不足，请充值后重试。';
+  }
+  if (/401|unauthorized|authentication|api[ _-]?key|密钥/i.test(message)) {
+    return 'API 密钥无效，请检查 .env 里的 DEEPSEEK_API_KEY 后重启。';
+  }
+  if (/timeout|aborted|网络|network|fetch failed/i.test(message)) {
+    return '网络连接失败，请检查网络后重试。';
+  }
+  return message;
+}
+
 export function Chat() {
   const toast = useToast();
   const router = useRouter();
@@ -377,7 +394,7 @@ export function Chat() {
         {
           ...assistantMessage,
           status: 'error',
-          error: getErrorMessage(error, '回答生成失败'),
+          error: describeChatError(getErrorMessage(error, '回答生成失败')),
         },
       ]);
       setInput(text);

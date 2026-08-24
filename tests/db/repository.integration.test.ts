@@ -472,6 +472,35 @@ describe('SQLite 仓库事务与幂等性', () => {
     repository.updateWorkspaceSettings({ memoryInjection: true });
   });
 
+  it('token 用量摘要只统计助手消息并区分今日（C3）', () => {
+    const session = repository.createSession({
+      title: '用量统计会话',
+      idempotencyKey: 'session:usage:one',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'assistant',
+      content: '第一条带用量的回答',
+      idempotencyKey: 'message:usage:a',
+      usage: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: '用户消息不计量',
+      idempotencyKey: 'message:usage:u',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'assistant',
+      content: '旧实现的历史消息无用量',
+      idempotencyKey: 'message:usage:legacy',
+    });
+    const summary = repository.getTokenUsageSummary();
+    expect(summary.today).toEqual({ input: 100, output: 50, total: 150 });
+    expect(summary.total).toEqual({ input: 100, output: 50, total: 150 });
+  });
+
   it('隐性感知：同难度下回忆更慢的概念排在薄弱清单更前（B4）', () => {
     const make = (name: string, key: string, durationMs: number) => {
       const term = repository.upsertTerm({

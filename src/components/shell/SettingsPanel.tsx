@@ -49,6 +49,8 @@ export function SettingsPanel() {
   );
   const [importOpen, setImportOpen] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
+  // C3 成本感知：今日 / 累计 token 用量
+  const [usage, setUsage] = useState<{ today: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingFileRef = useRef<File | null>(null);
   const loadRan = useRef(false);
@@ -65,6 +67,17 @@ export function SettingsPanel() {
         applySettings(setSettings, setGoalDraft, setLimitDraft, raw);
       } catch {
         // 拉不到设置时保持空态，控件禁用
+      }
+      try {
+        const res = await fetch('/api/usage');
+        if (!res.ok) return;
+        const data = (await res.json()) as { usage?: { today?: { total?: number }; total?: { total?: number } } };
+        setUsage({
+          today: data.usage?.today?.total ?? 0,
+          total: data.usage?.total?.total ?? 0,
+        });
+      } catch {
+        // 用量拉不到就不显示
       }
     })();
   }, []);
@@ -417,6 +430,7 @@ export function SettingsPanel() {
       <div className="border-t border-dashed border-border/70 pt-2 text-[11px] leading-relaxed text-muted">
         老师风格与深浅影响对话讲解方式；保留率与每日新学量决定复习调度。学习记录保存在本地
         SQLite；发送给老师的内容会用于 DeepSeek 在线推理。
+        {usage ? `AI 用量：今日 ${usage.today.toLocaleString()} · 累计 ${usage.total.toLocaleString()} tokens。` : ''}
       </div>
     </div>
   );

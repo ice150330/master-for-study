@@ -89,6 +89,10 @@ export const messages = sqliteTable('messages', {
   content: text('content').notNull(),
   status: text('status', { enum: ['complete', 'error'] }).notNull().default('complete'),
   error: text('error'),
+  // C3 成本感知：本次生成的 token 用量（仅助手消息有值，历史行为空）
+  usageInput: integer('usage_input'),
+  usageOutput: integer('usage_output'),
+  usageTotal: integer('usage_total'),
   idempotencyKey: text('idempotency_key').unique(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });

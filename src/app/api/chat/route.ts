@@ -69,13 +69,19 @@ export async function POST(req: Request) {
       messages: previousUser
         ? contextMessages
         : [...contextMessages, { role: 'user' as const, content: message }],
-      onFinish: ({ text }) => {
+      onFinish: ({ text, usage }) => {
         saveMessage({
           sessionId,
           role: 'assistant',
           content: text,
           resourceIds: resources.map((resource) => resource.id),
           idempotencyKey: `${idempotencyKey}:assistant`,
+          // C3 成本感知：落库本次 token 用量（缺失时为空，不计入摘要）
+          usage: {
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+            totalTokens: usage?.totalTokens,
+          },
         });
       },
     });
