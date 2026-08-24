@@ -12,6 +12,7 @@ let resourcesPost: PostHandler;
 let reviewPost: PostHandler;
 let eventsPost: PostHandler;
 let sessionsPost: PostHandler;
+let settingsPatch: PostHandler;
 let notesPost: PostHandler;
 let interviewPost: PostHandler;
 let chatPost: PostHandler;
@@ -36,6 +37,7 @@ beforeAll(async () => {
   resourcesPost = (await import('../../src/app/api/resources/route')).POST;
   reviewPost = (await import('../../src/app/api/review/route')).POST;
   eventsPost = (await import('../../src/app/api/events/route')).POST;
+  settingsPatch = (await import('../../src/app/api/settings/route')).PATCH;
   sessionsPost = (await import('../../src/app/api/sessions/route')).POST;
   notesPost = (await import('../../src/app/api/notes/route')).POST;
   interviewPost = (await import('../../src/app/api/interview/route')).POST;
@@ -109,6 +111,28 @@ describe('Route Handler zod 合同', () => {
     expect(await valid.json()).toMatchObject({
       analytics: { rangeDays: 7, trend: expect.any(Array), metrics: expect.any(Array) },
     });
+  });
+
+  it('设置接口非法风格返回统一 400，合法部分更新生效', async () => {
+    const invalid = await settingsPatch(
+      new Request('http://localhost/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherStyle: 'wizard' }),
+      }),
+    );
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
+
+    const valid = await settingsPatch(
+      new Request('http://localhost/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherStyle: 'feynman' }),
+      }),
+    );
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toMatchObject({ settings: { teacherStyle: 'feynman' } });
   });
 
   it('重复资源请求返回同一对象且数据库只有一条记录', async () => {

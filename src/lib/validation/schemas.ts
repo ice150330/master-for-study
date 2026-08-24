@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import { PUBLIC_EVENT_ACTIONS } from '../learning-events';
+import { TEACHER_STYLE_VALUES } from '../ai/teacher-style';
 
 const id = z.string().uuid('必须是有效 UUID');
 const idempotencyKey = z.string().trim().min(8).max(128);
 const nullableId = id.nullable().optional();
+
+const teacherStyle = z.enum(TEACHER_STYLE_VALUES);
 
 export const sessionsCreateSchema = z
   .object({
@@ -34,9 +37,24 @@ export const chatRequestSchema = z
   .object({
     message: z.string().trim().min(1).max(20_000),
     model: z.enum(['fast', 'pro']).optional(),
+    // 会话内临时切换的风格（蓝图 §5 第 3 层）；缺省用全局默认。
+    teacherStyle: teacherStyle.optional(),
     sessionId: id,
     resourceIds: z.array(id).max(5).default([]),
     idempotencyKey,
+  })
+  .strict();
+
+/** 工作区设置部分更新：全部字段可缺省，场景覆盖 / 目标传 null 恢复默认。 */
+export const settingsPatchSchema = z
+  .object({
+    teacherStyle: teacherStyle.optional(),
+    interviewStyle: teacherStyle.nullish(),
+    reviewStyle: teacherStyle.nullish(),
+    growthGoal: z.string().trim().min(1).max(60).nullish(),
+    dailyNewLimit: z.number().int().min(1).max(200).optional(),
+    retentionTarget: z.union([z.literal(0.85), z.literal(0.9)]).optional(),
+    answerDepth: z.enum(['brief', 'standard', 'deep']).optional(),
   })
   .strict();
 

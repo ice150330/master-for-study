@@ -2,8 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Check, ChevronDown, GraduationCap } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu';
 import { ConceptRail, type ConceptDetail } from '@/components/context/ConceptRail';
+import {
+  DEFAULT_TEACHER_STYLE,
+  TEACHER_STYLES,
+  isTeacherStyle,
+  teacherStyleLabel,
+  type TeacherStyle,
+} from '@/lib/ai/teacher-style';
 import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
@@ -20,6 +35,8 @@ import type { ChatModel, ChatMsg, ChatResource, ChatSession, HistoricalTerm } fr
 
 const MODEL_KEY = 'mentor-model';
 const MODEL_EVENT = 'mentor-model-change';
+const STYLE_KEY = 'mentor-teacher-style';
+const STYLE_EVENT = 'mentor-teacher-style-change';
 
 /** 订阅模型偏好变化：本标签页走自定义事件，跨标签页走 storage 事件。 */
 function subscribeModel(cb: () => void) {
@@ -29,6 +46,22 @@ function subscribeModel(cb: () => void) {
     window.removeEventListener('storage', cb);
     window.removeEventListener(MODEL_EVENT, cb);
   };
+}
+
+/** 订阅会话内风格临时切换：与模型偏好同一套事件机制。 */
+function subscribeStyle(cb: () => void) {
+  window.addEventListener('storage', cb);
+  window.addEventListener(STYLE_EVENT, cb);
+  return () => {
+    window.removeEventListener('storage', cb);
+    window.removeEventListener(STYLE_EVENT, cb);
+  };
+}
+
+/** 读临时风格：null = 未设置，跟随全局默认。 */
+function readStoredStyle(): TeacherStyle | null {
+  const saved = localStorage.getItem(STYLE_KEY);
+  return isTeacherStyle(saved) ? saved : null;
 }
 
 export function Chat() {
@@ -73,6 +106,33 @@ export function Chat() {
     (): ChatModel => (localStorage.getItem(MODEL_KEY) === 'pro' ? 'pro' : 'fast'),
     (): ChatModel => 'fast',
   );
+
+  // 会话内风格临时切换：localStorage 为真相源，null = 跟随全局默认（服务端快照恒为 null）
+  const styleOverride = useSyncExternalStore(
+    subscribeStyle,
+    readStoredStyle,
+    (): TeacherStyle | null => null,
+  );
+  const [globalStyle, setGlobalStyle] = useState<TeacherStyle>(DEFAULT_TEACHER_STYLE);
+
+  // 拉取全局默认风格（仅用于展示与缺省值，请求时 override 为空则不携带）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (!res.ok) return;
+        const data: unknown = await res.json();
+        const value = (data as { settings?: { teacherStyle?: unknown } })?.settings?.teacherStyle;
+        if (!cancelled && isTeacherStyle(value)) setGlobalStyle(value);
+      } catch {
+        // 拉不到设置就维持内置默认
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 初始化：加载会话列表，有则打开最近一个。
   useEffect(() => {
@@ -256,7 +316,15 @@ export function Chat() {
       const res = await request('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, sessionId: sid, model, resourceIds, idempotencyKey }),
+        body: JSON.stringify({
+          message: text,
+          sessionId: sid,
+          model,
+          resourceIds,
+          // 仅在会话内显式切换过风格时携带；否则服务端用全局默认
+          teacherStyle: styleOverride ?? undefined,
+          idempotencyKey,
+        }),
         signal: controller.signal,
         timeoutMs: 45_000,
       });
@@ -611,6 +679,17 @@ export function Chat() {
     window.dispatchEvent(new Event(MODEL_EVENT));
   }
 
+  /** 切换会话内风格；null = 清除临时切换、恢复跟随全局默认。 */
+  function changeStyle(next: TeacherStyle | null) {
+    try {
+      if (next === null) localStorage.removeItem(STYLE_KEY);
+      else localStorage.setItem(STYLE_KEY, next);
+    } catch {
+      // 忽略
+    }
+    window.dispatchEvent(new Event(STYLE_EVENT));
+  }
+
   return (
     <div
       className={`grid h-full min-h-0 ${
@@ -618,8 +697,8 @@ export function Chat() {
       }`}
     >
       <div className="flex min-h-0 min-w-0 flex-col gap-3 px-4 py-4">
-      {/* 工具行：全部会话 + 新话题 */}
-      <div className="flex shrink-0 items-center">
+      {/* 工具行：全部会话 + 新话题 + 老师风格 */}
+      <div className="flex shrink-0 items-center gap-2">
         <SessionPicker
           sessions={sessions}
           archivedSessions={archivedSessions}
@@ -627,6 +706,11 @@ export function Chat() {
           onSelect={openSession}
           onNew={newSession}
           onRestore={restoreSession}
+        />
+        <StyleSwitch
+          value={styleOverride}
+          fallback={globalStyle}
+          onChange={changeStyle}
         />
       </div>
 
@@ -685,5 +769,54 @@ export function Chat() {
         </aside>
       ) : null}
     </div>
+  );
+}
+
+/** 老师风格切换：显示生效风格（临时切换优先，缺省显示全局默认），可恢复跟随全局。 */
+function StyleSwitch({
+  value,
+  fallback,
+  onChange,
+}: {
+  value: TeacherStyle | null;
+  fallback: TeacherStyle;
+  onChange: (next: TeacherStyle | null) => void;
+}) {
+  const effective = value ?? fallback;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`老师风格：${teacherStyleLabel(effective)}${value ? '' : '，跟随全局默认，点按切换'}`}
+          className="paper-control flex h-8 shrink-0 items-center gap-1.5 rounded-[2px] border border-dashed border-border px-2.5 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:bg-highlight/10 active:translate-x-[2px] active:translate-y-[2px]"
+        >
+          <GraduationCap aria-hidden="true" className="size-3.5 text-primary" />
+          {teacherStyleLabel(effective)}
+          <ChevronDown aria-hidden="true" className="size-3 text-muted" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {TEACHER_STYLES.map((item) => (
+          <DropdownMenuItem key={item.value} onSelect={() => onChange(item.value)}>
+            {effective === item.value ? (
+              <Check aria-hidden="true" className="size-3.5 text-primary" />
+            ) : (
+              <span aria-hidden className="size-3.5" />
+            )}
+            {item.label} · {item.tagline}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onChange(null)}>
+          {value === null ? (
+            <Check aria-hidden="true" className="size-3.5 text-primary" />
+          ) : (
+            <span aria-hidden className="size-3.5" />
+          )}
+          跟随全局默认（{teacherStyleLabel(fallback)}）
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

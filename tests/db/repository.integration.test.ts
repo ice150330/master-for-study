@@ -344,6 +344,27 @@ describe('SQLite 仓库事务与幂等性', () => {
     });
   });
 
+  it('工作区设置首次访问落默认行，之后部分更新生效', () => {
+    const defaults = repository.getWorkspaceSettings();
+    expect(defaults.teacherStyle).toBe('lecturer');
+    expect(defaults.retentionTarget).toBe(0.85);
+    expect(defaults.answerDepth).toBe('standard');
+    // 再读一次拿到的是同一行（不是每次插入新默认行）
+    expect(repository.getWorkspaceSettings().id).toBe(defaults.id);
+
+    const updated = repository.updateWorkspaceSettings({
+      teacherStyle: 'strict',
+      retentionTarget: 0.9,
+      interviewStyle: null,
+    });
+    expect(updated.teacherStyle).toBe('strict');
+    expect(updated.retentionTarget).toBe(0.9);
+    expect(updated.interviewStyle).toBeNull();
+    // 未提交的字段保持原值
+    expect(updated.answerDepth).toBe('standard');
+    expect(repository.getWorkspaceSettings()).toMatchObject({ teacherStyle: 'strict' });
+  });
+
   it('结构化面试按评分策略调整三题难度，并保留重答版本', () => {
     const skill = repository.upsertTerm({
       name: '索引设计',

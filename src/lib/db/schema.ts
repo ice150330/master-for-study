@@ -32,6 +32,28 @@ export const workspaces = sqliteTable('workspaces', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+/**
+ * 工作区设置：老师风格与用户可配置项（蓝图 §5/§6）的单一存储点。
+ * teacherStyle 为全局默认风格；interviewStyle / reviewStyle 为场景覆盖（null = 跟随全局）；
+ * growthGoal / dailyNewLimit / retentionTarget / answerDepth 为可配置项面板（分阶段启用）。
+ */
+export const workspaceSettings = sqliteTable('workspace_settings', {
+  id: text('id').primaryKey(),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  teacherStyle: text('teacher_style').notNull().default('lecturer'),
+  interviewStyle: text('interview_style'),
+  reviewStyle: text('review_style'),
+  growthGoal: text('growth_goal'),
+  dailyNewLimit: integer('daily_new_limit').notNull().default(10),
+  retentionTarget: real('retention_target').notNull().default(0.85),
+  answerDepth: text('answer_depth').notNull().default('standard'),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('workspace_settings_workspace_id_unique').on(table.workspaceId),
+]);
+
 /** 会话：parent_id 自引用构成会话树（null 为根会话）。 */
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),

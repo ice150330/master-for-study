@@ -31,6 +31,7 @@ import {
 } from '../interview/types';
 import { DEFAULT_TITLE, deriveSessionTitle } from '../session-title';
 import { parseTermMarkers } from '../term-parse';
+import { DEFAULT_TEACHER_STYLE } from '../ai/teacher-style';
 import { KNOWLEDGE_SEED_EDGES, KNOWLEDGE_SEED_NODES } from '../knowledge/seed';
 import type {
   KnowledgeEvidence,
@@ -203,6 +204,51 @@ export function ensureWorkspace(): Workspace {
   };
   db.insert(schema.workspaces).values(ws).run();
   return ws;
+}
+
+export type WorkspaceSettings = typeof schema.workspaceSettings.$inferSelect;
+
+/** 可写入的设置字段（部分更新；场景覆盖列传 null 表示恢复跟随全局）。 */
+export type WorkspaceSettingsPatch = Partial<{
+  teacherStyle: string;
+  interviewStyle: string | null;
+  reviewStyle: string | null;
+  growthGoal: string | null;
+  dailyNewLimit: number;
+  retentionTarget: number;
+  answerDepth: string;
+}>;
+
+/** 读取工作区设置，首次访问时落默认行。 */
+export function getWorkspaceSettings(): WorkspaceSettings {
+  const ws = ensureWorkspace();
+  const existing = getDb().select().from(schema.workspaceSettings)
+    .where(eq(schema.workspaceSettings.workspaceId, ws.id)).limit(1).get();
+  if (existing) return existing;
+  const defaults = {
+    id: randomUUID(),
+    workspaceId: ws.id,
+    teacherStyle: DEFAULT_TEACHER_STYLE,
+    interviewStyle: null,
+    reviewStyle: null,
+    growthGoal: null,
+    dailyNewLimit: 10,
+    retentionTarget: 0.85,
+    answerDepth: 'standard',
+    updatedAt: new Date(),
+  } satisfies WorkspaceSettings;
+  getDb().insert(schema.workspaceSettings).values(defaults)
+    .onConflictDoNothing({ target: schema.workspaceSettings.workspaceId }).run();
+  return defaults;
+}
+
+/** 更新工作区设置（last-write-wins；设置变更不是学习行为，不写事件流）。 */
+export function updateWorkspaceSettings(patch: WorkspaceSettingsPatch): WorkspaceSettings {
+  const current = getWorkspaceSettings();
+  getDb().update(schema.workspaceSettings)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(schema.workspaceSettings.id, current.id)).run();
+  return getWorkspaceSettings();
 }
 
 /** 按 id 查询单个会话。 */
