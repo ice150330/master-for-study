@@ -500,7 +500,9 @@ function SessionOpsMenu({
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    // modal={false}：modal 下拉会给 body 挂 pointer-events:none，触发钮瞬间失 hover →
+    // pointerleave 关菜单 → 恢复 hover 又开菜单，形成开-关抽搐循环；非 modal 无此问题
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
       <DropdownMenuTrigger asChild>
         <IconButton
           label="会话操作"
