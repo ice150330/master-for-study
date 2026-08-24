@@ -138,10 +138,6 @@ export function SessionCard({
   onBranchFromMessage: (messageId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [renameTitle, setRenameTitle] = useState(title);
-
   // 消息变化（含流式逐段更新）时，滚动容器贴底
   useEffect(() => {
     const el = scrollRef.current;
@@ -173,39 +169,20 @@ export function SessionCard({
         <div className="flex shrink-0 items-center gap-1">
           <WorkspaceSwitcher />
           {treeMenu}
+          {session ? (
+            <SessionOpsMenu
+              session={session}
+              title={title}
+              onRename={onRename}
+              onPin={onPin}
+              onArchive={onArchive}
+              onDelete={onDelete}
+            />
+          ) : null}
+          {/* 新话题：卡片头部最右侧的独立按钮 */}
           <IconButton label="新话题" onClick={onNewSession}>
             <Plus aria-hidden="true" />
           </IconButton>
-          {session ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <IconButton label="会话操作">
-                  <MoreHorizontal />
-                </IconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setRenameTitle(title);
-                    setRenameOpen(true);
-                  }}
-                >
-                  <Pencil /> 重命名
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onPin(!session.pinnedAt)}>
-                  {session.pinnedAt ? <PinOff /> : <Pin />}
-                  {session.pinnedAt ? '取消置顶' : '置顶会话'}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onArchive}>
-                  <Archive /> 归档
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
-                  <Trash2 /> 删除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
         </div>
       </div>
 
@@ -417,60 +394,6 @@ export function SessionCard({
         </div>
       </div>
 
-      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-        <DialogContent>
-          <DialogTitle className="text-base font-semibold">重命名会话</DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-muted">
-            标题用于会话搜索和分支路径，不会修改消息内容。
-          </DialogDescription>
-          <Input
-            className="mt-5"
-            value={renameTitle}
-            onChange={(event) => setRenameTitle(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && renameTitle.trim()) {
-                onRename(renameTitle.trim());
-                setRenameOpen(false);
-              }
-            }}
-            aria-label="会话标题"
-            maxLength={120}
-          />
-          <div className="mt-6 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setRenameOpen(false)}>取消</Button>
-            <Button
-              disabled={!renameTitle.trim()}
-              onClick={() => {
-                onRename(renameTitle.trim());
-                setRenameOpen(false);
-              }}
-            >
-              保存标题
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogTitle className="text-base font-semibold">删除会话</DialogTitle>
-          <DialogDescription className="mt-1 text-sm leading-relaxed text-muted">
-            会话和消息将被删除；已有笔记与面试记录会保留，但不再关联此会话。该操作不可撤销。
-          </DialogDescription>
-          <div className="mt-6 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>取消</Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setDeleteOpen(false);
-                onDelete();
-              }}
-            >
-              确认删除
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -529,6 +452,147 @@ function ResourceSelector({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** 会话操作菜单（重命名 / 置顶 / 归档 / 删除）：与树气泡同款**悬停开关**
+ * （悬停 180ms 开、移开 240ms 关、移进菜单停留、快扫不误触、触摸仍点击）。 */
+function SessionOpsMenu({
+  session,
+  title,
+  onRename,
+  onPin,
+  onArchive,
+  onDelete,
+}: {
+  session: ChatSession;
+  title: string;
+  onRename: (title: string) => void;
+  onPin: (pinned: boolean) => void;
+  onArchive: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [renameTitle, setRenameTitle] = useState(title);
+  const openTimer = useRef(0);
+  const closeTimer = useRef(0);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(openTimer.current);
+      window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  function hoverOpen(event: React.PointerEvent) {
+    if (event.pointerType !== 'mouse') return;
+    window.clearTimeout(closeTimer.current);
+    openTimer.current = window.setTimeout(() => setOpen(true), 180);
+  }
+
+  function hoverClose(event?: React.PointerEvent) {
+    if (event && event.pointerType !== 'mouse') return;
+    window.clearTimeout(openTimer.current);
+    closeTimer.current = window.setTimeout(() => setOpen(false), 240);
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <IconButton
+          label="会话操作"
+          tooltip={false}
+          onPointerEnter={hoverOpen}
+          onPointerLeave={(event) => hoverClose(event)}
+        >
+          <MoreHorizontal />
+        </IconButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        onPointerEnter={() => window.clearTimeout(closeTimer.current)}
+        onPointerLeave={(event) => hoverClose(event)}
+      >
+        <DropdownMenuItem
+          onSelect={() => {
+            setRenameTitle(title);
+            setRenameOpen(true);
+          }}
+        >
+          <Pencil /> 重命名
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onPin(!session.pinnedAt)}>
+          {session.pinnedAt ? <PinOff /> : <Pin />}
+          {session.pinnedAt ? '取消置顶' : '置顶会话'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onArchive}>
+          <Archive /> 归档
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem destructive onSelect={() => setDeleteOpen(true)}>
+          <Trash2 /> 删除
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+
+      {/* 重命名 / 删除对话框（原卡片内逻辑原样搬入） */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">重命名会话</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-muted">
+            标题用于会话搜索和分支路径，不会修改消息内容。
+          </DialogDescription>
+          <Input
+            className="mt-5"
+            value={renameTitle}
+            onChange={(event) => setRenameTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && renameTitle.trim()) {
+                onRename(renameTitle.trim());
+                setRenameOpen(false);
+              }
+            }}
+            aria-label="会话标题"
+            maxLength={120}
+          />
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setRenameOpen(false)}>取消</Button>
+            <Button
+              disabled={!renameTitle.trim()}
+              onClick={() => {
+                onRename(renameTitle.trim());
+                setRenameOpen(false);
+              }}
+            >
+              保存标题
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogTitle className="text-base font-semibold">删除会话</DialogTitle>
+          <DialogDescription className="mt-1 text-sm leading-relaxed text-muted">
+            会话和消息将被删除；已有笔记与面试记录会保留，但不再关联此会话。该操作不可撤销。
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>取消</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setDeleteOpen(false);
+                onDelete();
+              }}
+            >
+              确认删除
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </DropdownMenu>
   );
 }
 

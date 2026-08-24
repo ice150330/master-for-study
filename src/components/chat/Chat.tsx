@@ -809,10 +809,6 @@ export function Chat() {
               setTreeOpen(false);
               void openSession(id);
             }}
-            onNew={() => {
-              setTreeOpen(false);
-              void newSession();
-            }}
             onRestore={(id) => {
               setTreeOpen(false);
               void restoreSession(id);

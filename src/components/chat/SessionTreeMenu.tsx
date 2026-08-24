@@ -1,6 +1,6 @@
 'use client';
 
-import { ArchiveRestore, FolderTree, ListTree, Pin, Plus, Search } from 'lucide-react';
+import { ArchiveRestore, FolderTree, ListTree, Pin, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconButton } from '@/components/ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
@@ -16,7 +16,8 @@ const HOVER_CLOSE_MS = 240;
  * 气泡面板，**鼠标悬停即开、移开即关**（进面板停留不关；触摸设备仍走点击，
  * 悬停只对 pointerType=mouse 生效避免点按竞态）。Radix Popover 锚定触发器，
  * 外点关闭 / Escape / 焦点返回全部继承，顶部小尾巴指回按钮。
- * 内容：搜索、完整会话树、置顶与相对时间、归档恢复、新话题；「+N」胶带共用受控 open。
+ * 内容：搜索、完整会话树、置顶与相对时间、归档恢复；「+N」胶带共用受控 open。
+ * 新话题在卡片头部最右侧的独立按钮（不放面板内）。
  */
 export function SessionTreeMenu({
   open,
@@ -25,7 +26,6 @@ export function SessionTreeMenu({
   archivedSessions,
   currentId,
   onSelect,
-  onNew,
   onRestore,
 }: {
   open: boolean;
@@ -34,7 +34,6 @@ export function SessionTreeMenu({
   archivedSessions: ChatSession[];
   currentId: string | null;
   onSelect: (id: string) => void;
-  onNew: () => void;
   onRestore: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -111,10 +110,6 @@ export function SessionTreeMenu({
               {sessions.length}
             </span>
           ) : null}
-          {/* 新话题：图标即可表意，Tooltip 悬停显示功能 */}
-          <IconButton label="新话题" onClick={onNew} className="ml-auto">
-            <Plus aria-hidden="true" className="size-4" />
-          </IconButton>
         </header>
 
         <div className="border-b border-dashed border-border px-3.5 py-2.5">
