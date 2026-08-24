@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   description: "一个运行在本地、有长期记忆的私人学习老师",
 };
 
-/** 防首屏闪烁：在首帧渲染前按 localStorage 记忆切换 .dark 类（无记录 = 浅色默认）。 */
+/** 防首屏闪烁：默认使用纸白，用户选择护眼暖纸时才挂载 .dark。 */
 const themeInitScript = `(function(){try{if(localStorage.getItem('mentor-theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})()`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

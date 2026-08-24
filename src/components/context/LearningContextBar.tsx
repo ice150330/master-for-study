@@ -59,7 +59,7 @@ export function LearningContextBar() {
     : null;
 
   return (
-    <div data-testid="learning-context-bar" className="animate-ui-enter flex h-10 shrink-0 items-center gap-2 border-b border-border bg-card px-3 text-card-foreground md:px-5">
+    <div data-testid="learning-context-bar" className="paper-control animate-ui-enter relative z-[9] flex h-9 shrink-0 items-center gap-2 border-b border-dashed border-border px-3 text-card-foreground md:px-5">
       <IconButton className="size-7" label="返回上一学习位置" onClick={() => router.back()}>
         <ArrowLeft aria-hidden="true" />
       </IconButton>
@@ -71,7 +71,7 @@ export function LearningContextBar() {
       <nav aria-label="学习上下文路径" className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-[11px]">
         {context.source ? (
           <>
-            <Link href={sourceHref(context.source, context)} className="inline-flex shrink-0 items-center gap-1 text-muted hover:text-primary hover:underline">
+            <Link href={sourceHref(context.source, context)} className="doodle-link inline-flex shrink-0 items-center gap-1 text-muted hover:text-foreground">
               <Link2 aria-hidden="true" className="size-3" />{sourceLabels[context.source.type]}
             </Link>
             <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted" />
@@ -79,7 +79,7 @@ export function LearningContextBar() {
         ) : null}
         {context.conceptId && conceptHref ? (
           <>
-            <Link href={conceptHref} className="max-w-56 truncate font-medium text-primary hover:underline">
+            <Link href={conceptHref} className="marker-highlight max-w-56 truncate font-semibold text-foreground">
               {conceptLabel?.id === context.conceptId ? conceptLabel.name : '读取概念…'}
             </Link>
             <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted" />
@@ -87,7 +87,7 @@ export function LearningContextBar() {
         ) : null}
         {context.attempt ? (
           <>
-            <Link href={attemptHref(context.attempt, context)} className="inline-flex shrink-0 items-center gap-1 text-muted hover:text-primary hover:underline">
+            <Link href={attemptHref(context.attempt, context)} className="doodle-link inline-flex shrink-0 items-center gap-1 text-muted hover:text-foreground">
               <CircleDot aria-hidden="true" className="size-3" />{attemptLabels[context.attempt.type]}
             </Link>
             <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-muted" />
@@ -96,7 +96,7 @@ export function LearningContextBar() {
         <span className="truncate font-semibold text-card-foreground">{activeItem?.label ?? '学习工作台'}</span>
       </nav>
       {context.source ? (
-        <Link href={sourceHref(context.source, context)} className="hidden shrink-0 text-[11px] font-medium text-primary hover:underline min-[900px]:inline">
+        <Link href={sourceHref(context.source, context)} className="doodle-link hidden shrink-0 text-[11px] font-semibold text-foreground min-[900px]:inline">
           返回来源
         </Link>
       ) : null}

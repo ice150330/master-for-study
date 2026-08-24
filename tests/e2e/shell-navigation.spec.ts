@@ -37,7 +37,7 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
 
     if (route.path === '/today' && isDesktop) {
       const sidebar = page.getByRole('navigation', { name: '主导航' }).locator('..');
-      expect(await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(224);
+      expect(await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(196);
     }
 
     await page.screenshot({
@@ -63,9 +63,9 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
       path: path.join(captureRoot, `${phase}-settings-open-${testInfo.project.name}-after.png`),
       animations: 'disabled',
     });
-    await page.getByRole('button', { name: '深色', exact: true }).click();
+    await page.getByRole('button', { name: '暖纸', exact: true }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
-    await page.getByRole('button', { name: '浅色', exact: true }).click();
+    await page.getByRole('button', { name: '纸白', exact: true }).click();
     await expect(page.locator('html')).not.toHaveClass(/dark/);
     await page.keyboard.press('Escape');
   }

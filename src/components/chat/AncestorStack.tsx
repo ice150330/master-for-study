@@ -1,110 +1,121 @@
 'use client';
 
-import { useState } from 'react';
+import type { CSSProperties } from 'react';
+import { CornerUpLeft, Layers3 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import type { ChatSession } from './chat-types';
 
+type AncestorLayer =
+  | { kind: 'session'; session: ChatSession; depth: number }
+  | { kind: 'overflow'; sessions: ChatSession[]; depth: number };
+
 /**
- * 祖先卡片堆：当前会话的父级链（父、祖父…）以竖条卡片的形式
- * 在主卡片左侧向左后方堆叠，点击任意竖条回跳到该会话。
- * 最近显示 3 张，更深的祖先折叠为「⋯」竖条，点开列出完整链。
+ * 父级实体卡堆：每层都是与当前会话同尺寸的完整卡片。
+ * 默认紧密叠放，悬停或键盘聚焦任一卡沿时整叠向左上展开。
  */
 export function AncestorStack({
   ancestors,
+  hasBranches,
   onSelect,
 }: {
   /** 由近到远：[父, 祖父, 曾祖, …] */
   ancestors: ChatSession[];
+  hasBranches: boolean;
   onSelect: (id: string) => void;
 }) {
-  const shown = ancestors.slice(0, 3);
-  const hidden = ancestors.slice(3);
-  const columns = shown.length + (hidden.length > 0 ? 1 : 0);
-  if (columns === 0) return null;
+  if (ancestors.length === 0) return null;
 
-  // 列位从左到右：⋯（若有）→ 最深祖先 → … → 父（最贴近主卡片）
-  const leftOf = (arrayIndex: number) => (columns - 1 - arrayIndex) * 44;
+  const direct = ancestors.slice(0, 2).map<AncestorLayer>((session, index) => ({
+    kind: 'session',
+    session,
+    depth: index,
+  }));
+  const overflow = ancestors.slice(2);
+  const layers: AncestorLayer[] = overflow.length > 0
+    ? [...direct, { kind: 'overflow', sessions: overflow, depth: 2 }]
+    : direct;
 
   return (
-    <div className="relative shrink-0" style={{ width: columns * 44 }}>
-      {hidden.length > 0 && (
-        <HiddenChain
-          items={hidden}
-          left={0}
-          onSelect={(id) => {
-            onSelect(id);
-          }}
-        />
-      )}
-      {shown.map((a, i) => (
-        <button
-          key={a.id}
-          type="button"
-          title={`回到：${a.title}`}
-          onClick={() => onSelect(a.id)}
-          style={{ left: leftOf(i), opacity: 1 - i * 0.18 }}
-          className="absolute top-1/2 flex h-[64%] w-9 -translate-y-1/2 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card-soft px-1 py-2 shadow-md transition-all duration-200 hover:bg-card hover:shadow-lg hover:opacity-100"
-        >
-          <span className="max-h-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-medium text-card-foreground [writing-mode:vertical-rl]">
-            {a.title}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
+    <nav
+      aria-label="会话分支路径"
+      className="session-ancestor-stack pointer-events-none absolute inset-0 z-10 hidden @min-[720px]/session-stack:block"
+    >
+      {[...layers].reverse().map((layer) => {
+        const distance = 11 + layer.depth * 27;
+        const expandedDistance = 17 + layer.depth * 34;
+        const style = {
+          '--stack-x': `${-distance}px`,
+          '--stack-y': `${-distance}px`,
+          '--stack-expanded-x': `${-expandedDistance}px`,
+          '--stack-expanded-y': `${-expandedDistance}px`,
+          '--stack-rotation': `${-(layer.depth + 1) * 0.2}deg`,
+          '--stack-scale': `${1 - layer.depth * 0.004}`,
+          '--stack-opacity': `${1 - layer.depth * 0.055}`,
+          zIndex: 20 - layer.depth,
+        } as CSSProperties;
+        const visualProps = {
+          style,
+          className: `session-stack-layer session-stack-layer--ancestor group pointer-events-none absolute left-12 right-12 top-24 overflow-hidden rounded-[2px] border border-border bg-card text-left ${
+            hasBranches ? 'bottom-24' : 'bottom-0'
+          }`,
+        };
 
-/** 更深祖先的折叠竖条：点开列出被折叠的链（由远到近）。 */
-function HiddenChain({
-  items,
-  left,
-  onSelect,
-}: {
-  items: ChatSession[];
-  left: number;
-  onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      {open && (
-        // 透明背板：点击任意处关闭
-        <button
-          type="button"
-          aria-label="关闭"
-          className="fixed inset-0 z-30 cursor-default"
-          onClick={() => setOpen(false)}
-        />
-      )}
-      <button
-        type="button"
-        title={`还有 ${items.length} 个更早的祖先会话`}
-        onClick={() => setOpen((v) => !v)}
-        style={{ left }}
-        className="absolute top-1/2 z-40 flex h-[64%] w-9 -translate-y-1/2 items-center justify-center rounded-2xl border border-dashed border-border bg-card-soft/60 text-muted shadow-sm transition-colors hover:bg-card"
-      >
-        <span className="text-sm">⋯</span>
-      </button>
-      {open && (
-        <div className="absolute left-12 top-1/2 z-40 w-56 -translate-y-1/2 rounded-2xl border border-border bg-card p-2 shadow-xl">
-          <p className="mb-1 px-2 text-[11px] text-muted">更早的祖先（由远到近）</p>
-          {items
-            .slice()
-            .reverse()
-            .map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onSelect(s.id);
-                }}
-                className="w-full truncate rounded-lg px-2 py-1.5 text-left text-xs text-card-foreground transition-colors hover:bg-card-soft"
-              >
-                {s.title}
-              </button>
-            ))}
-        </div>
-      )}
-    </>
+        if (layer.kind === 'overflow') {
+          return (
+            <div key="ancestor-overflow" {...visualProps}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`查看 ${layer.sessions.length} 个更早的父级会话`}
+                    className="session-stack-edge pointer-events-auto absolute inset-x-0 top-0 flex h-7 items-center gap-2 px-4 text-[11px] font-medium text-muted"
+                  >
+                    <span aria-hidden="true" className="session-stack-index">+{layer.sessions.length}</span>
+                    <Layers3 aria-hidden="true" className="size-3" />
+                    <span>更早路径</span>
+                    <span className="ml-auto text-[10px] text-muted">展开全部</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" sideOffset={8} className="w-64 p-2">
+                  <p className="px-2 pb-1 pt-1 text-[11px] font-medium text-muted">更早的父级会话</p>
+                  {layer.sessions.map((session, index) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      onClick={() => onSelect(session.id)}
+                      className="doodle-row flex min-h-9 w-full items-center gap-2 rounded-[2px] border border-dashed border-transparent px-2 text-left text-xs text-card-foreground hover:bg-highlight/15"
+                    >
+                      <span className="text-[10px] font-bold text-muted">↑{index + 3}</span>
+                      <span className="min-w-0 flex-1 truncate">{session.title}</span>
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={layer.session.id}
+            {...visualProps}
+          >
+            <button
+              type="button"
+              title={`回到：${layer.session.title}`}
+              aria-label={`回到父级会话：${layer.session.title}`}
+              onClick={() => onSelect(layer.session.id)}
+              className="session-stack-edge pointer-events-auto absolute inset-x-0 top-0 flex h-7 items-center gap-2 px-4 text-[11px] font-medium text-muted"
+            >
+              <span aria-hidden="true" className="session-stack-index">{layer.depth + 1}</span>
+              <CornerUpLeft aria-hidden="true" className="size-3 text-primary" />
+              <span className="shrink-0 text-muted">{layer.depth === 0 ? '父会话' : `上游 ${layer.depth + 1}`}</span>
+              <span className="truncate font-semibold text-card-foreground">{layer.session.title}</span>
+              <span className="ml-auto shrink-0 text-[10px] text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">回到此层</span>
+            </button>
+          </div>
+        );
+      })}
+    </nav>
   );
 }

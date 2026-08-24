@@ -21,7 +21,7 @@ export const DropdownMenuContent = forwardRef<
         sideOffset={sideOffset}
         collisionPadding={12}
         className={cn(
-          'z-[70] min-w-44 rounded-md border border-border bg-card p-1 text-card-foreground shadow-[var(--shadow-md)] data-[state=open]:animate-ui-enter',
+          'paper-popover z-[70] min-w-44 rounded-[2px] border-2 border-dashed p-1 text-card-foreground data-[state=open]:animate-ui-enter',
           className,
         )}
         {...props}
@@ -38,7 +38,7 @@ export const DropdownMenuItem = forwardRef<
     <DropdownPrimitive.Item
       ref={ref}
       className={cn(
-        'flex min-h-8 cursor-default select-none items-center gap-2 rounded px-2.5 text-xs outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-surface data-[disabled]:opacity-45 [&>svg]:size-4',
+        'flex min-h-8 cursor-default select-none items-center gap-2 rounded-[2px] px-2.5 text-xs outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-highlight/30 data-[highlighted]:shadow-[inset_0_-3px_0_rgba(255,217,61,0.42)] data-[disabled]:opacity-45 [&>svg]:size-4',
         destructive && 'text-danger data-[highlighted]:bg-danger/10',
         className,
       )}
@@ -67,7 +67,7 @@ export const DropdownMenuSeparator = forwardRef<
   return (
     <DropdownPrimitive.Separator
       ref={ref}
-      className={cn('-mx-1 my-1 h-px bg-border', className)}
+      className={cn('-mx-1 my-1 border-t border-dashed border-border', className)}
       {...props}
     />
   );
@@ -124,7 +124,7 @@ export const DropdownMenuSubContent = forwardRef<
     <DropdownPrimitive.SubContent
       ref={ref}
       className={cn(
-        'z-[70] min-w-40 rounded-md border border-border bg-card p-1 text-card-foreground shadow-[var(--shadow-md)] data-[state=open]:animate-ui-enter',
+        'paper-popover z-[70] min-w-40 rounded-[2px] border-2 border-dashed p-1 text-card-foreground data-[state=open]:animate-ui-enter',
         className,
       )}
       {...props}

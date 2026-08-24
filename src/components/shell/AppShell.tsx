@@ -10,7 +10,6 @@ import {
   MessageCircle,
   Network,
   NotebookText,
-  SquareTerminal,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -38,7 +37,6 @@ const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   chat: MessageCircle,
   notes: NotebookText,
   resources: Library,
-  practice: SquareTerminal,
   interview: ClipboardCheck,
   review: BookOpenText,
   analytics: BarChart3,
@@ -85,34 +83,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-dvh min-w-0 bg-background">
+    <div className="relative isolate flex h-dvh min-w-0 overflow-hidden bg-transparent">
       <a
         href="#mentor-main"
-        className="fixed left-3 top-3 z-[120] -translate-y-20 rounded-md bg-foreground px-3 py-2 text-sm font-semibold text-background shadow-lg transition-transform focus:translate-y-0"
+        className="fixed left-3 top-3 z-[120] -translate-y-20 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-[4px_4px_0_var(--marker-teal)] transition-transform focus:translate-y-0"
       >
         跳到主要内容
       </a>
-      <aside className="hidden w-16 shrink-0 flex-col border-r border-border bg-card md:flex min-[1180px]:w-56">
-        <div className="flex h-16 shrink-0 items-center border-b border-border px-3 min-[1180px]:px-4">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
-            <GraduationCap aria-hidden="true" className="size-5" />
+      <aside className="paper-control relative z-20 hidden w-14 shrink-0 flex-col border-r border-dashed md:flex min-[1180px]:w-[196px]">
+        <div className="flex h-[52px] shrink-0 items-center border-b border-dashed border-border px-2.5 min-[1180px]:px-3">
+          <div className="doodle-action flex size-8 shrink-0 rotate-[-1deg] items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-card text-foreground">
+            <GraduationCap aria-hidden="true" className="size-[17px]" />
           </div>
-          <div className="ml-3 hidden min-w-0 min-[1180px]:block">
-            <p className="text-sm font-semibold text-foreground">Mentor</p>
-            <p className="truncate text-[11px] text-muted">私人学习工作台</p>
+          <div className="ml-2.5 hidden min-w-0 min-[1180px]:block">
+            <p className="marker-highlight inline text-[13px] font-extrabold text-foreground">Mentor</p>
+            <p className="truncate text-[10px] text-muted">本地学习工作台</p>
           </div>
         </div>
 
-        <nav aria-label="主导航" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+        <nav aria-label="主导航" className="min-h-0 flex-1 overflow-y-auto px-2 py-2.5">
           {NAV_SECTIONS.map((section, sectionIndex) => (
             <div
               key={section.key}
-              className={cn(sectionIndex > 0 && 'mt-4 border-t border-border pt-4')}
+              className={cn(sectionIndex > 0 && 'mt-2.5 border-t border-dashed border-border pt-2.5')}
             >
-              <p className="mb-1 hidden px-2 text-[11px] font-medium text-muted min-[1180px]:block">
+              <p className="mb-1 hidden px-2 text-[10px] font-medium text-muted min-[1180px]:block">
                 {section.label}
               </p>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const active = isNavActive(pathname, item.href);
                   const Icon = NAV_ICONS[item.icon];
@@ -129,12 +127,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                       aria-label={item.label}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'relative flex h-10 items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-surface hover:text-foreground min-[1180px]:justify-start min-[1180px]:gap-3 min-[1180px]:px-3',
-                        active && 'bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary',
+                        'relative flex h-8 items-center justify-center overflow-visible rounded-[2px] border border-dashed border-transparent transition-[transform,box-shadow,background-color,color,border-color] duration-150 hover:-translate-x-px hover:-translate-y-px min-[1180px]:justify-start min-[1180px]:gap-2.5 min-[1180px]:px-2.5',
+                        active
+                          ? 'rotate-[-0.35deg] border-foreground bg-foreground text-background shadow-[3px_3px_0_var(--marker-yellow)] hover:bg-foreground hover:text-background'
+                          : 'text-muted hover:border-accent/65 hover:bg-accent/10 hover:text-foreground',
                       )}
                     >
-                      <Icon aria-hidden="true" className="size-[18px] shrink-0" />
-                      <span className="hidden truncate text-sm font-medium min-[1180px]:block">
+                      <Icon aria-hidden="true" className="size-4 shrink-0" />
+                      <span className="hidden truncate text-[13px] font-medium min-[1180px]:block">
                         {item.label}
                       </span>
                     </Link>
@@ -156,14 +156,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur md:h-16 md:px-5">
+        <header className="paper-control relative z-10 flex h-[52px] shrink-0 items-center gap-3 border-b border-dashed border-border px-4 md:px-5">
           <div className="min-w-0 flex-1">
-            <p className="hidden text-[11px] text-muted md:block">
+            <p className="hidden text-[10px] text-muted md:block">
               {activeSection?.label ?? 'Mentor'}
             </p>
             <p
               data-testid="page-context-title"
-              className="truncate text-sm font-semibold text-foreground md:mt-0.5"
+              className="marker-highlight inline-block max-w-full truncate text-[13px] font-extrabold text-foreground"
             >
               {activeItem?.label ?? (pathname.startsWith('/dev/') ? '开发视图' : '学习工作台')}
             </p>
@@ -178,7 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="移动端区域导航"
-        className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-4 border-t border-border bg-card/95 px-2 backdrop-blur md:hidden"
+        className="paper-control fixed inset-x-0 bottom-0 z-40 grid h-14 grid-cols-4 border-t border-dashed px-2 md:hidden"
       >
         {NAV_SECTIONS.map((section) => {
           const item = section.items[0];
@@ -192,7 +192,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted',
-                active && 'text-primary',
+                active && 'text-foreground underline decoration-wavy decoration-primary decoration-2 underline-offset-4',
               )}
             >
               <Icon aria-hidden="true" className="size-[18px]" />

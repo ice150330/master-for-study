@@ -41,23 +41,23 @@ export function ResourceDetailPanel({
       className="min-w-0 outline-none"
       aria-labelledby="resource-detail-title"
     >
-      <header className="flex items-start justify-between gap-5 border-b border-border px-6 py-5">
+      <header className="flex items-start justify-between gap-5 border-b border-dashed border-border px-6 py-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs text-muted">
             <span>{resource.type}</span>
             {resource.siteName ? <><span>·</span><span>{resource.siteName}</span></> : null}
           </div>
-          <h2 id="resource-detail-title" className="mt-2 text-xl font-semibold leading-7 text-card-foreground">{resource.title}</h2>
+          <h2 id="resource-detail-title" className="doodle-heading mt-2 text-xl font-extrabold leading-7 text-card-foreground">{resource.title}</h2>
           {resource.author ? <p className="mt-1 text-xs text-muted">{resource.author}</p> : null}
         </div>
         <div className="flex shrink-0 gap-1">
-          <a href={resource.url} target="_blank" rel="noreferrer" className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-foreground" title="打开原文" aria-label="打开原文">
+          <a href={resource.url} target="_blank" rel="noreferrer" className="inline-flex size-9 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground" title="打开原文" aria-label="打开原文">
             <ExternalLink aria-hidden="true" className="size-4" />
           </a>
-          <button type="button" onClick={onEdit} className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-foreground" title="编辑资源" aria-label="编辑资源">
+          <button type="button" onClick={onEdit} className="inline-flex size-9 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted hover:border-accent/60 hover:bg-highlight/15 hover:text-foreground" title="编辑资源" aria-label="编辑资源">
             <Pencil aria-hidden="true" className="size-4" />
           </button>
-          <button type="button" onClick={onDelete} className="inline-flex size-9 items-center justify-center rounded-md text-muted hover:bg-danger/10 hover:text-danger" title="删除资源" aria-label="删除资源">
+          <button type="button" onClick={onDelete} className="inline-flex size-9 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted hover:border-danger/60 hover:bg-danger/10 hover:text-danger" title="删除资源" aria-label="删除资源">
             <Trash2 aria-hidden="true" className="size-4" />
           </button>
         </div>
@@ -67,7 +67,7 @@ export function ResourceDetailPanel({
         <div className="min-w-0">
           {resource.description ? <p className="break-words text-sm leading-6 text-muted [overflow-wrap:anywhere]">{resource.description}</p> : null}
 
-          <section className="mt-6 border-y border-border py-5" aria-labelledby="resource-highlights-title">
+          <section className="mt-6 border-y border-dashed border-border py-5" aria-labelledby="resource-highlights-title">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 id="resource-highlights-title" className="text-sm font-semibold text-card-foreground">摘录与注释</h3>
@@ -80,7 +80,7 @@ export function ResourceDetailPanel({
             </div>
 
             {addingHighlight ? (
-              <div className="mt-4 grid gap-3 rounded-md bg-surface p-4">
+              <div className="mt-4 grid rotate-[-0.1deg] gap-3 rounded-[2px] border border-dashed border-accent/50 bg-accent/8 p-4 shadow-[4px_4px_0_rgba(78,205,196,0.22)]">
                 <Textarea aria-label="摘录原文" className="min-h-28" value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="粘贴原文片段…" />
                 <div className="grid gap-3 min-[900px]:grid-cols-2">
                   <Input aria-label="来源定位" value={locator} onChange={(event) => setLocator(event.target.value)} placeholder="章节、页码或段落" />
@@ -106,14 +106,14 @@ export function ResourceDetailPanel({
             ) : (
               <div className="mt-4 grid gap-4">
                 {resource.highlights.map((highlight) => (
-                  <blockquote key={highlight.id} className="group border-l-2 border-primary pl-4">
+                  <blockquote key={highlight.id} className="group border-l-2 border-dashed border-primary bg-highlight/8 pl-4">
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="whitespace-pre-wrap break-words text-sm leading-6 text-card-foreground [overflow-wrap:anywhere]">{highlight.excerpt}</p>
                         {highlight.note ? <p className="mt-2 break-words text-xs leading-5 text-muted [overflow-wrap:anywhere]">注释：{highlight.note}</p> : null}
                         {highlight.locator ? <p className="mt-1 break-words text-[11px] text-primary [overflow-wrap:anywhere]">来源：{highlight.locator}</p> : null}
                       </div>
-                      <button type="button" aria-label="删除摘录" title="删除摘录" onClick={() => onDeleteHighlight(highlight.id)} className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-0 text-muted transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100">
+                      <button type="button" aria-label="删除摘录" title="删除摘录" onClick={() => onDeleteHighlight(highlight.id)} className="inline-flex size-8 shrink-0 items-center justify-center rounded-[2px] border border-dashed border-transparent opacity-0 text-muted transition-opacity hover:border-danger/60 hover:bg-danger/10 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100">
                         <Trash2 aria-hidden="true" className="size-4" />
                       </button>
                     </div>
@@ -129,10 +129,10 @@ export function ResourceDetailPanel({
           </section>
         </div>
 
-        <aside className="border-l border-border pl-5" aria-label="资源学习状态">
+        <aside className="border-l border-dashed border-border pl-5" aria-label="资源学习状态">
           <h3 className="text-xs font-semibold text-card-foreground">阅读进度</h3>
           <div className="mt-3 flex items-end justify-between">
-            <strong className="font-mono text-2xl tabular-nums text-card-foreground">{progress}%</strong>
+            <strong className="marker-highlight text-2xl font-extrabold tabular-nums text-card-foreground">{progress}%</strong>
             <span className="text-xs text-muted">{RESOURCE_STATUS_LABELS[status]}</span>
           </div>
           <input aria-label="阅读进度" className="mt-3 w-full accent-primary" type="range" min="0" max="100" step="5" value={progress} onChange={(event) => setProgress(Number(event.target.value))} />
@@ -141,15 +141,15 @@ export function ResourceDetailPanel({
             保存进度
           </Button>
 
-          <div className="mt-6 border-y border-border py-5">
+          <div className="mt-6 border-y border-dashed border-border py-5">
             <p className="text-xs font-semibold text-card-foreground">队列位置</p>
-            <div className="mt-3 grid grid-cols-3 gap-1 rounded-md bg-surface p-1">
+            <div className="paper-subtle mt-3 grid grid-cols-3 gap-1 rounded-[2px] border border-dashed bg-surface p-1">
               {RESOURCE_STATUSES.map((item) => (
                 <button key={item} type="button" onClick={() => {
                   const nextProgress = item === '已读' ? 100 : item === '在读' && progress === 0 ? 5 : progress;
                   setProgress(nextProgress);
                   onUpdateProgress(nextProgress, item);
-                }} className={`h-8 rounded-[5px] text-[11px] font-medium ${resource.status === item ? 'bg-card text-card-foreground shadow-sm' : 'text-muted'}`}>
+                }} className={`h-8 rounded-[2px] border border-dashed text-[11px] font-semibold ${resource.status === item ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]' : 'border-transparent text-muted hover:border-accent/60'}`}>
                   {RESOURCE_STATUS_LABELS[item]}
                 </button>
               ))}
@@ -168,7 +168,7 @@ export function ResourceDetailPanel({
                     source: { type: 'resource', id: resource.id },
                     attempt: null,
                   })}
-                  className="rounded-md bg-accent/10 px-2 py-1 text-[11px] font-medium text-accent hover:bg-accent/15"
+                  className="doodle-link rotate-[-0.5deg] rounded-[2px] border border-dashed border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent-foreground hover:bg-accent/15"
                 >
                   {concept.name}
                 </Link>
@@ -179,11 +179,11 @@ export function ResourceDetailPanel({
           {resource.tags.length > 0 ? (
             <div className="mt-5">
               <p className="text-xs font-semibold text-card-foreground">标签</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">{resource.tags.map((tag) => <span key={tag} className="rounded-md bg-surface px-2 py-1 text-[11px] text-muted">{tag}</span>)}</div>
+              <div className="mt-3 flex flex-wrap gap-1.5">{resource.tags.map((tag) => <span key={tag} className="rounded-[2px] border border-dashed border-border bg-surface px-2 py-1 text-[11px] text-muted">{tag}</span>)}</div>
             </div>
           ) : null}
 
-          <div className="mt-6 flex items-center gap-2 border-t border-border pt-5 text-xs text-muted">
+          <div className="mt-6 flex items-center gap-2 border-t border-dashed border-border pt-5 text-xs text-muted">
             <BookOpenText aria-hidden="true" className="size-4" />
             保存于 {new Date(resource.createdAt).toLocaleDateString('zh-CN')}
           </div>

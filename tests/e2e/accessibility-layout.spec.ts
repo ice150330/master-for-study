@@ -61,7 +61,6 @@ test('关键工作区通过严重级无障碍扫描和目标尺寸检查', async
     '/',
     '/dev/notes',
     '/resources',
-    '/practice',
     '/interview',
     '/dev/review',
     '/dev/analytics',
@@ -82,17 +81,17 @@ test('关键工作区通过严重级无障碍扫描和目标尺寸检查', async
   }
 
   await page.goto('/dev/ui', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '切换为深色主题' }).click();
+  await page.getByRole('button', { name: '切换为暖纸' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
   const darkResult = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
     .analyze();
   const darkSevere = darkResult.violations.filter((violation) =>
     violation.impact === 'serious' || violation.impact === 'critical');
-  expect(darkSevere, '深色主题不应存在严重级 axe 问题').toEqual([]);
+  expect(darkSevere, '暖纸主题不应存在严重级 axe 问题').toEqual([]);
 });
 
-test('桌面工作台在 1024 到 1600 与深色主题下不产生页面级横向滚动', async ({ page }, testInfo) => {
+test('桌面工作台在 1024 到 1600 与暖纸主题下不产生页面级横向滚动', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1440x900', '本用例内部切换全部桌面验收宽度');
   await page.addInitScript(() => {
     (window as Window & { __mentorCls?: number }).__mentorCls = 0;
@@ -104,7 +103,7 @@ test('桌面工作台在 1024 到 1600 与深色主题下不产生页面级横�
       }
     }).observe({ type: 'layout-shift', buffered: true });
   });
-  const routes = ['/dev/notes', '/practice', '/dev/review', '/dev/analytics', '/whiteboard'];
+  const routes = ['/dev/notes', '/resources', '/dev/review', '/dev/analytics', '/whiteboard'];
   const viewports = [
     { name: 'compact-desktop', width: 1024, height: 768 },
     { name: 'desktop', width: 1440, height: 900 },
@@ -126,7 +125,7 @@ test('桌面工作台在 1024 到 1600 与深色主题下不产生页面级横�
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/dev/analytics', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '切换为深色主题' }).click();
+  await page.getByRole('button', { name: '切换为暖纸' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-analytics-dark-1440x900.png`),
@@ -136,13 +135,13 @@ test('桌面工作台在 1024 到 1600 与深色主题下不产生页面级横�
 
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/practice', { waitUntil: 'networkidle' });
-  const runButton = page.getByRole('button', { name: '运行并验证' });
-  const transitionDuration = await runButton.evaluate((element) =>
+  await page.goto('/dev/ui', { waitUntil: 'networkidle' });
+  const primaryButton = page.getByRole('button', { name: '开始学习' });
+  const transitionDuration = await primaryButton.evaluate((element) =>
     Math.max(...getComputedStyle(element).transitionDuration.split(',').map((value) => Number.parseFloat(value))));
   expect(transitionDuration).toBeLessThanOrEqual(0.001);
   await page.screenshot({
-    path: path.join(captureRoot, `${phase}-practice-reduced-motion-1024x768.png`),
+    path: path.join(captureRoot, `${phase}-controls-reduced-motion-1024x768.png`),
     animations: 'disabled',
     caret: 'initial',
   });

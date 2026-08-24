@@ -6,17 +6,17 @@ export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'dan
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-primary-foreground shadow-sm hover:brightness-95',
-  secondary: 'bg-accent text-accent-foreground shadow-sm hover:brightness-95',
-  outline: 'border border-border bg-card text-card-foreground shadow-sm hover:bg-card-soft',
-  ghost: 'text-foreground hover:bg-surface',
-  danger: 'bg-danger text-danger-foreground shadow-sm hover:brightness-95',
+  primary: 'doodle-action border-2 border-dashed border-foreground bg-card text-foreground hover:bg-highlight/10',
+  secondary: 'paper-control border border-dashed text-foreground hover:border-accent hover:bg-accent/10',
+  outline: 'paper-subtle border border-dashed text-card-foreground hover:border-primary hover:bg-primary/8',
+  ghost: 'border border-dashed border-transparent text-foreground hover:border-accent/70 hover:bg-accent/10',
+  danger: 'border-2 border-dashed border-danger bg-card text-danger shadow-[4px_4px_0_rgba(255,107,107,0.48)] hover:bg-danger/8',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-xs',
-  md: 'h-9 px-4 text-sm',
-  lg: 'h-10 px-5 text-sm',
+  sm: 'h-7 px-2.5 text-xs',
+  md: 'h-8 px-3.5 text-sm',
+  lg: 'h-9 px-4 text-sm',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -36,7 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={loading || undefined}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-medium transition-[background-color,color,box-shadow,filter] duration-150 disabled:cursor-not-allowed disabled:opacity-45',
+        'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[2px] font-semibold transition-[transform,box-shadow,background-color,color,border-color] duration-150 hover:-translate-x-px hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-x-0 disabled:hover:translate-y-0',
         variantClasses[variant],
         sizeClasses[size],
         className,

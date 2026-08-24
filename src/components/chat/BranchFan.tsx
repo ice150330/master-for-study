@@ -1,83 +1,120 @@
 'use client';
 
-import { useState } from 'react';
+import type { CSSProperties } from 'react';
+import { CornerDownRight, Layers3 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import type { ChatSession } from './chat-types';
 
+type BranchLayer =
+  | { kind: 'session'; session: ChatSession; order: number }
+  | { kind: 'overflow'; sessions: ChatSession[]; order: number };
+
 /**
- * 分支扇：当前会话的子会话（派生分支）以小卡片的形式
- * 叠在主卡片右上角（逐张轻微下沉 + 旋转，形成扇形）。
- * 最多显示 3 张，更多折叠为「+N」，点开列出全部分支。
+ * 子级实体卡堆：与当前会话同尺寸，向右下紧密叠放。
+ * 悬停或聚焦卡沿时整叠展开，点击后将目标分支提到前景。
  */
 export function BranchFan({
   branches,
+  hasAncestors,
   onSelect,
 }: {
   branches: ChatSession[];
+  hasAncestors: boolean;
   onSelect: (id: string) => void;
 }) {
-  const [openMore, setOpenMore] = useState(false);
   if (branches.length === 0) return null;
 
-  const shown = branches.slice(0, 3);
-  const hidden = branches.slice(3);
+  const direct = branches.slice(0, 2).map<BranchLayer>((session, index) => ({
+    kind: 'session',
+    session,
+    order: index,
+  }));
+  const overflow = branches.slice(2);
+  const layers: BranchLayer[] = overflow.length > 0
+    ? [...direct, { kind: 'overflow', sessions: overflow, order: 2 }]
+    : direct;
 
   return (
-    <div className="absolute right-4 top-3 z-30 flex items-start gap-1.5 max-[1100px]:hidden">
-      {shown.map((b, i) => (
-        <button
-          key={b.id}
-          type="button"
-          title={`切到分支：${b.title}`}
-          onClick={() => onSelect(b.id)}
-          style={{ transform: `translateY(${i * 5}px) rotate(${(i + 1) * 1.2}deg)` }}
-          className="w-36 rounded-xl border border-border bg-card-soft px-3 py-1.5 text-left shadow-md transition-transform duration-200 hover:-translate-y-1 hover:rotate-0"
-        >
-          <span className="block truncate text-xs font-medium text-card-foreground">
-            {b.title}
-          </span>
-          <span className="text-[10px] text-muted">分支会话</span>
-        </button>
-      ))}
+    <aside
+      aria-label="后续分支"
+      className="session-branch-stack pointer-events-none absolute inset-0 z-0 hidden @min-[720px]/session-stack:block"
+    >
+      {[...layers].reverse().map((layer) => {
+        const distance = 11 + layer.order * 27;
+        const expandedDistance = 17 + layer.order * 34;
+        const style = {
+          '--stack-x': `${distance}px`,
+          '--stack-y': `${distance}px`,
+          '--stack-expanded-x': `${expandedDistance}px`,
+          '--stack-expanded-y': `${expandedDistance}px`,
+          '--stack-rotation': `${(layer.order + 1) * 0.2}deg`,
+          '--stack-scale': `${1 - layer.order * 0.004}`,
+          '--stack-opacity': `${1 - layer.order * 0.055}`,
+          zIndex: 16 - layer.order,
+        } as CSSProperties;
+        const visualProps = {
+          style,
+          className: `session-stack-layer session-stack-layer--branch group pointer-events-none absolute bottom-24 left-12 right-12 overflow-hidden rounded-[2px] border border-border bg-card text-left ${
+            hasAncestors ? 'top-24' : 'top-0'
+          }`,
+        };
 
-      {hidden.length > 0 && (
-        <>
-          {openMore && (
+        if (layer.kind === 'overflow') {
+          return (
+            <div key="branch-overflow" {...visualProps}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`查看其余 ${layer.sessions.length} 个后续分支`}
+                    className="session-stack-edge pointer-events-auto absolute inset-x-0 bottom-0 flex h-7 items-center gap-2 px-4 text-[11px] font-medium text-muted"
+                  >
+                    <span className="text-[10px] text-muted">展开全部</span>
+                    <span className="ml-auto">其余分支</span>
+                    <Layers3 aria-hidden="true" className="size-3" />
+                    <span aria-hidden="true" className="session-stack-index">+{layer.sessions.length}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" sideOffset={8} className="w-64 p-2">
+                  <p className="px-2 pb-1 pt-1 text-[11px] font-medium text-muted">其余后续分支</p>
+                  {layer.sessions.map((session, index) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      onClick={() => onSelect(session.id)}
+                      className="doodle-row flex min-h-9 w-full items-center gap-2 rounded-[2px] border border-dashed border-transparent px-2 text-left text-xs text-card-foreground hover:bg-highlight/15"
+                    >
+                      <span className="text-[10px] font-bold text-muted">B{index + 3}</span>
+                      <span className="min-w-0 flex-1 truncate">{session.title}</span>
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={layer.session.id}
+            {...visualProps}
+          >
             <button
               type="button"
-              aria-label="关闭"
-              className="fixed inset-0 z-30 cursor-default"
-              onClick={() => setOpenMore(false)}
-            />
-          )}
-          <button
-            type="button"
-            onClick={() => setOpenMore((v) => !v)}
-            className="rounded-xl border border-dashed border-border bg-card-soft/60 px-2.5 py-2 text-xs font-medium text-muted shadow-sm transition-colors hover:bg-card"
-          >
-            +{hidden.length}
-          </button>
-          {openMore && (
-            <div className="absolute right-0 top-11 z-40 w-60 rounded-2xl border border-border bg-card p-2 shadow-xl">
-              <p className="mb-1 px-2 text-[11px] text-muted">其余分支</p>
-              <div className="max-h-56 overflow-y-auto">
-                {hidden.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => {
-                      setOpenMore(false);
-                      onSelect(b.id);
-                    }}
-                    className="w-full truncate rounded-lg px-2 py-1.5 text-left text-xs text-card-foreground transition-colors hover:bg-card-soft"
-                  >
-                    {b.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+              title={`切到分支：${layer.session.title}`}
+              aria-label={`切到后续分支：${layer.session.title}`}
+              onClick={() => onSelect(layer.session.id)}
+              className="session-stack-edge pointer-events-auto absolute inset-x-0 bottom-0 flex h-7 items-center gap-2 px-4 text-[11px] font-medium text-muted"
+            >
+              <span className="shrink-0 text-[10px] text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">打开此层</span>
+              <span className="ml-auto truncate font-semibold text-card-foreground">{layer.session.title}</span>
+              <span className="shrink-0 text-muted">分支 {layer.order + 1}</span>
+              <CornerDownRight aria-hidden="true" className="size-3 text-primary" />
+              <span aria-hidden="true" className="session-stack-index">{layer.order + 1}</span>
+            </button>
+          </div>
+        );
+      })}
+    </aside>
   );
 }

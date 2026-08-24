@@ -117,14 +117,14 @@ export function ResourceFormDialog({
                 <Input id="resource-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
               </Field>
               <Field label="类型" htmlFor="resource-type">
-                <select id="resource-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as ResourceDto['type'] })} className="h-9 w-full rounded-md border border-border bg-card px-3 text-sm">
+                <select id="resource-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as ResourceDto['type'] })} className="h-9 w-full rounded-[2px] border-2 border-dashed border-border bg-card px-3 text-sm">
                   {RESOURCE_TYPES.map((type) => <option key={type}>{type}</option>)}
                 </select>
               </Field>
             </div>
 
             {metadata.description || metadata.siteName ? (
-              <div className="rounded-md bg-surface px-3 py-2.5 text-xs leading-5 text-muted">
+              <div className="rotate-[-0.2deg] rounded-[2px] border border-dashed border-accent/50 bg-accent/8 px-3 py-2.5 text-xs leading-5 text-muted shadow-[3px_3px_0_rgba(78,205,196,0.22)]">
                 <strong className="text-card-foreground">{metadata.siteName ?? new URL(url).hostname}</strong>
                 {metadata.author ? ` · ${metadata.author}` : ''}
                 {metadata.description ? <p className="mt-1 line-clamp-2">{metadata.description}</p> : null}
@@ -132,8 +132,8 @@ export function ResourceFormDialog({
             ) : null}
 
             <Field label="关联 Concept" htmlFor="concept-search" hint="可多选，资源会出现在每个知识对象的来源轨道中。">
-              <div className="overflow-hidden rounded-md border border-border">
-                <div className="flex items-center gap-2 border-b border-border px-3">
+              <div className="overflow-hidden rounded-[2px] border border-dashed border-border">
+                <div className="flex items-center gap-2 border-b border-dashed border-border px-3">
                   <Search aria-hidden="true" className="size-4 text-muted" />
                   <input id="concept-search" value={conceptSearch} onChange={(event) => setConceptSearch(event.target.value)} placeholder="搜索 Concept" className="h-9 flex-1 bg-transparent text-sm outline-none" />
                 </div>
@@ -141,8 +141,8 @@ export function ResourceFormDialog({
                   {visibleTerms.map((term) => {
                     const selected = form.conceptIds.includes(term.id);
                     return (
-                      <button key={term.id} type="button" onClick={() => setForm({ ...form, conceptIds: selected ? form.conceptIds.filter((id) => id !== term.id) : [...form.conceptIds, term.id] })} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface">
-                        <span className={`flex size-4 items-center justify-center rounded border ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>{selected ? <Check aria-hidden="true" className="size-3" /> : null}</span>
+                      <button key={term.id} type="button" onClick={() => setForm({ ...form, conceptIds: selected ? form.conceptIds.filter((id) => id !== term.id) : [...form.conceptIds, term.id] })} className="doodle-row flex items-center gap-2 rounded-[2px] border border-dashed border-transparent px-2 py-1.5 text-left text-xs hover:bg-highlight/15">
+                        <span className={`flex size-4 rotate-[-1deg] items-center justify-center rounded-[2px] border border-dashed ${selected ? 'border-foreground bg-highlight text-foreground' : 'border-border'}`}>{selected ? <Check aria-hidden="true" className="size-3" /> : null}</span>
                         <span className="truncate">{term.name}</span>
                       </button>
                     );
@@ -164,7 +164,7 @@ export function ResourceFormDialog({
           </div>
         ) : null}
 
-        <div className="mt-6 flex justify-end gap-2 border-t border-border pt-4">
+        <div className="mt-6 flex justify-end gap-2 border-t border-dashed border-border pt-4">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>取消</Button>
           <Button disabled={!metadata || !form.title.trim()} loading={busy} onClick={() => metadata && onSave({ url: url.trim(), metadata, form })}>
             {editing ? '保存修改' : '加入收件箱'}

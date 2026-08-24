@@ -5,14 +5,17 @@ import { expect, test } from '@playwright/test';
 const phase = process.env.MENTOR_CAPTURE_PHASE ?? '00-baseline';
 const captureRoot = path.resolve(process.cwd(), 'data', 'ui-captures', phase);
 const routes = [
+  { name: 'today', path: '/today' },
   { name: 'chat', path: '/' },
+  { name: 'notes', path: '/notes' },
+  { name: 'resources', path: '/resources' },
+  { name: 'interview', path: '/interview' },
   { name: 'review', path: '/review' },
-  { name: 'practice', path: '/practice' },
   { name: 'analytics', path: '/analytics' },
   { name: 'whiteboard', path: '/whiteboard' },
 ];
 
-test('采集五个核心页面的视觉基线', async ({ page }, testInfo) => {
+test('采集八个核心页面的视觉基线', async ({ page }, testInfo) => {
   const viewport = testInfo.project.name;
   const comparisonState = phase === '00-baseline' ? 'before' : 'after';
   const routeAudits: Array<Record<string, unknown>> = [];

@@ -43,14 +43,15 @@ import type { TermAction } from './Term';
 import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
 /**
- * 当前会话大卡片：标题栏（标题 + 血缘提示 + 模型切换）+ 消息流 + 输入区。
- * 整张卡即一个会话；派生新会话后本卡退为祖先竖条（见 AncestorStack）。
+ * 当前会话主卡：纸张深度与血缘标题栏 + 消息流 + 输入区。
+ * 派生会话后，本卡会成为上游路径中的实体背卡（见 AncestorStack）。
  */
 export function SessionCard({
   session,
   title,
   lineage,
-  hasBranches,
+  depth,
+  branchCount,
   messages,
   isStreaming,
   termDefs,
@@ -75,10 +76,10 @@ export function SessionCard({
 }: {
   session: ChatSession | null;
   title: string;
-  /** 血缘提示，如「承自 · HTTP 是什么」；根会话为 null */
+  /** 血缘提示，如「承自 HTTP 是什么」；根会话为 null */
   lineage: string | null;
-  /** 是否有分支扇叠在右上角（决定标题栏右侧留白） */
-  hasBranches: boolean;
+  depth: number;
+  branchCount: number;
   messages: ChatMsg[];
   isStreaming: boolean;
   termDefs: Record<string, string>;
@@ -118,18 +119,21 @@ export function SessionCard({
   }, [messages]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
-      {/* 标题栏：分支扇存在时给右侧留白避让 */}
-      <div
-        className={`flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-3 ${
-          hasBranches ? 'pr-[15.5rem]' : ''
-        }`}
-      >
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-card-foreground">{title}</h2>
-          <p className="truncate text-[11px] text-muted">
-            {lineage ?? '根会话'} · {messages.length} 条消息
-          </p>
+    <div className="session-current-card flex h-full flex-col overflow-hidden rounded-[2px] border border-border bg-card shadow-[var(--shadow-md)]">
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-dashed border-border px-4 py-2.5">
+        <div className="flex min-w-0 items-stretch gap-3">
+          <span aria-hidden="true" className="w-1 shrink-0 rotate-1 bg-primary shadow-[2px_0_0_var(--marker-yellow)]" />
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-[10px] font-semibold text-muted">
+              <span className="rotate-[-2deg] border border-dashed border-primary bg-primary/12 px-1 text-primary">D{depth}</span>
+              <span>当前会话</span>
+              {branchCount > 0 ? <span>· {branchCount} 个后续分支</span> : null}
+            </p>
+            <h2 className="doodle-heading mt-0.5 truncate text-base font-extrabold leading-5 text-card-foreground">{title}</h2>
+            <p className="truncate text-[11px] text-muted">
+              {lineage ?? '根会话'} · {messages.length} 条消息
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <ModelSwitch value={model} onChange={onModelChange} />
@@ -169,9 +173,7 @@ export function SessionCard({
       {/* 消息流 */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4 [contain:layout_paint]">
         {messages.length === 0 && (
-          <p className="py-16 text-center text-sm text-muted">
-            随便问个技术问题，比如「什么是 DNS？」
-          </p>
+          <p className="marker-highlight mx-auto my-16 w-fit rotate-[-0.5deg] text-sm font-semibold text-muted">还没有消息</p>
         )}
         {messages.map((m) => (
           <div
@@ -185,10 +187,10 @@ export function SessionCard({
               <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
             ) : null}
             <div
-              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-md [overflow-wrap:anywhere] ${
+              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-[2px] border-2 border-dashed px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere] ${
                 m.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card-soft text-card-foreground'
+                  ? 'rotate-[0.2deg] border-primary/60 bg-primary/8 text-card-foreground shadow-[4px_4px_0_rgba(255,107,107,0.2)]'
+                  : 'paper-subtle -rotate-[0.1deg] border-accent/55 text-card-foreground shadow-[4px_4px_0_rgba(78,205,196,0.2)]'
               } ${m.status === 'error' ? 'border border-danger/35' : ''}`}
             >
               {m.content ? (
@@ -205,7 +207,7 @@ export function SessionCard({
                 <p className="mt-1 text-xs text-danger">{m.error}</p>
               ) : null}
               {m.role === 'assistant' && m.sources && m.sources.length > 0 ? (
-                <div className="mt-3 border-t border-border pt-2">
+                <div className="mt-3 border-t border-dashed border-border pt-2">
                   <p className="text-[11px] font-semibold text-muted">引用来源</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {m.sources.map((source, index) => (
@@ -214,7 +216,7 @@ export function SessionCard({
                         href={source.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex max-w-56 items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] text-card-foreground hover:text-primary"
+                        className="doodle-link inline-flex max-w-56 items-center gap-1 rounded-[2px] border border-dashed border-border bg-card px-2 py-1 text-[11px] text-card-foreground hover:bg-highlight/15"
                       >
                         <span className="shrink-0">[{index + 1}]</span>
                         <span className="truncate">{source.title}</span>
@@ -238,7 +240,7 @@ export function SessionCard({
       </div>
 
       {/* 输入区 */}
-      <div className="shrink-0 border-t border-border p-3">
+      <div className="shrink-0 border-t border-dashed border-border p-3">
         {requestError ? (
           <InlineNotice
             className="mb-2"
@@ -271,7 +273,7 @@ export function SessionCard({
         {selectedResourceIds.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="本轮已选资源">
             {resourceOptions.filter((resource) => selectedResourceIds.includes(resource.id)).map((resource) => (
-              <span key={resource.id} className="inline-flex max-w-56 items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] text-primary">
+              <span key={resource.id} className="inline-flex max-w-56 rotate-[-0.35deg] items-center gap-1 rounded-[2px] border border-dashed border-primary/60 bg-primary/10 px-2 py-1 text-[11px] text-foreground shadow-[2px_2px_0_rgba(255,107,107,0.24)]">
                 <span className="truncate">{resource.title}</span>
                 <button type="button" aria-label={`移除资源 ${resource.title}`} onClick={() => onToggleResource(resource.id)} className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-primary/10">
                   <X aria-hidden="true" className="size-3" />
@@ -292,7 +294,7 @@ export function SessionCard({
             }}
             rows={2}
             placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
-            className="flex-1 resize-none rounded-xl border border-border bg-card-soft px-4 py-3 text-sm text-card-foreground outline-none placeholder:text-card-foreground/50 focus:border-primary"
+            className="paper-subtle flex-1 resize-none rounded-[2px] border-2 border-dashed border-border bg-card-soft px-4 py-3 text-sm text-card-foreground outline-none placeholder:text-card-foreground/50 transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)]"
           />
           {isStreaming ? (
             <Button className="h-[46px]" variant="outline" onClick={onStop}>
@@ -397,7 +399,7 @@ function ResourceSelector({
                 type="button"
                 onClick={() => onToggle(resource.id)}
                 disabled={!selected && selectedIds.length >= 5}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-surface disabled:opacity-45"
+                className="doodle-row flex w-full items-center gap-2 rounded-[2px] border border-dashed border-transparent px-2 py-2 text-left hover:bg-highlight/15 disabled:opacity-45"
               >
                 <span className={`flex size-4 shrink-0 items-center justify-center rounded border ${selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
                   {selected ? <Check aria-hidden="true" className="size-3" /> : null}
@@ -442,16 +444,16 @@ function ModelSwitch({
   onChange: (m: ChatModel) => void;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-card-soft p-0.5">
+    <div className="paper-subtle flex shrink-0 items-center gap-0.5 rounded-[2px] border border-dashed border-border p-0.5">
       <button
         type="button"
         onClick={() => onChange('fast')}
         aria-pressed={value === 'fast'}
         title="deepseek-v4-flash · 快速回复，日常问答"
-        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+        className={`flex items-center gap-1 rounded-[2px] border border-dashed border-transparent px-2.5 py-1 text-xs font-semibold transition-[transform,box-shadow,background-color,color,border-color] active:translate-x-0.5 active:translate-y-0.5 ${
           value === 'fast'
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted hover:text-foreground'
+            ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
+            : 'text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground'
         }`}
       >
         <Zap aria-hidden="true" className="size-3" />
@@ -462,10 +464,10 @@ function ModelSwitch({
         onClick={() => onChange('pro')}
         aria-pressed={value === 'pro'}
         title="deepseek-v4-pro · 深度思考，重任务"
-        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+        className={`flex items-center gap-1 rounded-[2px] border border-dashed border-transparent px-2.5 py-1 text-xs font-semibold transition-[transform,box-shadow,background-color,color,border-color] active:translate-x-0.5 active:translate-y-0.5 ${
           value === 'pro'
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'text-muted hover:text-foreground'
+            ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
+            : 'text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground'
         }`}
       >
         <Sparkles aria-hidden="true" className="size-3" />

@@ -21,10 +21,10 @@ export function KnowledgeNodeCard({ data, selected }: NodeProps<KnowledgeFlowNod
   const evidenceCount = Object.values(item.evidence).reduce((sum, value) => sum + value, 0);
   const Icon = item.kind === 'session' ? MessageCircleMore : item.kind === 'domain' ? FolderTree : BookOpenText;
   return (
-    <div className={`h-[68px] w-[184px] rounded-md border bg-card px-3 py-2.5 shadow-sm transition-[border-color,box-shadow,transform] ${selected ? 'border-primary shadow-md' : data.center ? 'border-primary/55' : 'border-border hover:border-primary/45'}`}>
+    <div className={`paper-control h-[68px] w-[184px] rounded-[2px] border-2 border-dashed px-3 py-2.5 transition-[border-color,box-shadow,transform] ${selected ? '-translate-x-px -translate-y-px rotate-[-0.35deg] border-primary shadow-[var(--shadow-marker)]' : data.center ? 'rotate-[0.25deg] border-primary/70 shadow-[3px_3px_0_var(--marker-yellow)]' : 'hover:-translate-y-px hover:border-accent hover:shadow-[3px_3px_0_rgba(78,205,196,0.36)]'}`}>
       <Handle type="target" position={Position.Left} className="!size-1.5 !border-card !bg-muted" />
       <div className="flex items-center gap-2">
-        <span className={`flex size-7 shrink-0 items-center justify-center rounded-md ${data.center ? 'bg-primary text-primary-foreground' : 'bg-surface text-muted'}`}>
+        <span className={`flex size-7 shrink-0 rotate-[-1deg] items-center justify-center rounded-[2px] border border-dashed ${data.center ? 'border-foreground bg-highlight text-foreground' : 'border-border bg-surface text-muted'}`}>
           <Icon aria-hidden="true" className="size-3.5" />
         </span>
         <span className="min-w-0 flex-1">

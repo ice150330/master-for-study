@@ -36,7 +36,7 @@ export function InlineNotice({
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm',
+        'flex items-start gap-2.5 rounded-[2px] border-2 border-dashed px-3 py-2.5 text-sm shadow-[3px_3px_0_rgba(78,205,196,0.22)]',
         toneStyles[tone],
         className,
       )}

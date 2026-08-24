@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={toast.id}
               role={toast.tone === 'error' ? 'alert' : 'status'}
-              className="pointer-events-auto flex gap-3 rounded-lg border border-border bg-card p-3 text-card-foreground shadow-[var(--shadow-md)] animate-toast-enter"
+              className="paper-popover pointer-events-auto flex gap-3 rounded-[2px] border-2 border-dashed p-3 text-card-foreground animate-toast-enter"
             >
               <Icon
                 aria-hidden="true"

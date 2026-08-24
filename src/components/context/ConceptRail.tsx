@@ -2,7 +2,7 @@
 
 import {
   BookOpenText,
-  Brain,
+  ClipboardCheck,
   ExternalLink,
   LoaderCircle,
   MapPin,
@@ -75,10 +75,10 @@ export function ConceptRail({
       }}
       className="flex h-full min-h-0 flex-col bg-card outline-none"
     >
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-dashed border-border px-5 py-4">
         <div className="min-w-0">
           <p className="text-[11px] font-medium text-muted">知识对象</p>
-          <h2 className="mt-0.5 truncate text-base font-semibold text-card-foreground">
+          <h2 className="doodle-heading mt-0.5 truncate text-base font-extrabold text-card-foreground">
             {concept?.canonicalName || name}
           </h2>
         </div>
@@ -99,7 +99,7 @@ export function ConceptRail({
           <div className="space-y-5">
             <section>
               <div className="mb-2 flex items-center gap-2">
-                <span className="rounded-md bg-accent/15 px-2 py-1 text-[11px] font-medium text-accent">
+                <span className="rotate-[-1deg] rounded-[2px] border border-dashed border-accent bg-accent/15 px-2 py-1 text-[11px] font-semibold text-accent-foreground shadow-[2px_2px_0_rgba(78,205,196,0.28)]">
                   {detail?.mastery ? masteryLabel[detail.mastery.state] : '待加入'}
                 </span>
                 <span className="text-[11px] text-muted">
@@ -108,7 +108,7 @@ export function ConceptRail({
               </div>
               <p className="text-sm leading-6 text-card-foreground">{concept.definition}</p>
               {concept.example ? (
-                <p className="mt-2 border-l-2 border-accent/50 pl-3 text-xs leading-5 text-muted">
+                <p className="mt-2 border-l-2 border-dashed border-accent/60 pl-3 text-xs leading-5 text-muted">
                   {concept.example}
                 </p>
               ) : null}
@@ -125,7 +125,7 @@ export function ConceptRail({
                       key={source.id}
                       type="button"
                       onClick={() => onOpenSource(source)}
-                      className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-card-soft"
+                      className="doodle-row w-full rounded-[2px] border border-dashed border-transparent px-2 py-2 text-left"
                     >
                       <span className="block truncate text-xs font-medium text-card-foreground">
                         {source.sourceTitle}
@@ -152,7 +152,7 @@ export function ConceptRail({
                       source: { type: 'note', id: note.id },
                       attempt: null,
                     })}
-                    className="block truncate rounded-md px-2 py-1.5 text-xs text-card-foreground hover:bg-card-soft"
+                    className="doodle-link block truncate rounded-[2px] px-2 py-1.5 text-xs text-card-foreground hover:bg-highlight/15"
                   >
                     {note.title}
                   </a>
@@ -168,7 +168,7 @@ export function ConceptRail({
                     href={resource.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs text-card-foreground hover:bg-card-soft"
+                    className="doodle-link flex items-center justify-between gap-2 rounded-[2px] px-2 py-1.5 text-xs text-card-foreground hover:bg-highlight/15"
                   >
                     <span className="truncate">{resource.title}</span>
                     <ExternalLink aria-hidden="true" className="size-3 shrink-0 text-muted" />
@@ -181,14 +181,14 @@ export function ConceptRail({
       </div>
 
       {concept ? (
-        <div className="shrink-0 border-t border-border p-4">
+        <div className="shrink-0 border-t border-dashed border-border p-4">
           <Button className="w-full" onClick={onFollowup}>
             <MessageCircleMore aria-hidden="true" className="size-4" />
             继续追问
           </Button>
           <div className="mt-2 grid grid-cols-3 gap-1">
             <RailLink href={withLearningContext('/notes', { ...learningContext, conceptId: concept.id, attempt: null })} label="创建笔记" icon={<NotebookPen />} />
-            <RailLink href={withLearningContext('/practice', { ...learningContext, conceptId: concept.id, attempt: null })} label="开始练习" icon={<Brain />} />
+            <RailLink href={withLearningContext('/interview', { ...learningContext, conceptId: concept.id, attempt: null })} label="模拟测验" icon={<ClipboardCheck />} />
             <RailLink href={withLearningContext('/review', { ...learningContext, conceptId: concept.id, attempt: null })} label="加入复习" icon={<BookOpenText />} />
           </div>
         </div>
@@ -207,7 +207,7 @@ function RailSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-border pt-4">
+    <section className="border-t border-dashed border-border pt-4">
       <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-card-foreground [&_svg]:size-3.5">
         {icon}
         {title}
@@ -221,7 +221,7 @@ function RailLink({ href, label, icon }: { href: string; label: string; icon: Re
   return (
     <a
       href={href}
-      className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-md bg-card-soft px-1 text-center text-[11px] text-card-foreground transition-colors hover:bg-surface [&_svg]:size-3.5"
+      className="doodle-row flex min-h-14 flex-col items-center justify-center gap-1 rounded-[2px] border border-dashed border-border bg-card-soft px-1 text-center text-[11px] text-card-foreground hover:bg-highlight/15 [&_svg]:size-3.5"
     >
       {icon}
       {label}

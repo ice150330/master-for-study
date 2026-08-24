@@ -55,7 +55,7 @@ export function SessionPicker({
             <ListTree aria-hidden="true" className="size-4" />
             会话列表
             {sessions.length > 0 ? (
-              <span className="rounded bg-surface px-1.5 text-[10px] text-muted">{sessions.length}</span>
+              <span className="rotate-[-1deg] rounded-[2px] border border-dashed border-border bg-highlight/20 px-1.5 text-[10px] text-muted">{sessions.length}</span>
             ) : null}
           </Button>
         </PopoverTrigger>
@@ -79,14 +79,14 @@ export function SessionPicker({
               aria-label="搜索会话"
               placeholder="搜索标题"
               autoFocus
-              className="h-9 w-full rounded-md border border-border bg-card-soft pl-8 pr-3 text-sm outline-none focus:border-primary"
+              className="h-9 w-full rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-8 pr-3 text-sm outline-none transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[3px_3px_0_rgba(78,205,196,0.34)]"
             />
           </label>
           <PopoverClose asChild>
             <button
               type="button"
               aria-label="关闭会话列表"
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted hover:bg-card-soft hover:text-card-foreground"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted hover:border-danger/60 hover:bg-danger/10 hover:text-danger"
             >
               <X aria-hidden="true" className="size-4" />
             </button>
@@ -106,11 +106,11 @@ export function SessionPicker({
           )}
 
           {visibleArchived.length > 0 ? (
-            <section className="mt-2 border-t border-border pt-2">
+            <section className="mt-2 border-t border-dashed border-border pt-2">
               <p className="px-2 py-1 text-[11px] font-medium text-muted">已归档</p>
               <ul className="space-y-0.5">
                 {visibleArchived.map((session) => (
-                  <li key={session.id} className="flex items-center gap-1 rounded px-2 py-1 hover:bg-surface">
+                  <li key={session.id} className="doodle-row flex items-center gap-1 rounded-[2px] border border-dashed border-transparent px-2 py-1 hover:bg-highlight/15">
                     <span className="min-w-0 flex-1 truncate text-xs text-muted">{session.title}</span>
                     <button
                       type="button"
@@ -141,16 +141,16 @@ function renderTree(
   depth = 0,
 ): ReactNode {
   return (
-    <ul className={depth > 0 ? 'ml-3 border-l border-border pl-2' : 'space-y-0.5'}>
+    <ul className={depth > 0 ? 'ml-3 border-l border-dashed border-border pl-2' : 'space-y-0.5'}>
       {nodes.map((node) => (
         <li key={node.id} className="space-y-0.5">
           <button
             type="button"
             onClick={() => onSelect(node.id)}
-            className={`flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs transition-colors ${
+            className={`doodle-row flex w-full items-center gap-1.5 rounded-[2px] border border-dashed px-2 py-1.5 text-left text-xs ${
               node.id === currentId
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted hover:bg-card-soft hover:text-card-foreground'
+                ? 'rotate-[-0.25deg] border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
+                : 'border-transparent text-muted hover:bg-card-soft hover:text-card-foreground'
             }`}
           >
             {node.pinnedAt ? <Pin aria-label="已置顶" className="size-3 shrink-0 fill-current" /> : null}

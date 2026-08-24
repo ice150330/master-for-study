@@ -8,6 +8,8 @@ const captureRoot = path.resolve(process.cwd(), 'data', 'ui-captures', phase);
 const rootId = '11111111-1111-4111-8111-111111111111';
 const siblingId = '22222222-2222-4222-8222-222222222222';
 const childId = '33333333-3333-4333-8333-333333333333';
+const workerSiblingId = '44444444-4444-4444-8444-444444444444';
+const cdnSiblingId = '55555555-5555-4555-8555-555555555555';
 const anchorId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 test('术语和消息锚点创建可回溯的语义分支', async ({ page }, testInfo) => {
@@ -16,8 +18,10 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
 
   const root = session(rootId, null, 'HTTP 缓存策略');
   const sibling = session(siblingId, rootId, '协商缓存', anchorId);
+  const workerSibling = session(workerSiblingId, rootId, 'Service Worker 缓存', anchorId);
+  const cdnSibling = session(cdnSiblingId, rootId, 'CDN 重新验证', anchorId);
   const child = session(childId, rootId, '从消息继续', anchorId);
-  const sessions = [root, sibling];
+  const sessions = [root, sibling, workerSibling, cdnSibling];
 
   await page.route('**/api/sessions', async (route) => {
     if (route.request().method() === 'POST') {
@@ -98,8 +102,25 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
 
   await page.goto('/', { waitUntil: 'networkidle' });
   await expect(page.getByRole('heading', { name: 'HTTP 缓存策略' })).toBeVisible();
+  const branchStack = page.getByRole('complementary', { name: '后续分支' });
+  await expect(branchStack).toBeVisible();
+  await expect(branchStack.getByTitle('切到分支：协商缓存')).toBeVisible();
+  await expect(branchStack.getByTitle('切到分支：Service Worker 缓存')).toBeVisible();
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-before-${testInfo.project.name}.png`),
+    animations: 'disabled',
+  });
+
+  const firstBranch = branchStack.getByTitle('切到分支：协商缓存');
+  const stackLayer = firstBranch.locator('..');
+  const restingTransform = await stackLayer.evaluate((element) => getComputedStyle(element).transform);
+  await firstBranch.hover();
+  await page.waitForTimeout(380);
+  await expect(firstBranch.getByText('打开此层')).toBeVisible();
+  const expandedTransform = await stackLayer.evaluate((element) => getComputedStyle(element).transform);
+  expect(expandedTransform).not.toBe(restingTransform);
+  await page.screenshot({
+    path: path.join(captureRoot, `${phase}-hover-stack-${testInfo.project.name}.png`),
     animations: 'disabled',
   });
 
@@ -110,6 +131,7 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
   await anchorMessage.hover();
   await anchorMessage.getByRole('button', { name: '从这里分支' }).click();
   await expect(page.getByRole('heading', { name: '从消息继续' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '会话分支路径' })).toBeVisible();
   await page.waitForTimeout(90);
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-motion-mid-${testInfo.project.name}.png`),
@@ -124,7 +146,16 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
     animations: 'disabled',
   });
 
-  await page.getByTitle('回到：HTTP 缓存策略').click();
+  const parentCard = page.getByTitle('回到：HTTP 缓存策略');
+  await parentCard.hover();
+  await page.waitForTimeout(380);
+  await expect(parentCard.getByText('回到此层')).toBeVisible();
+  await page.screenshot({
+    path: path.join(captureRoot, `${phase}-hover-ancestor-${testInfo.project.name}.png`),
+    animations: 'disabled',
+  });
+
+  await parentCard.click();
   await page.getByTitle('切到分支：协商缓存').click();
   await expect(page.getByRole('heading', { name: '协商缓存' })).toBeVisible();
   await expect(page.getByText('协商缓存会使用 ETag 或 Last-Modified。')).toBeVisible();
@@ -134,8 +165,8 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
   });
 });
 
-test('1024 宽度使用紧凑分支路径且不遮挡输入区', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'tablet-1024x768', '仅验收桌面紧凑宽度');
+test('1024 宽度保留直接卡片堆且不遮挡输入区', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'tablet-1024x768', '仅验收 1024 桌面工作区');
   await fs.mkdir(captureRoot, { recursive: true });
   const root = session(rootId, null, 'HTTP 缓存策略');
   const child = {
@@ -168,7 +199,7 @@ test('1024 宽度使用紧凑分支路径且不遮挡输入区', async ({ page }
   await expect(pathNavigation.getByRole('button', { name: /HTTP 缓存策略/ })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /输入问题/ })).toBeVisible();
   await page.screenshot({
-    path: path.join(captureRoot, `${phase}-compact-path-${testInfo.project.name}.png`),
+    path: path.join(captureRoot, `${phase}-direct-stack-${testInfo.project.name}.png`),
     animations: 'disabled',
   });
 });

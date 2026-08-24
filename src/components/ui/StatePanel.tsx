@@ -25,13 +25,13 @@ function StatePanel({
   return (
     <div
       className={cn(
-        'flex min-h-40 flex-col items-start justify-center border-y border-border py-6',
+        'flex min-h-40 flex-col items-start justify-center border-y border-dashed border-border py-6',
         className,
       )}
     >
       <span
         className={cn(
-          'mb-3 inline-flex size-9 items-center justify-center rounded-md [&>svg]:size-[18px]',
+          'mb-3 inline-flex size-9 rotate-[-1deg] items-center justify-center rounded-[2px] border border-dashed border-foreground/35 shadow-[2px_2px_0_var(--marker-yellow)] [&>svg]:size-[18px]',
           tone === 'error' ? 'bg-danger/10 text-danger' : 'bg-surface text-muted',
         )}
       >

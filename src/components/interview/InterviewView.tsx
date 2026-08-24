@@ -220,7 +220,6 @@ export function InterviewView({
   return (
     <PageShell
       title="模拟面试"
-      description="按真实 rubric 评估，并依据每轮表现调整下一题"
       width="xl"
       actions={mode !== 'setup' ? (
         <Button variant="outline" size="sm" onClick={restart}>

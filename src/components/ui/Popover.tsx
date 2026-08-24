@@ -20,7 +20,7 @@ export const PopoverContent = forwardRef<
         sideOffset={sideOffset}
         collisionPadding={12}
         className={cn(
-          'z-[70] w-72 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-[var(--shadow-md)] data-[state=open]:animate-ui-enter',
+          'paper-popover z-[70] w-72 rotate-[0.15deg] rounded-[2px] border-2 border-dashed p-3 text-card-foreground data-[state=open]:animate-ui-enter',
           className,
         )}
         {...props}

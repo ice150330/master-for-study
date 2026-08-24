@@ -64,7 +64,7 @@ test('主动回忆、评级、撤销与队列完成形成完整复习流', async
   await page.getByRole('button', { name: /记得/ }).click();
 
   await page.getByRole('button', { name: '口头回答' }).click();
-  await page.getByRole('button', { name: '回答完成后点这里' }).click();
+  await page.getByRole('button', { name: '标记口头作答完成' }).click();
   await page.keyboard.press('Space');
   await expect(page.getByText(/HTTP 响应的实体标签/)).toBeVisible();
   await page.keyboard.press('3');

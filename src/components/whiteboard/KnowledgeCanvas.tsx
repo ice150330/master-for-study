@@ -59,7 +59,7 @@ export function KnowledgeCanvas({
     labelStyle: { fill: 'var(--muted)', fontSize: 10, fontWeight: 500 },
     labelBgStyle: { fill: 'var(--card)', fillOpacity: 0.92 },
     labelBgPadding: [5, 3],
-    labelBgBorderRadius: 4,
+    labelBgBorderRadius: 2,
     style: { stroke: relationColor[edge.relation], strokeWidth: Math.min(3, 1 + edge.weight * 0.35) },
   })), [graph.edges]);
   const handleClick: NodeMouseHandler<KnowledgeFlowNode> = (_event, node) => onSelect(node.id);
@@ -68,7 +68,7 @@ export function KnowledgeCanvas({
   };
 
   return (
-    <div className="h-full min-h-0 w-full bg-card" data-testid="knowledge-canvas">
+    <div className="h-full min-h-0 w-full bg-transparent" data-testid="knowledge-canvas">
       <ReactFlow<KnowledgeFlowNode, Edge>
         nodes={nodes}
         edges={edges}
@@ -86,7 +86,7 @@ export function KnowledgeCanvas({
         maxZoom={1.8}
         onlyRenderVisibleElements
         elevateNodesOnSelect
-        colorMode="system"
+        colorMode="light"
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--border)" />
         <Controls
@@ -101,12 +101,12 @@ export function KnowledgeCanvas({
             pannable
             zoomable
             ariaLabel="知识图缩略导航"
-            nodeColor={(node) => node.id === graph.centerId ? '#6558d9' : '#8b91a0'}
-            nodeStrokeColor="#ffffff"
+            nodeColor={(node) => node.id === graph.centerId ? 'var(--primary)' : 'var(--accent)'}
+            nodeStrokeColor="rgba(44,44,44,0.42)"
             nodeStrokeWidth={3}
-            nodeBorderRadius={4}
-            maskColor="rgba(101, 88, 217, 0.08)"
-            style={{ background: 'var(--surface)' }}
+            nodeBorderRadius={2}
+            maskColor="rgba(255, 254, 245, 0.68)"
+            style={{ background: 'var(--card)', border: '1px dashed var(--border)', boxShadow: '3px 3px 0 rgba(78,205,196,0.28)' }}
           />
         ) : null}
         <AutoFit graphKey={`${graph.mode}:${graph.centerId}:${graph.nodes.length}:${graph.edges.length}`} />

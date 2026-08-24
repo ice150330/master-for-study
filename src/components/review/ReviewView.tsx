@@ -241,16 +241,16 @@ export function ReviewView({
   });
 
   return (
-    <PageShell title="复习" description="先从记忆中取回，再用反馈校准" width="lg">
-      <section className="mb-4 grid grid-cols-[1fr_auto_auto_auto] items-center gap-5 border-y border-border py-3 text-sm">
+    <PageShell title="复习" width="lg">
+      <section className="mb-4 grid grid-cols-[1fr_auto_auto_auto] items-center gap-5 border-y border-dashed border-border py-3 text-sm">
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
             <span>今日进度</span>
             <span>{completed} / {totalInSession}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-surface">
+          <div className="h-1.5 overflow-hidden rounded-[1px] border border-dashed border-border bg-surface">
             <div
-              className="h-full rounded-full bg-primary transition-[width] duration-200"
+              className="h-full bg-primary transition-[width] duration-200"
               style={{ width: `${totalInSession === 0 ? 100 : (completed / totalInSession) * 100}%` }}
             />
           </div>
@@ -264,7 +264,7 @@ export function ReviewView({
         <section
           data-context-focus={`review:${focusReview.id}`}
           tabIndex={-1}
-          className="mb-4 flex items-center justify-between gap-4 rounded-md border border-primary/25 bg-primary/8 px-4 py-3 outline-none"
+          className="mb-4 flex rotate-[-0.15deg] items-center justify-between gap-4 rounded-[2px] border-2 border-dashed border-primary/55 bg-primary/8 px-4 py-3 shadow-[3px_3px_0_rgba(255,107,107,0.24)] outline-none"
         >
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold text-foreground">历史记录：{focusReview.termName}</p>
@@ -277,7 +277,7 @@ export function ReviewView({
       ) : null}
 
       {lastReview ? (
-        <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-accent/30 bg-accent/8 px-4 py-2.5 text-sm">
+        <div className="mb-4 flex rotate-[0.15deg] items-center justify-between gap-4 rounded-[2px] border border-dashed border-accent/60 bg-accent/8 px-4 py-2.5 text-sm shadow-[3px_3px_0_rgba(78,205,196,0.22)]">
           <span><strong>{lastReview.item.name}</strong> 已安排在 {lastReview.intervalLabel}后</span>
           <Button variant="ghost" size="sm" onClick={undo} loading={busy}>
             <RotateCcw className="size-4" />撤销
@@ -297,24 +297,24 @@ export function ReviewView({
       ) : null}
 
       {!current ? (
-        <section className="flex min-h-[430px] flex-col items-center justify-center border border-border bg-card px-8 text-center">
-          <span className="mb-4 grid size-11 place-items-center rounded-full bg-accent/12 text-accent"><Check className="size-5" /></span>
-          <h2 className="text-lg font-semibold">本轮复习完成</h2>
-          <p className="mt-2 max-w-md text-sm text-muted">今天到期的内容已经处理完。新概念会按记忆状态自动进入下一轮。</p>
+        <section className="paper-panel flex min-h-[430px] rotate-[-0.1deg] flex-col items-center justify-center rounded-[2px] border-2 border-dashed px-8 text-center">
+          <span className="mb-4 grid size-11 rotate-[-2deg] place-items-center rounded-[2px] border-2 border-dashed border-accent bg-accent/12 text-accent-foreground shadow-[3px_3px_0_var(--marker-yellow)]"><Check className="size-5" /></span>
+          <h2 className="doodle-heading text-lg font-extrabold">本轮复习完成</h2>
+          <p className="mt-2 max-w-md text-sm text-muted">今日到期内容已处理完。</p>
           <Link
             href="/"
-            className="mt-6 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:brightness-95"
+            className="doodle-action mt-6 inline-flex h-9 items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-card px-4 text-sm font-semibold text-foreground hover:-translate-x-px hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
           >
             继续学习
           </Link>
         </section>
       ) : (
-        <section className="grid min-h-[320px] overflow-hidden rounded-md border border-border bg-card min-[960px]:grid-cols-[minmax(0,1fr)_15rem] min-[1180px]:min-h-[440px]">
+        <section className="paper-panel grid min-h-[320px] overflow-hidden rounded-[2px] border-2 border-dashed min-[960px]:grid-cols-[minmax(0,1fr)_15rem] min-[1180px]:min-h-[440px]">
           <div className="flex min-w-0 flex-col p-5 min-[1180px]:p-7">
             <div className="mb-4 flex items-start justify-between gap-4 min-[1180px]:mb-6">
               <div>
                 <p className="text-xs font-medium text-muted">{completed + 1} / {totalInSession} · {STATE_LABELS[current.state]}</p>
-                <h2 className="mt-2 text-2xl font-semibold text-card-foreground">{current.name}</h2>
+                <h2 className="doodle-heading marker-highlight mt-2 text-2xl font-extrabold text-card-foreground">{current.name}</h2>
               </div>
               <SegmentedControl
                 value={mode}
@@ -334,14 +334,14 @@ export function ReviewView({
 
             {!revealed ? (
               <div className="flex flex-1 flex-col">
-                <p className="mb-3 text-sm text-muted">在看定义前，先写下你记得的核心内容。</p>
+                <p className="mb-3 text-sm font-semibold text-muted">主动回忆</p>
                 {mode === 'typed' ? (
                   <textarea
                     aria-label="主动回忆"
                     value={recall}
                     onChange={(event) => setRecall(event.target.value)}
                     placeholder="用自己的话回答，不要求逐字一致"
-                    className="min-h-28 w-full resize-none rounded-md border border-border bg-background p-4 text-sm leading-6 outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/15 min-[1180px]:min-h-40"
+                    className="paper-subtle min-h-28 w-full resize-none rounded-[2px] border-2 border-dashed border-border bg-background p-4 text-sm leading-6 outline-none transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)] min-[1180px]:min-h-40"
                     autoFocus
                   />
                 ) : (
@@ -349,10 +349,10 @@ export function ReviewView({
                     type="button"
                     aria-pressed={oralDone}
                     onClick={() => setOralDone((value) => !value)}
-                    className="flex min-h-28 flex-col items-center justify-center rounded-md border border-dashed border-border bg-surface text-sm transition-colors hover:border-primary min-[1180px]:min-h-40"
+                    className="doodle-row flex min-h-28 flex-col items-center justify-center rounded-[2px] border-2 border-dashed border-border bg-surface text-sm hover:border-primary hover:bg-highlight/10 min-[1180px]:min-h-40"
                   >
                     <Mic className="mb-3 size-6 text-muted" />
-                    <span className="font-medium">{oralDone ? '已完成口头回答' : '回答完成后点这里'}</span>
+                    <span className="font-semibold">{oralDone ? '已完成口头回答' : '标记口头作答完成'}</span>
                     {oralDone ? <span className="mt-1 text-xs text-accent">可以查看答案</span> : null}
                   </button>
                 )}
@@ -365,7 +365,7 @@ export function ReviewView({
             ) : (
               <div className="flex flex-1 flex-col">
                 {mode === 'typed' ? (
-                  <div className="mb-4 border-l-2 border-accent bg-surface px-4 py-3">
+                  <div className="mb-4 rotate-[-0.1deg] border-l-2 border-dashed border-accent bg-accent/8 px-4 py-3 shadow-[3px_3px_0_rgba(78,205,196,0.2)]">
                     <p className="mb-1 text-xs font-medium text-muted">你的回忆</p>
                     <p className="whitespace-pre-wrap text-sm leading-6">{recall}</p>
                   </div>
@@ -381,7 +381,7 @@ export function ReviewView({
                       type="button"
                       disabled={busy}
                       onClick={() => grade(option.grade)}
-                      className={`min-h-20 rounded-md border bg-card px-3 py-2 text-left transition-colors disabled:opacity-45 ${option.className}`}
+                      className={`doodle-row min-h-20 rounded-[2px] border-2 border-dashed bg-card px-3 py-2 text-left transition-[transform,box-shadow,background-color,border-color] hover:-translate-x-px hover:-translate-y-px disabled:opacity-45 ${option.className}`}
                     >
                       <span className="block text-sm font-semibold">{option.label}</span>
                       <span className="mt-0.5 block text-[11px] text-muted">{option.description}</span>
@@ -393,15 +393,15 @@ export function ReviewView({
             )}
           </div>
 
-          <aside className="border-t border-border bg-surface p-5 min-[960px]:border-l min-[960px]:border-t-0">
+          <aside className="border-t border-dashed border-border bg-card-soft/70 p-5 min-[960px]:border-l min-[960px]:border-t-0">
             <h3 className="text-xs font-semibold uppercase text-muted">记忆依据</h3>
             <dl className="mt-4 space-y-4 text-sm">
               <div><dt className="text-xs text-muted">记忆状态</dt><dd className="mt-1 font-medium">{STATE_LABELS[current.state]}</dd></div>
               <div><dt className="text-xs text-muted">稳定性</dt><dd className="mt-1 font-medium">{current.stability.toFixed(1)} 天</dd></div>
               <div><dt className="text-xs text-muted">难度</dt><dd className="mt-1 font-medium">{current.difficulty.toFixed(1)} / 10</dd></div>
             </dl>
-            <div className="my-5 border-t border-border" />
-            <Link href={current.sourceHref} className="flex items-start gap-2 text-sm text-accent hover:underline">
+            <div className="my-5 border-t border-dashed border-border" />
+            <Link href={current.sourceHref} className="doodle-link flex items-start gap-2 text-sm text-foreground">
               <Link2 className="mt-0.5 size-4 shrink-0" />
               <span>{current.sourceLabel}</span>
             </Link>

@@ -17,11 +17,11 @@ export const DialogContent = forwardRef<
 >(function DialogContent({ className, children, ...props }, ref) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px] data-[state=open]:animate-ui-enter" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)] data-[state=open]:animate-ui-enter" />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 w-[min(92vw,32rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-lg)] data-[state=open]:animate-ui-enter',
+          'paper-popover fixed left-1/2 top-1/2 z-50 w-[min(92vw,32rem)] -translate-x-1/2 -translate-y-1/2 rotate-[-0.2deg] rounded-[2px] border-2 border-dashed p-5 text-card-foreground data-[state=open]:animate-ui-enter',
           className,
         )}
         {...props}
@@ -29,7 +29,7 @@ export const DialogContent = forwardRef<
         {children}
         <DialogPrimitive.Close
           aria-label="关闭"
-          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-foreground"
+          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted transition-[transform,background-color,color,border-color] hover:rotate-3 hover:border-danger/60 hover:bg-danger/10 hover:text-danger active:translate-x-0.5 active:translate-y-0.5"
         >
           <X aria-hidden="true" className="size-4" />
         </DialogPrimitive.Close>

@@ -38,7 +38,7 @@ export function ShellTools() {
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <span className="mr-1 hidden items-center gap-1.5 rounded-md bg-surface px-2.5 py-1.5 text-xs text-muted sm:inline-flex">
+      <span className="paper-subtle mr-1 hidden h-7 rotate-[0.35deg] items-center gap-1.5 rounded-[2px] border border-dashed px-2 text-[11px] text-muted sm:inline-flex">
         <Database aria-hidden="true" className="size-3.5 text-accent" />
         本地工作区
       </span>
@@ -52,7 +52,7 @@ export function ShellTools() {
         <DialogContent className="p-0">
           <DialogTitle className="sr-only">搜索页面</DialogTitle>
           <DialogDescription className="sr-only">按页面或区域名称快速跳转</DialogDescription>
-          <div className="border-b border-border p-4">
+          <div className="border-b border-dashed border-border/70 p-3">
             <div className="relative">
               <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
               <Input
@@ -72,7 +72,7 @@ export function ShellTools() {
                   key={page.href}
                   type="button"
                   onClick={() => navigate(page.href)}
-                  className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-left hover:bg-surface"
+                    className="flex min-h-9 w-full items-center gap-3 rounded-[2px] border border-dashed border-transparent px-2.5 text-left transition-[transform,background-color,border-color] hover:translate-x-0.5 hover:border-accent/60 hover:bg-highlight/20"
                 >
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{page.label}</span>
                   <span className="text-xs text-muted">{page.section}</span>
@@ -92,23 +92,23 @@ export function ShellTools() {
           </IconButton>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80">
-          <p className="text-sm font-semibold text-foreground">工作台设置</p>
-          <div className="mt-4 flex items-center justify-between gap-4">
+          <p className="text-[13px] font-semibold text-foreground">工作台设置</p>
+          <div className="mt-3 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-medium text-foreground">界面主题</p>
-              <p className="mt-0.5 text-[11px] text-muted">跟随当前设备上的选择</p>
+              <p className="text-xs font-medium text-foreground">纸张色温</p>
+              <p className="mt-0.5 text-[11px] text-muted">在纸白与护眼暖纸之间切换</p>
             </div>
             <SegmentedControl
               ariaLabel="界面主题"
               value={mode}
               items={[
-                { value: 'light', label: '浅色' },
-                { value: 'dark', label: '深色' },
+                { value: 'light', label: '纸白' },
+                { value: 'dark', label: '暖纸' },
               ]}
               onValueChange={(value) => setThemeMode(value === 'dark' ? 'dark' : 'light')}
             />
           </div>
-          <div className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted">
+          <div className="mt-3 border-t border-dashed border-border/70 pt-3 text-[11px] leading-relaxed text-muted">
             学习记录保存在本地 SQLite；发送给老师的内容会用于 DeepSeek 在线推理。
           </div>
         </PopoverContent>

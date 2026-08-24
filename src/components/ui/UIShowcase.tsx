@@ -48,7 +48,6 @@ export function UIShowcase() {
   return (
     <PageShell
       title="交互基础件"
-      description="学习工作台的语义令牌、控件状态与浮层基线"
       width="lg"
     >
       <div className="space-y-8 pb-12">
@@ -206,9 +205,9 @@ function ShowcaseSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-border pt-5">
+    <section className="border-t border-dashed border-border pt-5">
       <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        <h2 className="doodle-heading text-sm font-extrabold text-foreground">{title}</h2>
         <p className="text-xs text-muted">{description}</p>
       </div>
       {children}

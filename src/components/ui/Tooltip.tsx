@@ -18,13 +18,13 @@ export const TooltipContent = forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          'z-[80] rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background shadow-md animate-ui-enter',
+          'paper-popover z-[80] rotate-[-0.35deg] rounded-[2px] border-2 border-dashed px-2.5 py-1.5 text-xs text-card-foreground animate-ui-enter',
           className,
         )}
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="fill-foreground" />
+        <TooltipPrimitive.Arrow className="fill-card stroke-foreground/40" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );

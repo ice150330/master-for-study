@@ -28,20 +28,16 @@ export function InterviewSetup({
   onResume(detail: InterviewSessionDetailDto): void;
 }) {
   return (
-    <div className="grid min-h-[620px] overflow-hidden rounded-md border border-border bg-card min-[1120px]:grid-cols-[minmax(0,1fr)_19rem]">
+    <div className="paper-panel grid min-h-[620px] overflow-hidden rounded-[2px] border-2 border-dashed min-[1120px]:grid-cols-[minmax(0,1fr)_19rem]">
       <section className="p-7" aria-labelledby="interview-setup-title">
         <div className="flex items-center gap-2 text-primary">
           <SlidersHorizontal aria-hidden="true" className="size-4" />
           <p className="text-xs font-semibold">练习设置</p>
         </div>
-        <h2 id="interview-setup-title" className="mt-3 text-xl font-semibold text-card-foreground">
+        <h2 id="interview-setup-title" className="doodle-heading mt-3 text-xl font-extrabold text-card-foreground">
           定义这次面试的目标
         </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-          题目会围绕岗位与主题生成，后续难度由每轮的结构化评分自动推进。
-        </p>
-
-        <div className="mt-8 grid gap-7">
+        <div className="mt-6 grid gap-7">
           <SettingRow title="目标岗位" description="决定题目的工程语境与考察深度">
             <SegmentedControl
               ariaLabel="目标岗位"
@@ -60,7 +56,7 @@ export function InterviewSetup({
               onValueChange={(topic) => onSettingsChange({ ...settings, topic: topic as InterviewSettings['topic'] })}
             />
           </SettingRow>
-          <div className="grid gap-7 border-y border-border py-7 min-[980px]:grid-cols-2">
+          <div className="grid gap-7 border-y border-dashed border-border py-7 min-[980px]:grid-cols-2">
             <SettingRow title="起始难度" description="后续会按表现升降档">
               <SegmentedControl
                 ariaLabel="起始难度"
@@ -88,7 +84,7 @@ export function InterviewSetup({
           </SettingRow>
         </div>
 
-        <div className="mt-9 flex items-center justify-between border-t border-border pt-5">
+        <div className="mt-9 flex items-center justify-between border-t border-dashed border-border pt-5">
           <p className="text-xs text-muted">
             {interviewOptionLabel(INTERVIEW_ROLES, settings.role)} · {interviewOptionLabel(INTERVIEW_TOPICS, settings.topic)} · {settings.totalRounds} 题
           </p>
@@ -99,7 +95,7 @@ export function InterviewSetup({
         </div>
       </section>
 
-      <aside className="border-l border-border bg-surface/65 p-5" aria-label="最近面试">
+      <aside className="paper-subtle border-l border-dashed border-border p-5" aria-label="最近面试">
         <div className="flex items-center gap-2">
           <History aria-hidden="true" className="size-4 text-muted" />
           <h2 className="text-sm font-semibold text-foreground">最近场次</h2>
@@ -115,7 +111,7 @@ export function InterviewSetup({
                   key={detail.session.id}
                   type="button"
                   onClick={() => onResume(detail)}
-                  className="rounded-md border border-transparent bg-card px-3 py-3 text-left shadow-sm transition-colors hover:border-border"
+                  className="doodle-row rounded-[2px] border border-dashed border-border bg-card px-3 py-3 text-left hover:border-accent hover:bg-highlight/10"
                 >
                   <span className="flex items-center justify-between gap-2">
                     <strong className="truncate text-xs text-card-foreground">

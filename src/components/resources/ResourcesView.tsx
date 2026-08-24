@@ -225,30 +225,29 @@ export function ResourcesView({
   return (
     <PageShell
       title="资源库"
-      description="把输入先收进队列，再通过摘录、Concept 和对话变成可用知识"
       width="xl"
       actions={<Button onClick={() => setFormMode('add')}><Plus aria-hidden="true" className="size-4" />添加资源</Button>}
     >
       {error && !formMode ? <InlineNotice className="mb-4" tone="error" title="资源操作未完成" description={`${error.message}。当前输入和选择均已保留。`} actionLabel={error.retry ? '重试' : undefined} onAction={error.retry} /> : null}
 
-      <div className="overflow-hidden rounded-md border border-border bg-card">
-        <div className="flex min-h-14 items-center justify-between gap-4 border-b border-border px-4">
+      <div className="paper-panel overflow-hidden rounded-[2px] border-2 border-dashed">
+        <div className="flex min-h-11 items-center justify-between gap-4 border-b border-dashed border-border px-4">
           <div className="flex h-full items-center gap-1" role="tablist" aria-label="资源队列">
             {RESOURCE_STATUSES.map((item) => (
-              <button key={item} role="tab" aria-selected={status === item} type="button" onClick={() => { setStatus(item); setSelectedId(resources.find((resource) => resource.status === item)?.id ?? null); }} className={`relative h-14 px-3 text-sm font-medium ${status === item ? 'text-primary' : 'text-muted hover:text-foreground'}`}>
+              <button key={item} role="tab" aria-selected={status === item} type="button" onClick={() => { setStatus(item); setSelectedId(resources.find((resource) => resource.status === item)?.id ?? null); }} className={`relative h-11 px-3 text-xs font-semibold transition-[transform,background-color,color] ${status === item ? 'rotate-[-0.3deg] bg-highlight/15 text-foreground' : 'text-muted hover:bg-accent/10 hover:text-foreground'}`}>
                 {RESOURCE_STATUS_LABELS[item]} <span className="ml-1 text-xs">{counts[item]}</span>
-                {status === item ? <span className="absolute inset-x-2 bottom-0 h-0.5 bg-primary" /> : null}
+                {status === item ? <span className="absolute inset-x-2 bottom-0 h-1 bg-primary/65 [clip-path:polygon(0_42%,18%_10%,42%_52%,66%_18%,100%_42%,98%_84%,72%_58%,46%_92%,20%_62%,0_88%)]" /> : null}
               </button>
             ))}
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search aria-hidden="true" className="absolute left-3 top-2.5 size-4 text-muted" />
+              <Search aria-hidden="true" className="absolute left-3 top-2 size-4 text-muted" />
               <Input aria-label="搜索资源" className="w-64 pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、标签、Concept" />
             </div>
-            <div className="flex items-center gap-1 rounded-md border border-border bg-card px-2">
+            <div className="paper-subtle flex items-center gap-1 rounded-[2px] border border-dashed px-2">
               <Filter aria-hidden="true" className="size-4 text-muted" />
-              <select aria-label="资源类型" value={type} onChange={(event) => setType(event.target.value as typeof type)} className="h-9 bg-transparent text-xs outline-none">
+              <select aria-label="资源类型" value={type} onChange={(event) => setType(event.target.value as typeof type)} className="h-8 bg-transparent text-xs outline-none">
                 <option>全部</option>{RESOURCE_TYPES.map((item) => <option key={item}>{item}</option>)}
               </select>
             </div>
@@ -256,14 +255,14 @@ export function ResourcesView({
         </div>
 
         {tags.length > 0 ? (
-          <div className="flex min-h-10 items-center gap-1.5 overflow-x-auto border-b border-border px-4">
-            <button type="button" onClick={() => setTag(null)} className={`rounded-md px-2 py-1 text-[11px] ${tag === null ? 'bg-primary/10 text-primary' : 'text-muted'}`}>全部标签</button>
-            {tags.map((item) => <button key={item} type="button" onClick={() => setTag(tag === item ? null : item)} className={`rounded-md px-2 py-1 text-[11px] ${tag === item ? 'bg-primary/10 text-primary' : 'text-muted hover:bg-surface'}`}>{item}</button>)}
+          <div className="flex min-h-9 items-center gap-1.5 overflow-x-auto border-b border-dashed border-border px-4">
+            <button type="button" onClick={() => setTag(null)} className={`rounded-[2px] border border-dashed px-2 py-1 text-[11px] ${tag === null ? 'rotate-[-1deg] border-foreground bg-highlight/25 text-foreground shadow-[2px_2px_0_var(--marker-teal)]' : 'border-transparent text-muted'}`}>全部标签</button>
+            {tags.map((item) => <button key={item} type="button" onClick={() => setTag(tag === item ? null : item)} className={`rounded-[2px] border border-dashed px-2 py-1 text-[11px] ${tag === item ? 'rotate-[-1deg] border-foreground bg-highlight/25 text-foreground shadow-[2px_2px_0_var(--marker-teal)]' : 'border-transparent text-muted hover:border-accent/60 hover:bg-accent/10'}`}>{item}</button>)}
           </div>
         ) : null}
 
         <div className="grid min-h-[620px] min-[1050px]:grid-cols-[21rem_minmax(0,1fr)]">
-          <aside className="border-r border-border bg-surface/55" aria-label={`${RESOURCE_STATUS_LABELS[status]}资源列表`}>
+          <aside className="paper-subtle border-r border-dashed border-border" aria-label={`${RESOURCE_STATUS_LABELS[status]}资源列表`}>
             {visible.length === 0 ? (
               <div className="px-6 py-20 text-center">
                 {status === '想读' ? <Inbox aria-hidden="true" className="mx-auto size-6 text-muted" /> : <BookOpenText aria-hidden="true" className="mx-auto size-6 text-muted" />}
@@ -271,10 +270,10 @@ export function ResourcesView({
                 <p className="mt-1 text-xs text-muted">调整筛选，或添加一个新链接。</p>
               </div>
             ) : visible.map((resource) => (
-              <button key={resource.id} type="button" onClick={() => selectResource(resource)} className={`block w-full border-b border-border px-4 py-4 text-left transition-colors ${selected?.id === resource.id ? 'bg-card' : 'hover:bg-card/65'}`}>
+              <button key={resource.id} type="button" onClick={() => selectResource(resource)} className={`doodle-row block w-full border-b border-dashed border-border px-4 py-4 text-left ${selected?.id === resource.id ? 'bg-highlight/12 shadow-[inset_4px_0_0_var(--marker-red)]' : 'hover:bg-card/65'}`}>
                 <div className="flex items-start justify-between gap-3">
                   <strong className="line-clamp-2 text-sm leading-5 text-card-foreground">{resource.title}</strong>
-                  <span className="shrink-0 rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">{resource.type}</span>
+                  <span className="shrink-0 rotate-1 rounded-[2px] border border-dashed border-border bg-surface px-1.5 py-0.5 text-[10px] text-muted">{resource.type}</span>
                 </div>
                 <p className="mt-1.5 truncate text-xs text-muted">{resource.siteName ?? new URL(resource.url).hostname}</p>
                 <div className="mt-3 h-1 overflow-hidden rounded-sm bg-border"><span className="block h-full bg-primary" style={{ width: `${resource.progress}%` }} /></div>

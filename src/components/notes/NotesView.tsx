@@ -3,6 +3,7 @@
 import {
   BookOpenCheck,
   Check,
+  ClipboardCheck,
   Copy,
   Download,
   History,
@@ -13,7 +14,6 @@ import {
   Pencil,
   Save,
   Search,
-  SquareTerminal,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -210,16 +210,16 @@ export function NotesView({
   }
 
   return (
-    <PageShell title="学习笔记" description="可编辑、可回溯、保留 AI 原始快照" width="xl">
-      <div className="grid min-h-[680px] grid-cols-1 overflow-hidden rounded-lg border border-border bg-card min-[760px]:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-r border-border">
-          <div className="space-y-2 border-b border-border p-3">
+    <PageShell title="学习笔记" width="xl">
+      <div className="paper-panel grid min-h-[680px] grid-cols-1 overflow-hidden rounded-[2px] border-2 border-dashed min-[760px]:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-r border-dashed border-border">
+          <div className="space-y-2 border-b border-dashed border-border p-3">
             <div className="flex gap-2">
               <select
                 value={sessionId}
                 onChange={(event) => setSessionId(event.target.value)}
                 aria-label="生成笔记的会话"
-                className="min-w-0 flex-1 rounded-md border border-border bg-card-soft px-2 text-xs"
+                className="paper-subtle min-w-0 flex-1 rounded-[2px] border border-dashed px-2 text-xs"
               >
                 {initialSessions.length === 0 ? <option value="">暂无会话</option> : null}
                 {initialSessions.map((session) => (
@@ -230,7 +230,7 @@ export function NotesView({
                 生成
               </Button>
             </div>
-            <label className="flex h-8 items-center gap-2 rounded-md border border-border bg-card-soft px-2">
+            <label className="paper-subtle flex h-8 items-center gap-2 rounded-[2px] border border-dashed px-2">
               <Search aria-hidden="true" className="size-3.5 text-muted" />
               <input
                 value={query}
@@ -241,14 +241,14 @@ export function NotesView({
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <select aria-label="工作区" className="h-8 rounded-md border border-border bg-card-soft px-2 text-xs">
+              <select aria-label="工作区" className="paper-subtle h-8 rounded-[2px] border border-dashed px-2 text-xs">
                 <option>默认工作区</option>
               </select>
               <select
                 value={tagFilter}
                 onChange={(event) => setTagFilter(event.target.value)}
                 aria-label="标签筛选"
-                className="h-8 rounded-md border border-border bg-card-soft px-2 text-xs"
+                className="paper-subtle h-8 rounded-[2px] border border-dashed px-2 text-xs"
               >
                 <option>全部标签</option>
                 {allTags.map((tag) => <option key={tag}>{tag}</option>)}
@@ -264,8 +264,8 @@ export function NotesView({
                   key={note.id}
                   type="button"
                   onClick={() => selectNote(note)}
-                  className={`mb-1 w-full rounded-md px-3 py-2.5 text-left transition-colors ${
-                    note.id === selectedId ? 'bg-primary/10 text-foreground' : 'hover:bg-card-soft'
+                  className={`doodle-row mb-1 w-full rounded-[2px] border border-dashed px-3 py-2.5 text-left ${
+                    note.id === selectedId ? 'rotate-[-0.2deg] border-foreground bg-highlight/20 text-foreground shadow-[3px_3px_0_var(--marker-teal)]' : 'border-transparent hover:bg-card-soft'
                   }`}
                 >
                   <span className="block truncate text-xs font-semibold">{note.title}</span>
@@ -349,12 +349,12 @@ function NoteEditor({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-border p-4">
+      <div className="flex items-center gap-2 border-b border-dashed border-border p-4">
         <input
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
           aria-label="笔记标题"
-          className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none"
+          className="marker-highlight min-w-0 flex-1 bg-transparent text-base font-extrabold outline-none"
         />
         <Button size="sm" variant="ghost" onClick={onCancel}>
           <X aria-hidden="true" className="size-3.5" />取消
@@ -363,7 +363,7 @@ function NoteEditor({
           <Save aria-hidden="true" className="size-3.5" />保存版本
         </Button>
       </div>
-      <label className="border-b border-border px-4 py-2 text-xs text-muted">
+      <label className="border-b border-dashed border-border px-4 py-2 text-xs text-muted">
         标签
         <input
           value={tags}
@@ -407,10 +407,10 @@ function NoteReader({
       tabIndex={-1}
       className="flex h-full min-h-0 flex-col outline-none"
     >
-      <header className="shrink-0 border-b border-border px-5 py-4">
+      <header className="shrink-0 border-b border-dashed border-border px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold text-card-foreground">{note.title}</h2>
+            <h2 className="doodle-heading truncate text-lg font-extrabold text-card-foreground">{note.title}</h2>
             <p className="mt-1 text-xs text-muted">
               版本 {note.version} · AI 快照已保留 · 更新于 {new Date(note.updatedAt).toLocaleString('zh-CN')}
             </p>
@@ -424,7 +424,7 @@ function NoteReader({
         {note.tags.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-1">
             {note.tags.map((tag) => (
-              <span key={tag} className="rounded-md bg-card-soft px-2 py-1 text-[11px] text-muted">{tag}</span>
+              <span key={tag} className="rotate-[-0.5deg] rounded-[2px] border border-dashed border-border bg-card-soft px-2 py-1 text-[11px] text-muted shadow-[2px_2px_0_rgba(255,217,61,0.25)]">{tag}</span>
             ))}
           </div>
         ) : null}
@@ -438,7 +438,7 @@ function NoteReader({
                   source: { type: 'message', sessionId: source.sessionId, messageId: source.startMessageId },
                   attempt: null,
                 })}
-                className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-2 py-1 text-[11px] text-accent hover:bg-accent/20"
+                className="doodle-link inline-flex items-center gap-1 rounded-[2px] border border-dashed border-accent/50 bg-accent/10 px-2 py-1 text-[11px] text-accent-foreground hover:bg-accent/20"
               >
                 <Link2 aria-hidden="true" className="size-3" />
                 来源：{source.sessionTitle}
@@ -456,7 +456,7 @@ function NoteReader({
         <div className="min-h-0 overflow-y-auto px-7 py-6">
           <MarkdownDocument blocks={blocks} conceptByName={conceptByName} noteId={note.id} learningContext={learningContext} />
         </div>
-        <aside className="border-l border-border px-4 py-5">
+        <aside className="border-l border-dashed border-border px-4 py-5">
           <h3 className="flex items-center gap-1.5 text-xs font-semibold text-card-foreground">
             <ListTree aria-hidden="true" className="size-3.5" />目录
           </h3>
@@ -471,9 +471,9 @@ function NoteReader({
               </a>
             )) : <span className="text-xs text-muted">暂无标题</span>}
           </nav>
-          <div className="mt-6 space-y-1 border-t border-border pt-4">
+          <div className="mt-6 space-y-1 border-t border-dashed border-border pt-4">
             <ActionLink href={withLearningContext(`/review?note=${note.id}`, { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<BookOpenCheck />} label="生成复习卡" />
-            <ActionLink href={withLearningContext(`/practice?note=${note.id}`, { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<SquareTerminal />} label="生成练习" />
+            <ActionLink href={withLearningContext(`/interview?note=${note.id}`, { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<ClipboardCheck />} label="模拟测验" />
             <ActionLink href={withLearningContext('/', { ...learningContext, source: { type: 'note', id: note.id }, attempt: null })} icon={<MessageSquareText />} label="加入上下文" />
           </div>
         </aside>
@@ -587,7 +587,7 @@ function renderConceptText(text: string, conceptByName: Map<string, string>, not
     source: { type: 'note', id: noteId },
     attempt: null,
   }) : null;
-  return <>{before}{href ? <Link href={href} className="font-semibold text-accent hover:underline">{match[1]}</Link> : <strong>{match[1]}</strong>}{after}</>;
+  return <>{before}{href ? <Link href={href} className="doodle-link marker-highlight font-semibold text-foreground">{match[1]}</Link> : <strong>{match[1]}</strong>}{after}</>;
 }
 
 function CodeBlock({ language, code }: { language: string; code: string }) {
@@ -609,8 +609,8 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     window.setTimeout(() => setCopied(false), 1200);
   }
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-card-soft">
-      <div className="flex h-8 items-center justify-between border-b border-border px-3 text-[11px] text-muted">
+    <div className="overflow-hidden rounded-[2px] border border-dashed border-border bg-card-soft shadow-[3px_3px_0_rgba(78,205,196,0.2)]">
+      <div className="flex h-8 items-center justify-between border-b border-dashed border-border px-3 text-[11px] text-muted">
         <span>{language}</span>
         <button type="button" onClick={copy} className="inline-flex min-h-6 items-center gap-1 rounded-sm px-1 hover:text-foreground">
           {copied ? <Check className="size-3" /> : <Copy className="size-3" />}{copied ? '已复制' : '复制'}
@@ -623,7 +623,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 
 function ActionLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
-    <Link href={href} className="flex items-center gap-2 rounded-md px-2 py-2 text-xs text-card-foreground hover:bg-card-soft [&_svg]:size-3.5">
+    <Link href={href} className="doodle-row flex items-center gap-2 rounded-[2px] border border-dashed border-transparent px-2 py-2 text-xs text-card-foreground hover:bg-highlight/15 [&_svg]:size-3.5">
       {icon}{label}
     </Link>
   );
