@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* 全局手绘字体：站酷快乐体（ZCOOL KuaiLe，免费可商用，圆润手写风、近似奶酪体），
+   按 unicode-range 分片按需加载，直接挂在 body 上覆盖全部界面文字；
+   代码块仍走等宽字体（.md-chat pre/code / font-mono）。 */
+@import "@fontsource/zcool-kuaile/index.css";
 
 /* 四种内置纸张主题：data-theme 挂在 <html>，纸白为默认（无属性）。
    dark: 变体只代表夜墨（唯一深色），暖纸 / 青蓝仍是浅色护眼纸。 */
@@ -142,8 +146,9 @@ body {
     linear-gradient(90deg, transparent 0 83px, var(--paper-margin) 83px 84px, transparent 84px),
     repeating-linear-gradient(180deg, transparent 0 31px, var(--paper-line) 31px 32px);
   background-attachment: fixed;
+  /* 全局手绘字体：站酷快乐体（圆润手写，近似奶酪体），缺字回退 Geist / 系统 */
+  font-family: "ZCOOL KuaiLe", var(--font-geist-sans), Arial, Helvetica, sans-serif;
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   letter-spacing: 0;
 }
 

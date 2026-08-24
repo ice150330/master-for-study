@@ -379,16 +379,15 @@ export function SessionCard({
             placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
             className="paper-subtle field-sizing-content min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-[2px] border-2 border-dashed border-border bg-card-soft px-3.5 py-2 text-sm leading-5 text-card-foreground outline-none placeholder:text-card-foreground/50 transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)]"
           />
+          {/* 发送 / 停止：图标即可表意，悬停 Tooltip 显示功能 */}
           {isStreaming ? (
-            <Button className="h-11" variant="outline" onClick={onStop}>
+            <IconButton className="size-11" label="停止生成" onClick={onStop}>
               <Square aria-hidden="true" className="size-4 fill-current" />
-              停止
-            </Button>
+            </IconButton>
           ) : (
-            <Button className="h-11" onClick={onSend}>
+            <IconButton tone="primary" className="size-11" label="发送（Enter）" onClick={onSend}>
               <SendHorizontal aria-hidden="true" className="size-4" />
-              发送
-            </Button>
+            </IconButton>
           )}
         </div>
       </div>
@@ -463,10 +462,18 @@ function ResourceSelector({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline">
-          <BookOpenText aria-hidden="true" className="size-3.5" />
-          引用资源{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
-        </Button>
+        {/* 图标触发 + 已选数角标，功能经 Tooltip 悬停显示 */}
+        <IconButton
+          label={selectedIds.length > 0 ? `引用资源（已选 ${selectedIds.length} 个）` : '引用资源'}
+          className="relative size-7 [&_svg]:size-3.5"
+        >
+          <BookOpenText aria-hidden="true" />
+          {selectedIds.length > 0 ? (
+            <span className="absolute -right-1.5 -top-1.5 rotate-[-2deg] rounded-[2px] border border-dashed border-border bg-card px-1 text-[9px] font-semibold leading-3.5 text-muted">
+              {selectedIds.length}
+            </span>
+          ) : null}
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-2" align="start" side="top">
         <p className="px-2 py-1 text-xs font-semibold text-card-foreground">选择本轮使用的资源</p>

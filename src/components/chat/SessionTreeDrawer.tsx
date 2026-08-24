@@ -3,7 +3,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ArchiveRestore, FolderTree, ListTree, Pin, Plus, Search, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
 import type { ChatSession } from './chat-types';
 
@@ -66,9 +66,13 @@ export function SessionTreeDrawer({
                 {sessions.length}
               </span>
             ) : null}
+            {/* 新话题：图标即可表意，Tooltip 悬停显示功能 */}
+            <IconButton label="新话题" onClick={onNew} className="ml-auto">
+              <Plus aria-hidden="true" className="size-4" />
+            </IconButton>
             <DialogPrimitive.Close
               aria-label="关闭会话树"
-              className="ml-auto inline-flex size-8 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted transition-[transform,background-color,color,border-color] hover:rotate-3 hover:border-danger/60 hover:bg-danger/10 hover:text-danger active:translate-x-0.5 active:translate-y-0.5"
+              className="inline-flex size-8 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted transition-[transform,background-color,color,border-color] hover:rotate-3 hover:border-danger/60 hover:bg-danger/10 hover:text-danger active:translate-x-0.5 active:translate-y-0.5"
             >
               <X aria-hidden="true" className="size-4" />
             </DialogPrimitive.Close>
@@ -85,10 +89,6 @@ export function SessionTreeDrawer({
                 className="h-9 w-full rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-8 pr-3 text-sm outline-none transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[3px_3px_0_rgba(78,205,196,0.34)]"
               />
             </label>
-            <Button size="sm" className="w-full" onClick={onNew}>
-              <Plus aria-hidden="true" className="size-4" />
-              新话题
-            </Button>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
