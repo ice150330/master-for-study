@@ -642,6 +642,48 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(list.some((workspace) => workspace.title === '改名主题')).toBe(true);
   });
 
+  it('工作区归档与删除（C4）：当前不可归档/删除，删除清理本区过程数据、概念全局保留', () => {
+    const original = repository.ensureWorkspace();
+    // 当前工作区不可归档 / 删除
+    expect(() => repository.setWorkspaceArchived(original.id, true)).toThrow(/不能归档当前/);
+    expect(() => repository.deleteWorkspace(original.id)).toThrow(/不能删除当前/);
+
+    // 第二工作区：写入完整过程数据 + 一个全局概念
+    const second = repository.createWorkspace({ title: '待清理主题' });
+    const session = repository.createSession({
+      title: '待清理会话',
+      idempotencyKey: 'session:workspace:cleanup',
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: '待清理消息',
+      idempotencyKey: 'message:workspace:cleanup',
+    });
+    const sharedTerm = repository.upsertTerm({
+      name: '全局保留概念',
+      definition: '术语是全局单源，删除工作区不应删除概念。',
+      idempotencyKey: 'term:workspace:shared',
+    });
+
+    // 切回原工作区后才能归档 / 删除 second（当前工作区受保护）
+    repository.switchWorkspace(original.id);
+
+    // 归档：不可见于切换语义（archivedAt 置位），可恢复
+    const archived = repository.setWorkspaceArchived(second.id, true);
+    expect(archived?.archivedAt).not.toBeNull();
+    const restored = repository.setWorkspaceArchived(second.id, false);
+    expect(restored?.archivedAt).toBeNull();
+
+    // 删除：本区会话/消息清空，概念与掌握度保留
+    const result = repository.deleteWorkspace(second.id);
+    expect(result.deleted).toBe(true);
+    expect(repository.listSessions().some((item) => item.id === session.id)).toBe(false);
+    // 全局概念仍在
+    expect(repository.getTerm(sharedTerm.id)?.name).toBe('全局保留概念');
+    expect(repository.listWorkspaces().some((item) => item.id === second.id)).toBe(false);
+  });
+
   it('结构化面试按评分策略调整三题难度，并保留重答版本', () => {
     const skill = repository.upsertTerm({
       name: '索引设计',

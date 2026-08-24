@@ -61,12 +61,13 @@ export const conceptUpdateSchema = z
   })
   .strict();
 
-/** 工作区编辑：标题 / 目标 / 激活（切换）可任意组合，全缺省为无操作。 */
+/** 工作区编辑：标题 / 目标 / 激活（切换）/ 归档可任意组合，全缺省为无操作。 */
 export const workspaceUpdateSchema = z
   .object({
     title: z.string().trim().min(1).max(60).optional(),
     goal: z.string().trim().min(1).max(60).nullish(),
     activate: z.boolean().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 

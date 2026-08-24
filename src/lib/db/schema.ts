@@ -30,6 +30,8 @@ export const workspaces = sqliteTable('workspaces', {
   title: text('title').notNull(),
   goal: text('goal'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(false),
+  // C4 工作区治理：归档后不再出现在切换列表，可恢复
+  archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
 });
 

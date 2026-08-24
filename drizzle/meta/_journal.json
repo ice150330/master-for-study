@@ -134,6 +134,13 @@
       "when": 1787586871960,
       "tag": "0018_tricky_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1787587184936,
+      "tag": "0019_conscious_sersi",
+      "breakpoints": true
     }
   ]
 }

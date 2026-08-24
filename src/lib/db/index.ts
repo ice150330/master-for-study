@@ -213,6 +213,7 @@ export function ensureWorkspace(): Workspace {
     title: DEFAULT_WORKSPACE_TITLE,
     goal: null,
     isActive: true,
+    archivedAt: null,
     createdAt: new Date(),
   };
   db.insert(schema.workspaces).values(ws).run();
@@ -234,6 +235,7 @@ export function createWorkspace(input: { title: string; goal?: string | null }):
     title: input.title.trim(),
     goal: input.goal?.trim() || null,
     isActive: true,
+    archivedAt: null,
     createdAt: new Date(),
   } satisfies Workspace;
   db.transaction((tx) => {
@@ -273,6 +275,60 @@ export function switchWorkspace(id: string): Workspace | undefined {
       .where(eq(schema.workspaces.id, id)).run();
   });
   return db.select().from(schema.workspaces).where(eq(schema.workspaces.id, id)).limit(1).get();
+}
+
+/** 归档 / 恢复工作区（C4）：归档后不再出现在切换列表；当前工作区不可归档。 */
+export function setWorkspaceArchived(id: string, archived: boolean): Workspace | undefined {
+  const db = getDb();
+  const target = db.select().from(schema.workspaces)
+    .where(eq(schema.workspaces.id, id)).limit(1).get();
+  if (!target) return undefined;
+  if (archived && target.isActive) {
+    throw new Error('不能归档当前工作区，请先切换到别的工作区');
+  }
+  db.update(schema.workspaces)
+    .set({ archivedAt: archived ? new Date() : null })
+    .where(eq(schema.workspaces.id, id)).run();
+  return db.select().from(schema.workspaces).where(eq(schema.workspaces.id, id)).limit(1).get();
+}
+
+/**
+ * 删除工作区及其全部学习过程数据（C4）。全局单源的概念（terms）与掌握度保留。
+ * 事务内按依赖序清理：消息挂在会话上且无级联先删；其余工作区维度表直接删，
+ * 子表（笔记版本/资源关联/复习日志等）由外键级联清理；当前工作区不可删除。
+ */
+export function deleteWorkspace(id: string): { deleted: boolean } {
+  const db = getDb();
+  const target = db.select().from(schema.workspaces)
+    .where(eq(schema.workspaces.id, id)).limit(1).get();
+  if (!target) return { deleted: false };
+  if (target.isActive) {
+    throw new Error('不能删除当前工作区，请先切换到别的工作区');
+  }
+  db.transaction((tx) => {
+    tx.run(sql`PRAGMA defer_foreign_keys = ON`);
+    const sessionIds = db.select({ id: schema.sessions.id })
+      .from(schema.sessions)
+      .where(eq(schema.sessions.workspaceId, id)).all()
+      .map((row) => row.id);
+    if (sessionIds.length > 0) {
+      tx.delete(schema.messages)
+        .where(inArray(schema.messages.sessionId, sessionIds)).run();
+    }
+    tx.delete(schema.workspaceSettings).where(eq(schema.workspaceSettings.workspaceId, id)).run();
+    tx.delete(schema.reviewCards).where(eq(schema.reviewCards.workspaceId, id)).run();
+    tx.delete(schema.practiceAttempts).where(eq(schema.practiceAttempts.workspaceId, id)).run();
+    tx.delete(schema.learningEvents).where(eq(schema.learningEvents.workspaceId, id)).run();
+    tx.delete(schema.notes).where(eq(schema.notes.workspaceId, id)).run();
+    tx.delete(schema.resources).where(eq(schema.resources.workspaceId, id)).run();
+    tx.delete(schema.interviews).where(eq(schema.interviews.workspaceId, id)).run();
+    tx.delete(schema.interviewSessions).where(eq(schema.interviewSessions.workspaceId, id)).run();
+    tx.delete(schema.knowledgeEdges).where(eq(schema.knowledgeEdges.workspaceId, id)).run();
+    tx.delete(schema.knowledgeNodes).where(eq(schema.knowledgeNodes.workspaceId, id)).run();
+    tx.delete(schema.sessions).where(eq(schema.sessions.workspaceId, id)).run();
+    tx.delete(schema.workspaces).where(eq(schema.workspaces.id, id)).run();
+  });
+  return { deleted: true };
 }
 
 export type WorkspaceSettings = typeof schema.workspaceSettings.$inferSelect;

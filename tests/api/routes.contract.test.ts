@@ -24,6 +24,7 @@ let workspacesPost: PostHandler;
 let workspacesGet: GetHandler;
 // [id] 路由带动态段上下文（Next 16 的 params 是 Promise）
 let workspacesPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
+let workspacesDelete: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let reviewGet: GetHandler;
 let importPost: PostHandler;
 let searchGet: GetHandler;
@@ -58,6 +59,7 @@ beforeAll(async () => {
   workspacesPost = (await import('../../src/app/api/workspaces/route')).POST;
   workspacesGet = (await import('../../src/app/api/workspaces/route')).GET;
   workspacesPatch = (await import('../../src/app/api/workspaces/[id]/route')).PATCH;
+  workspacesDelete = (await import('../../src/app/api/workspaces/[id]/route')).DELETE;
   reviewGet = (await import('../../src/app/api/review/route')).GET;
   importPost = (await import('../../src/app/api/import/route')).POST;
   searchGet = (await import('../../src/app/api/search/route')).GET;
@@ -275,6 +277,26 @@ describe('Route Handler zod 合同', () => {
       );
       expect(restored.status).toBe(200);
     }
+
+    // C4：归档当前工作区 → 409；删除已切走的工作区 → 200；删除不存在 → 404
+    // （restore 激活后即当前工作区）
+    if (restore) {
+      const archiveActive = await workspacesPatch(
+        jsonRequest(`/api/workspaces/${restore.id}`, { archived: true }),
+        { params: Promise.resolve({ id: restore.id }) },
+      );
+      expect(archiveActive.status).toBe(409);
+    }
+    const deleted = await workspacesDelete(
+      new Request(`http://localhost/api/workspaces/${createdBody.workspace.id}`, { method: 'DELETE' }),
+      { params: Promise.resolve({ id: createdBody.workspace.id }) },
+    );
+    expect(deleted.status).toBe(200);
+    const missingDelete = await workspacesDelete(
+      new Request(`http://localhost/api/workspaces/${crypto.randomUUID()}`, { method: 'DELETE' }),
+      { params: Promise.resolve({ id: crypto.randomUUID() }) },
+    );
+    expect(missingDelete.status).toBe(404);
   });
 
   it('重复资源请求返回同一对象且数据库只有一条记录', async () => {
