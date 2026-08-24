@@ -433,6 +433,45 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(repository.listReviewLogs(term.id)).toHaveLength(0);
   });
 
+  it('学习者画像快照汇集近期主题与学过的薄弱概念（A1 记忆注入）', () => {
+    // 近期主题：真实会话标题
+    const session = repository.createSession({
+      title: '事务隔离级别怎么选',
+      idempotencyKey: 'session:test:memory-profile',
+    });
+    // 薄弱概念：复习一次产生非 new 状态与难度值
+    const weakTerm = repository.upsertTerm({
+      name: '记忆注入薄弱概念',
+      definition: '供画像快照聚合。',
+      idempotencyKey: 'term:memory:weak',
+    });
+    repository.setTermQueueStatus(weakTerm.id, 'active');
+    repository.reviewTerm({
+      termId: weakTerm.id,
+      grade: 'hard',
+      answerMode: 'typed',
+      reviewedAt: new Date(),
+      idempotencyKey: 'review:memory:weak',
+    });
+    // 待确认概念不应进入薄弱清单
+    const pendingTerm = repository.upsertTerm({
+      name: '待确认不入画像',
+      definition: '尚未确认入队。',
+      idempotencyKey: 'term:memory:pending',
+    });
+
+    const snapshot = repository.getLearnerProfileSnapshot();
+    expect(snapshot.recentTopics).toContain(session.title);
+    expect(snapshot.weakConcepts.some((concept) => concept.name === '记忆注入薄弱概念')).toBe(true);
+    expect(snapshot.weakConcepts.some((concept) => concept.name === pendingTerm.name)).toBe(false);
+    expect(snapshot.weakConcepts.every((concept) => concept.state !== 'new')).toBe(true);
+    // 记忆注入开关默认开启
+    expect(repository.getWorkspaceSettings().memoryInjection).toBe(true);
+    repository.updateWorkspaceSettings({ memoryInjection: false });
+    expect(repository.getWorkspaceSettings().memoryInjection).toBe(false);
+    repository.updateWorkspaceSettings({ memoryInjection: true });
+  });
+
   it('全库导出包含全部表与已写入数据', () => {
     repository.upsertTerm({
       name: '导出概念',

@@ -73,6 +73,7 @@ export const settingsPatchSchema = z
     dailyNewLimit: z.number().int().min(1).max(200).optional(),
     retentionTarget: z.union([z.literal(0.85), z.literal(0.9)]).optional(),
     answerDepth: z.enum(['brief', 'standard', 'deep']).optional(),
+    memoryInjection: z.boolean().optional(),
   })
   .strict();
 

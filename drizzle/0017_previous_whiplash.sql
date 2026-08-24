@@ -1,0 +1,1 @@
+ALTER TABLE `workspace_settings` ADD `memory_injection` integer DEFAULT true NOT NULL;

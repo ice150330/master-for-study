@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -32,6 +32,7 @@ import {
 import { DEFAULT_TITLE, deriveSessionTitle } from '../session-title';
 import { parseTermMarkers } from '../term-parse';
 import { DEFAULT_TEACHER_STYLE } from '../ai/teacher-style';
+import type { LearnerProfileSnapshot } from '../ai/learner-memory';
 import { KNOWLEDGE_SEED_EDGES, KNOWLEDGE_SEED_NODES } from '../knowledge/seed';
 import type {
   KnowledgeEvidence,
@@ -284,6 +285,7 @@ export type WorkspaceSettingsPatch = Partial<{
   dailyNewLimit: number;
   retentionTarget: number;
   answerDepth: string;
+  memoryInjection: boolean;
 }>;
 
 /** 读取工作区设置，首次访问时落默认行。 */
@@ -302,6 +304,7 @@ export function getWorkspaceSettings(): WorkspaceSettings {
     dailyNewLimit: 10,
     retentionTarget: 0.85,
     answerDepth: 'standard',
+    memoryInjection: true,
     updatedAt: new Date(),
   } satisfies WorkspaceSettings;
   getDb().insert(schema.workspaceSettings).values(defaults)
@@ -316,6 +319,44 @@ export function updateWorkspaceSettings(patch: WorkspaceSettingsPatch): Workspac
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(schema.workspaceSettings.id, current.id)).run();
   return getWorkspaceSettings();
+}
+
+/**
+ * 学习者画像快照（A1 记忆注入）：近期学习主题 + 薄弱概念。
+ * 薄弱概念只取「已确认入队且学过」的（排除 new 与待确认），按 FSRS 难度降序。
+ */
+export function getLearnerProfileSnapshot(): LearnerProfileSnapshot {
+  const db = getDb();
+  const ws = ensureWorkspace();
+  const recentTopics = db
+    .select({ title: schema.sessions.title })
+    .from(schema.sessions)
+    .where(and(
+      eq(schema.sessions.workspaceId, ws.id),
+      isNull(schema.sessions.archivedAt),
+    ))
+    .orderBy(desc(schema.sessions.updatedAt))
+    .limit(8)
+    .all()
+    .map((row) => row.title)
+    .filter((title) => title !== DEFAULT_TITLE)
+    .slice(0, 5);
+  const weakConcepts = db
+    .select({
+      name: schema.terms.name,
+      state: schema.termMasteries.state,
+      difficulty: schema.termMasteries.difficulty,
+    })
+    .from(schema.termMasteries)
+    .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
+    .where(and(
+      eq(schema.termMasteries.queueStatus, 'active'),
+      ne(schema.termMasteries.state, 'new'),
+    ))
+    .orderBy(desc(schema.termMasteries.difficulty))
+    .limit(8)
+    .all() as LearnerProfileSnapshot['weakConcepts'];
+  return { recentTopics, weakConcepts };
 }
 
 export type WorkspaceExport = {

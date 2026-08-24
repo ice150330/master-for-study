@@ -22,6 +22,7 @@ type PanelSettings = {
   dailyNewLimit: number;
   retentionTarget: number;
   answerDepth: string;
+  memoryInjection: boolean;
 };
 
 const GOAL_PRESETS = ['后端工程师', '前端工程师', '算法·AI', '在校学生', '转行求职', '自由学习'];
@@ -222,6 +223,25 @@ export function SettingsPanel() {
         </div>
       </section>
 
+      {/* 老师记忆：画像注入开关 */}
+      <section>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-foreground">老师记忆</p>
+            <p className="mt-0.5 text-[11px] text-muted">让老师跨会话记得你学过什么</p>
+          </div>
+          <SegmentedControl
+            ariaLabel="老师记忆注入"
+            value={settings.memoryInjection ? 'on' : 'off'}
+            items={[
+              { value: 'on', label: '开启' },
+              { value: 'off', label: '关闭' },
+            ]}
+            onValueChange={(value) => void patch({ memoryInjection: value === 'on' })}
+          />
+        </div>
+      </section>
+
       {/* 纸张色温 */}
       <section className="border-t border-dashed border-border/70 pt-3">
         <div className="flex items-center justify-between gap-4">
@@ -277,6 +297,7 @@ function applySettings(
     dailyNewLimit: typeof raw.dailyNewLimit === 'number' ? raw.dailyNewLimit : 10,
     retentionTarget: raw.retentionTarget === 0.9 ? 0.9 : 0.85,
     answerDepth: isAnswerDepth(raw.answerDepth) ? raw.answerDepth : DEFAULT_ANSWER_DEPTH,
+    memoryInjection: typeof raw.memoryInjection === 'boolean' ? raw.memoryInjection : true,
   };
   setSettings(next);
   setGoalDraft(next.growthGoal ?? '');

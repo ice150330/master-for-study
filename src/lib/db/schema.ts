@@ -50,6 +50,8 @@ export const workspaceSettings = sqliteTable('workspace_settings', {
   dailyNewLimit: integer('daily_new_limit').notNull().default(10),
   retentionTarget: real('retention_target').notNull().default(0.85),
   answerDepth: text('answer_depth').notNull().default('standard'),
+  // A1 记忆注入：是否把学习者画像摘要注入聊天系统提示词
+  memoryInjection: integer('memory_injection', { mode: 'boolean' }).notNull().default(true),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 }, (table) => [
   uniqueIndex('workspace_settings_workspace_id_unique').on(table.workspaceId),
