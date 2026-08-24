@@ -5,8 +5,8 @@ import {
   BookOpenText,
   Check,
   ChevronDown,
-  CornerDownRight,
   ExternalLink,
+  FileText,
   GitBranch,
   GraduationCap,
   MoreHorizontal,
@@ -41,6 +41,7 @@ import { Input } from '@/components/ui/Field';
 import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
+import { WorkspaceSwitcher } from '@/components/shell/WorkspaceSwitcher';
 import {
   TEACHER_STYLES,
   teacherStyleLabel,
@@ -73,7 +74,7 @@ export function SessionCard({
   onStarter,
   onStop,
   onRegenerate,
-  onContinue,
+  onSummarize,
   resourceOptions,
   selectedResourceIds,
   onToggleResource,
@@ -109,8 +110,10 @@ export function SessionCard({
   starters?: string[];
   onStarter?: (prompt: string) => void;
   onStop: () => void;
+  /** 重写最后一条回答（回复操作行触发） */
   onRegenerate: () => void;
-  onContinue: () => void;
+  /** 从某条回答派生分支并生成详细综述 */
+  onSummarize: (messageId: string, content: string) => void;
   resourceOptions: ChatResource[];
   selectedResourceIds: string[];
   onToggleResource: (id: string) => void;
@@ -149,22 +152,28 @@ export function SessionCard({
 
   return (
     <div className="session-current-card flex h-full flex-col overflow-hidden rounded-[2px] border border-border bg-card shadow-[var(--shadow-md)]">
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-dashed border-border px-4 pb-2.5 pt-3.5">
-        <div className="flex min-w-0 items-stretch gap-3">
-          <span aria-hidden="true" className="w-1 shrink-0 rotate-1 bg-primary shadow-[2px_0_0_var(--marker-yellow)]" />
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-[10px] font-semibold text-muted">
-              <span className="rotate-[-2deg] border border-dashed border-primary bg-primary/12 px-1 text-primary">D{depth}</span>
-              <span>当前会话</span>
-              {branchCount > 0 ? <span>· {branchCount} 个后续分支</span> : null}
-            </p>
-            <h2 className="doodle-heading mt-0.5 truncate text-base font-extrabold leading-5 text-card-foreground">{title}</h2>
-            <p className="truncate text-[11px] text-muted">
-              {lineage ?? '根会话'} · {messages.length} 条消息
-            </p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+      {/* 单行状态栏：深度 · 标题 · 血缘与计数 · 工具组（工作区 / 树 / 新话题 / 操作） */}
+      <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-dashed border-border px-4">
+        <span aria-hidden="true" className="h-5 w-1 shrink-0 rotate-1 bg-primary shadow-[2px_0_0_var(--marker-yellow)]" />
+        <span className="shrink-0 rotate-[-2deg] border border-dashed border-primary bg-primary/12 px-1 text-[10px] font-semibold text-primary">
+          D{depth}
+        </span>
+        <h2 className="doodle-heading min-w-0 flex-1 truncate text-sm font-extrabold text-card-foreground">
+          {title}
+        </h2>
+        <p className="hidden shrink-0 items-center gap-1.5 text-[11px] text-muted lg:flex">
+          <span className="max-w-44 truncate">{lineage ?? '根会话'}</span>
+          <span aria-hidden="true">·</span>
+          <span className="shrink-0">{messages.length} 条</span>
+          {branchCount > 0 ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="shrink-0">{branchCount} 分支</span>
+            </>
+          ) : null}
+        </p>
+        <div className="flex shrink-0 items-center gap-1">
+          <WorkspaceSwitcher />
           <SessionTreeTrigger count={sessionCount} onOpen={onOpenTree} />
           <IconButton label="新话题" onClick={onNewSession}>
             <Plus aria-hidden="true" />
@@ -226,63 +235,95 @@ export function SessionCard({
             ) : null}
           </div>
         )}
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            data-message-id={m.id}
-            className={`group/message flex items-start gap-1.5 ${
-              m.role === 'user' ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            {m.role === 'user' && m.status === 'complete' && !isStreaming ? (
-              <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
-            ) : null}
+        {messages.map((m) => {
+          // 最后一条完整回答才允许原位重写，更早的回答只能经分支派生
+          let lastAssistantId: string | null = null;
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'assistant' && messages[i].status === 'complete') {
+              lastAssistantId = messages[i].id;
+              break;
+            }
+          }
+          const showActions = m.role === 'assistant' && m.status === 'complete' && !isStreaming && !!m.content;
+          return (
             <div
-              className={`max-w-[85%] whitespace-pre-wrap break-words rounded-[2px] border-2 border-dashed px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere] ${
-                m.role === 'user'
-                  ? 'rotate-[0.2deg] border-primary/60 bg-primary/8 text-card-foreground shadow-[4px_4px_0_rgba(255,107,107,0.2)]'
-                  : 'paper-subtle -rotate-[0.1deg] border-accent/55 text-card-foreground shadow-[4px_4px_0_rgba(78,205,196,0.2)]'
-              } ${m.status === 'error' ? 'border border-danger/35' : ''}`}
+              key={m.id}
+              data-message-id={m.id}
+              className={`group/message flex items-start gap-1.5 ${
+                m.role === 'user' ? 'justify-end' : 'justify-start'
+              }`}
             >
-              {m.content ? (
-                <MessageContent
-                  text={m.content}
-                  termDefs={termDefs}
-                  onTermAction={onTermAction}
-                  messageId={m.id}
-                />
-              ) : m.status === 'error' ? (
-                <span className="text-danger">回答未完成</span>
-              ) : null}
-              {m.status === 'error' && m.error ? (
-                <p className="mt-1 text-xs text-danger">{m.error}</p>
-              ) : null}
-              {m.role === 'assistant' && m.sources && m.sources.length > 0 ? (
-                <div className="mt-3 border-t border-dashed border-border pt-2">
-                  <p className="text-[11px] font-semibold text-muted">引用来源</p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {m.sources.map((source, index) => (
-                      <a
-                        key={source.id}
-                        href={source.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="doodle-link inline-flex max-w-56 items-center gap-1 rounded-[2px] border border-dashed border-border bg-card px-2 py-1 text-[11px] text-card-foreground hover:bg-highlight/15"
-                      >
-                        <span className="shrink-0">[{index + 1}]</span>
-                        <span className="truncate">{source.title}</span>
-                        <ExternalLink aria-hidden="true" className="size-3 shrink-0" />
-                      </a>
-                    ))}
-                  </div>
+              <div className={`flex min-w-0 max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div
+                  className={`break-words rounded-[2px] border-2 border-dashed px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere] ${
+                    m.role === 'user'
+                      ? 'rotate-[0.2deg] border-primary/60 bg-primary/8 text-card-foreground shadow-[4px_4px_0_rgba(255,107,107,0.2)]'
+                      : 'paper-subtle -rotate-[0.1deg] border-accent/55 text-card-foreground shadow-[4px_4px_0_rgba(78,205,196,0.2)]'
+                  } ${m.status === 'error' ? 'border border-danger/35' : ''}`}
+                >
+                  {m.content ? (
+                    <MessageContent
+                      text={m.content}
+                      termDefs={termDefs}
+                      onTermAction={onTermAction}
+                      messageId={m.id}
+                      markdown={m.role === 'assistant'}
+                    />
+                  ) : m.status === 'error' ? (
+                    <span className="text-danger">回答未完成</span>
+                  ) : null}
+                  {m.status === 'error' && m.error ? (
+                    <p className="mt-1 text-xs text-danger">{m.error}</p>
+                  ) : null}
+                  {m.role === 'assistant' && m.sources && m.sources.length > 0 ? (
+                    <div className="mt-3 border-t border-dashed border-border pt-2">
+                      <p className="text-[11px] font-semibold text-muted">引用来源</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {m.sources.map((source, index) => (
+                          <a
+                            key={source.id}
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="doodle-link inline-flex max-w-56 items-center gap-1 rounded-[2px] border border-dashed border-border bg-card px-2 py-1 text-[11px] text-card-foreground hover:bg-highlight/15"
+                          >
+                            <span className="shrink-0">[{index + 1}]</span>
+                            <span className="truncate">{source.title}</span>
+                            <ExternalLink aria-hidden="true" className="size-3 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+                {/* 回复操作行：重新生成（仅最后一条）/ 详细综述 / 从这里分支 */}
+                {showActions ? (
+                  <div className="mt-1 flex items-center gap-0.5 pl-1">
+                    <MessageAction
+                      icon={<RotateCcw aria-hidden="true" className="size-3" />}
+                      label="重新生成"
+                      title={m.id === lastAssistantId ? '重写这条回答' : '只有最后一条回答可以原位重新生成，更早的回答请用分支'}
+                      disabled={m.id !== lastAssistantId}
+                      onClick={onRegenerate}
+                    />
+                    <MessageAction
+                      icon={<FileText aria-hidden="true" className="size-3" />}
+                      label="详细综述"
+                      title="从这条回答派生分支，生成结构化的详细综述"
+                      onClick={() => onSummarize(m.id, m.content)}
+                    />
+                    <MessageAction
+                      icon={<GitBranch aria-hidden="true" className="size-3" />}
+                      label="从这里分支"
+                      title="从这条回答派生新分支继续提问"
+                      onClick={() => onBranchFromMessage(m.id)}
+                    />
+                  </div>
+                ) : null}
+              </div>
             </div>
-            {m.role === 'assistant' && m.status === 'complete' && !isStreaming ? (
-              <MessageBranchButton messageId={m.id} onBranch={onBranchFromMessage} />
-            ) : null}
-          </div>
-        ))}
+          );
+        })}
         {isStreaming && (
           <div className="flex justify-start">
             <span className="text-xs text-muted">思考中…</span>
@@ -323,18 +364,6 @@ export function SessionCard({
             onToggle={onToggleResource}
           />
           <span aria-hidden className="min-w-0 flex-1" />
-          {!isStreaming && messages.some((message) => message.role === 'user') ? (
-            <div className="flex shrink-0 items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={onRegenerate}>
-                <RotateCcw aria-hidden="true" className="size-3.5" />
-                重新生成
-              </Button>
-              <Button size="sm" variant="ghost" onClick={onContinue}>
-                <CornerDownRight aria-hidden="true" className="size-3.5" />
-                继续回答
-              </Button>
-            </div>
-          ) : null}
         </div>
         <div className="flex items-end gap-2">
           <textarea
@@ -471,21 +500,32 @@ function ResourceSelector({
   );
 }
 
-function MessageBranchButton({
-  messageId,
-  onBranch,
+/** 回复操作行按钮：重新生成 / 详细综述 / 从这里分支（小型幽灵按钮）。 */
+function MessageAction({
+  icon,
+  label,
+  title,
+  onClick,
+  disabled = false,
 }: {
-  messageId: string;
-  onBranch: (messageId: string) => void;
+  icon: React.ReactNode;
+  label: string;
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <IconButton
-      className="mt-1 opacity-0 transition-opacity group-hover/message:opacity-100 focus-visible:opacity-100"
-      label="从这里分支"
-      onClick={() => onBranch(messageId)}
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      className="inline-flex h-6 items-center gap-1 rounded-[2px] border border-dashed border-transparent px-1.5 text-[10px] font-medium text-muted transition-[transform,background-color,color,border-color] hover:border-accent/60 hover:bg-highlight/15 hover:text-foreground active:translate-x-px active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:border-transparent disabled:hover:bg-transparent"
     >
-      <GitBranch aria-hidden="true" />
-    </IconButton>
+      {icon}
+      {label}
+    </button>
   );
 }
 

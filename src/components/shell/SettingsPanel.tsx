@@ -16,7 +16,7 @@ import {
   isTeacherStyle,
   teacherStyleLabel,
 } from '@/lib/ai/teacher-style';
-import { setThemeMode, useThemeMode } from '@/lib/theme-client';
+import { setThemeMode, useThemeMode, THEME_MODES } from '@/lib/theme-client';
 
 /** 面板关心的设置字段子集（服务端还有场景覆盖等保留列）。 */
 type PanelSettings = {
@@ -316,19 +316,30 @@ export function SettingsPanel() {
         </div>
       </section>
 
-      {/* 纸张色温 */}
+      {/* 纸张主题：四种内置全局主题 */}
       <section className="border-t border-dashed border-border/70 pt-3">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-xs font-medium text-foreground">纸张色温</p>
-          <SegmentedControl
-            ariaLabel="界面主题"
-            value={mode}
-            items={[
-              { value: 'light', label: '纸白' },
-              { value: 'dark', label: '暖纸' },
-            ]}
-            onValueChange={(value) => setThemeMode(value === 'dark' ? 'dark' : 'light')}
-          />
+        <p className="text-xs font-medium text-foreground">纸张主题</p>
+        <div className="mt-1.5 grid grid-cols-4 gap-1">
+          {THEME_MODES.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={mode === item.value}
+              onClick={() => setThemeMode(item.value)}
+              className={`flex flex-col items-center gap-1 rounded-[2px] border border-dashed px-1 py-1.5 text-[11px] font-semibold transition-[transform,box-shadow,background-color,border-color] active:translate-x-[2px] active:translate-y-[2px] ${
+                mode === item.value
+                  ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
+                  : 'border-border text-muted hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground'
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className="size-4 rotate-[-3deg] rounded-[2px] border border-dashed border-border"
+                style={{ background: item.swatch }}
+              />
+              {item.label}
+            </button>
+          ))}
         </div>
       </section>
 

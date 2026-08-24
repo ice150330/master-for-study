@@ -658,8 +658,18 @@ export function Chat() {
     void send(messages[lastUserIndex].content, false, undefined, messages.slice(0, lastUserIndex), undefined, resourceIds);
   }
 
-  function continueAnswer() {
-    void send('请从刚才中断的位置继续，不要重复已经给出的内容。');
+  /** 详细综述：从指定回答派生分支，让老师做一次结构化的深入展开（不动原对话）。 */
+  function summarizeFromMessage(messageId: string, content: string) {
+    const plainTitle = content
+      .replace(/\[\[[^\]]*\]\]/g, '')
+      .replace(/[#*`>|-]/g, '')
+      .trim()
+      .slice(0, 16);
+    void createSemanticBranch(
+      messageId,
+      `综述：${plainTitle || '这条回答'}`,
+      '请对这条回答做一次详细的综述：先用一句话给出结论，再按要点展开背景与推导，补充一个贴近学习目标的例子和常见误区，最后列出 2–3 个值得继续追问的方向。',
+    );
   }
 
   function isCurrentRequest(requestId: number, sessionId: string) {
@@ -725,7 +735,7 @@ export function Chat() {
         onStarter={(prompt) => void send(prompt)}
         onStop={() => stopStreaming()}
         onRegenerate={regenerateLastAnswer}
-        onContinue={continueAnswer}
+        onSummarize={summarizeFromMessage}
         resourceOptions={resourceOptions}
         selectedResourceIds={selectedResourceIds}
         onToggleResource={(id) => setSelectedResourceIds((items) =>

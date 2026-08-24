@@ -23,7 +23,7 @@ type WorkspaceItem = {
 };
 
 /**
- * 工作区切换器（蓝图 4.1：一个工作区 = 一个学习主题）。
+ * 工作区切换器（蓝图 4.1：一个工作区 = 一个学习主题）——AI 会话界面独有（会话卡头部）。
  * 列表 / 切换 / 新建 / 重命名；管理工作区对话框提供归档与删除（C4）。
  * 切换后整页刷新，让服务端直调页面与客户端数据全部重载。
  */
@@ -149,13 +149,13 @@ export function WorkspaceSwitcher() {
           <button
             type="button"
             aria-label={`学习工作区：${active?.title ?? '本地工作区'}，点按切换`}
-            className="flex h-8 w-full rotate-[0.35deg] items-center justify-center gap-1.5 rounded-[2px] border border-dashed border-border px-1 text-[11px] text-muted transition-[background-color,border-color,color] hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground min-[1180px]:justify-start min-[1180px]:px-2"
+            className="flex h-8 shrink-0 rotate-[0.35deg] items-center gap-1.5 rounded-[2px] border border-dashed border-border px-2 text-[11px] text-muted transition-[background-color,border-color,color] hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground"
           >
             <Database aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
-            <span className="hidden min-w-0 flex-1 truncate min-[1180px]:inline">
+            <span className="hidden max-w-28 truncate sm:inline">
               {active?.title ?? '本地工作区'}
             </span>
-            <ChevronDown aria-hidden="true" className="hidden size-3 shrink-0 min-[1180px]:inline" />
+            <ChevronDown aria-hidden="true" className="size-3 shrink-0" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

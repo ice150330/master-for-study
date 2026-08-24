@@ -9,7 +9,9 @@ const MAX_VISIBLE = 3;
 
 /**
  * 会话胶带纸签（替代旧边缘纸签）：父级链是骑缝贴在主卡上缘、
- * 从左上角向右排的黄色胶带，分支是贴在下缘、从右下角向左排的青色胶带。
+ * 从左上角向右排成一行黄色胶带；子分支是贴在下缘右下角的
+ * **堆叠**青色胶带——多条时逐条向左叠压、只露出图标与层号，
+ * 悬停 / 聚焦时该条浮到最上层展开完整标题。
  * 胶带骑在卡边框上（一半在卡外的页面留白里），不遮挡卡内任何内容；
  * 倾斜角度逐条交替，呼应全局手绘胶带语言。
  */
@@ -34,7 +36,7 @@ export function SessionTabs({
 
   return (
     <>
-      {/* 父级胶带：上缘左上角向右排（最近父级最靠左） */}
+      {/* 父级胶带：上缘左上角向右排成一行（最近父级最靠左） */}
       {ancestorLayers.map((session, index) => (
         <TapeTab
           key={session.id}
@@ -57,12 +59,13 @@ export function SessionTabs({
         />
       ) : null}
 
-      {/* 子分支胶带：下缘右下角向左排（第一分支最靠右） */}
+      {/* 子分支胶带：下缘右下角堆叠（第一条在最上层完整可见，其余露左端标签） */}
       {branchLayers.map((session, index) => (
         <TapeTab
           key={session.id}
           side="branch"
           index={index}
+          stacked
           icon={<CornerDownRight aria-hidden="true" className="size-3" />}
           label={`分支${index + 1}`}
           session={session}
@@ -76,6 +79,7 @@ export function SessionTabs({
           index={branchLayers.length}
           count={branchOverflow}
           direction="down"
+          stacked
           onOpenTree={onOpenTree}
         />
       ) : null}
@@ -83,21 +87,25 @@ export function SessionTabs({
   );
 }
 
-/** 胶带定位：沿卡边排布（上缘从左、下缘从右），倾斜角逐条交替。 */
+/**
+ * 胶带定位：父级沿上缘一行排布；分支在右下角堆叠——
+ * 逐条向左叠压 46px（露出图标与层号）并轻微向上错位，倾斜逐条交替。
+ */
 function tapeTabStyle(side: 'ancestor' | 'branch', index: number): CSSProperties {
-  const alongEdge = 12 + index * 104;
   const rotate = [-1.6, 1.1, -0.8, 1.4][index % 4];
   const base: CSSProperties & Record<string, string | number> = {
-    zIndex: 40 + index,
     '--tab-rotate': `${rotate}deg`,
     transform: 'rotate(var(--tab-rotate))',
   };
   if (side === 'ancestor') {
+    base.zIndex = 40 + index;
     base.top = '-9px';
-    base.left = `${alongEdge}px`;
+    base.left = `${12 + index * 104}px`;
   } else {
-    base.bottom = '-9px';
-    base.right = `${alongEdge}px`;
+    // 堆叠：第一条（index 0）在最上层、最靠右；后续向左叠压并轻微上移
+    base.zIndex = 44 - index;
+    base.bottom = `${-9 + index * 3}px`;
+    base.right = `${12 + index * 46}px`;
   }
   return base as CSSProperties;
 }
@@ -105,6 +113,7 @@ function tapeTabStyle(side: 'ancestor' | 'branch', index: number): CSSProperties
 function TapeTab({
   side,
   index,
+  stacked = false,
   icon,
   label,
   session,
@@ -112,6 +121,8 @@ function TapeTab({
 }: {
   side: 'ancestor' | 'branch';
   index: number;
+  /** 分支堆叠样式：悬停浮到最上层展开 */
+  stacked?: boolean;
   icon: React.ReactNode;
   label: string;
   session: ChatSession;
@@ -125,7 +136,9 @@ function TapeTab({
       aria-label={`${label}会话：${session.title}，点击切换`}
       onClick={() => onSelect(session.id)}
       style={style}
-      className={`session-tape-tab session-tape-tab--${side} pointer-events-auto absolute inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4`}
+      className={`session-tape-tab session-tape-tab--${side} pointer-events-auto absolute inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4${
+        stacked ? ' session-tape-tab--stacked' : ''
+      }`}
     >
       {icon}
       <span className="shrink-0">{label}</span>
@@ -139,12 +152,14 @@ function TapeTabOverflow({
   index,
   count,
   direction,
+  stacked = false,
   onOpenTree,
 }: {
   side: 'ancestor' | 'branch';
   index: number;
   count: number;
   direction: 'up' | 'down';
+  stacked?: boolean;
   onOpenTree: () => void;
 }) {
   const style = tapeTabStyle(side, index);
@@ -155,7 +170,9 @@ function TapeTabOverflow({
       aria-label={`还有 ${count} 个${direction === 'up' ? '更早的父级' : '其余分支'}，打开会话树`}
       onClick={onOpenTree}
       style={style}
-      className={`session-tape-tab session-tape-tab--${side} pointer-events-auto absolute inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4`}
+      className={`session-tape-tab session-tape-tab--${side} pointer-events-auto absolute inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4${
+        stacked ? ' session-tape-tab--stacked' : ''
+      }`}
     >
       <Layers3 aria-hidden="true" className="size-3" />
       <span>+{count}</span>

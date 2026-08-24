@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/Field';
 import { NAV_SECTIONS, type AppRoute } from '@/lib/nav';
 import { SettingsPanel } from './SettingsPanel';
 import { ThemeToggle } from './ThemeToggle';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 const pages = NAV_SECTIONS.flatMap((section) =>
   section.items.map((item) => ({ ...item, section: section.label })),
@@ -54,15 +53,15 @@ function hitHref(hit: ContentHit): string {
 
 /**
  * 侧边栏底部工具区（顶栏移除后全局工具的下沉位置）：
- * 工作区切换器 + 搜索 / 设置 / 主题。设置为大弹窗（SettingsDialog）。
+ * 搜索 / 设置 / 主题。设置为大弹窗（SettingsDialog）；
+ * 工作区切换器是 AI 会话界面独有的（放在会话卡头部）。
  */
 export function SidebarTools({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <>
-      <WorkspaceSwitcher />
-      <div className="flex items-center justify-center gap-0.5 pt-0.5 min-[1180px]:justify-start">
+      <div className="flex items-center justify-center gap-0.5 min-[1180px]:justify-start">
         <IconButton label="搜索页面与内容" onClick={() => setSearchOpen(true)}>
           <Search />
         </IconButton>

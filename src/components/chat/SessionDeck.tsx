@@ -26,7 +26,7 @@ export function SessionDeck({
   onStarter,
   onStop,
   onRegenerate,
-  onContinue,
+  onSummarize,
   resourceOptions,
   selectedResourceIds,
   onToggleResource,
@@ -58,7 +58,7 @@ export function SessionDeck({
   onStarter?: (prompt: string) => void;
   onStop: () => void;
   onRegenerate: () => void;
-  onContinue: () => void;
+  onSummarize: (messageId: string, content: string) => void;
   resourceOptions: ChatResource[];
   selectedResourceIds: string[];
   onToggleResource: (id: string) => void;
@@ -160,7 +160,7 @@ export function SessionDeck({
               onStarter={onStarter}
               onStop={onStop}
               onRegenerate={onRegenerate}
-              onContinue={onContinue}
+              onSummarize={onSummarize}
               resourceOptions={resourceOptions}
               selectedResourceIds={selectedResourceIds}
               onToggleResource={onToggleResource}

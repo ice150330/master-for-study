@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
-/* 类策略主题变体：.dark 代表更暖的护眼纸张，而不是暗色界面。 */
-@custom-variant dark (&:where(.dark, .dark *));
+/* 四种内置纸张主题：data-theme 挂在 <html>，纸白为默认（无属性）。
+   dark: 变体只代表夜墨（唯一深色），暖纸 / 青蓝仍是浅色护眼纸。 */
+@custom-variant dark (&:where([data-theme='night'], [data-theme='night'] *));
 
 /* Hand-drawn Doodle：纸白、墨黑与三支 marker 构成全部视觉语法。 */
 :root {
@@ -44,8 +45,8 @@
   --duration-panel: 240ms;
 }
 
-.dark {
-  color-scheme: light;
+/* 暖纸：米黄护眼纸（原 .dark 语义迁移）。 */
+html[data-theme='warm'] {
   --background: #f7f2df;
   --surface: #edf3e6;
   --card: #fffaf0;
@@ -53,6 +54,54 @@
   --paper-line: rgba(78, 205, 196, 0.2);
   --paper-margin: rgba(255, 107, 107, 0.26);
   --muted: #666a63;
+}
+
+/* 青蓝：冷调图纸纸，适合长时间读代码与图表。 */
+html[data-theme='blueprint'] {
+  --background: #eef3f7;
+  --surface: #e4ecf2;
+  --card: #f6fafd;
+  --card-soft: #eaf1f6;
+  --paper-line: rgba(58, 125, 178, 0.14);
+  --paper-margin: rgba(180, 59, 70, 0.24);
+  --muted: #5c6a76;
+}
+
+/* 夜墨：唯一深色主题——墨绿底、米色墨、marker 提亮。 */
+html[data-theme='night'] {
+  color-scheme: dark;
+  --background: #1e211f;
+  --foreground: #e7e5dc;
+  --surface: #232724;
+  --card: #272b28;
+  --card-soft: #2d322e;
+  --card-foreground: #e7e5dc;
+  --primary: #d4636e;
+  --primary-foreground: #211a1a;
+  --accent: #4db8ae;
+  --accent-foreground: #10231f;
+  --highlight: #d9b83c;
+  --warning: #c99b4a;
+  --warning-foreground: #211a1a;
+  --danger: #d4636e;
+  --danger-foreground: #211a1a;
+  --pink: #d992a6;
+  --pink-foreground: #211a1a;
+  --yellow: #d9b83c;
+  --yellow-foreground: #211a1a;
+  --muted: #9aa39b;
+  --border: rgba(231, 229, 220, 0.34);
+  --ring: #d4636e;
+  --overlay: rgba(8, 10, 9, 0.52);
+  --state-untouched: rgba(231, 229, 220, 0.06);
+  --state-untouched-fg: #9aa39b;
+  --paper-line: rgba(77, 184, 174, 0.1);
+  --paper-margin: rgba(212, 99, 110, 0.18);
+  --marker-teal: rgba(77, 184, 174, 0.5);
+  --marker-red: rgba(212, 99, 110, 0.5);
+  --marker-yellow: rgba(217, 184, 60, 0.5);
+  --shadow-md: 4px 4px 0 rgba(0, 0, 0, 0.32), 7px 7px 0 rgba(77, 184, 174, 0.2);
+  --shadow-lg: 6px 6px 0 rgba(0, 0, 0, 0.4), 10px 10px 0 rgba(212, 99, 110, 0.2);
 }
 
 @theme inline {
@@ -426,6 +475,12 @@ a {
   box-shadow: none;
 }
 
+/* 堆叠分支胶带：悬停 / 聚焦时浮到堆叠最上层，完整标题展开可读 */
+.session-tape-tab--stacked:hover,
+.session-tape-tab--stacked:focus-visible {
+  z-index: 60 !important;
+}
+
 /* 概念便利贴：点击未知知识点弹出的手写便签（替代右侧轨道） */
 .concept-note {
   position: relative;
@@ -447,6 +502,200 @@ a {
   border: 1px dashed rgba(44, 44, 44, 0.14);
   border-radius: 2px;
   transform: translateX(-50%) rotate(-2deg);
+}
+
+/* 聊天 Markdown：手绘主题化排版。标题带 marker 划线、列表用铅笔符、
+   粗体带 marker 笔触；表格与代码块保持稳定直线几何，代码块横向滚动。 */
+.md-chat {
+  font-size: 0.875rem;
+}
+
+.md-chat > :first-child {
+  margin-top: 0;
+}
+
+.md-chat > :last-child {
+  margin-bottom: 0;
+}
+
+.md-chat p {
+  margin: 0.45rem 0;
+  line-height: 1.7;
+}
+
+.md-chat h1,
+.md-chat h2,
+.md-chat h3,
+.md-chat h4,
+.md-chat h5,
+.md-chat h6 {
+  position: relative;
+  margin: 0.9rem 0 0.3rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.md-chat h1 {
+  display: inline-block;
+  font-size: 1.05rem;
+  transform: rotate(-0.35deg);
+}
+
+.md-chat h2 {
+  display: inline-block;
+  font-size: 0.98rem;
+  transform: rotate(-0.3deg);
+}
+
+.md-chat h3,
+.md-chat h4,
+.md-chat h5,
+.md-chat h6 {
+  font-size: 0.9rem;
+}
+
+.md-chat h1::after,
+.md-chat h2::after {
+  position: absolute;
+  left: 2%;
+  right: 0;
+  bottom: -4px;
+  height: 5px;
+  content: "";
+  background: var(--marker-yellow);
+  clip-path: polygon(0 38%, 19% 16%, 42% 42%, 65% 12%, 100% 35%, 98% 76%, 71% 58%, 45% 86%, 18% 64%, 0 84%);
+  transform: rotate(0.7deg);
+}
+
+.md-chat ul,
+.md-chat ol {
+  margin: 0.45rem 0;
+  padding-left: 1.4rem;
+}
+
+.md-chat ul {
+  list-style: none;
+}
+
+.md-chat ul > li {
+  position: relative;
+}
+
+.md-chat ul > li::before {
+  position: absolute;
+  left: -1.15rem;
+  top: 0.28em;
+  content: "✎";
+  color: var(--primary);
+  font-size: 0.68em;
+}
+
+.md-chat ol {
+  list-style: decimal;
+}
+
+.md-chat li {
+  margin: 0.28rem 0;
+  line-height: 1.65;
+}
+
+.md-chat li::marker {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.md-chat li > p,
+.md-chat li > ul,
+.md-chat li > ol {
+  margin: 0.2rem 0;
+}
+
+.md-chat blockquote {
+  margin: 0.6rem 0;
+  padding: 0.3rem 0.85rem;
+  border-left: 2px dashed color-mix(in srgb, var(--accent) 62%, transparent);
+  border-radius: 0 2px 2px 0;
+  background: color-mix(in srgb, var(--card-soft) 72%, transparent);
+  color: var(--muted);
+}
+
+.md-chat blockquote p {
+  margin: 0.25rem 0;
+}
+
+.md-chat hr {
+  margin: 0.9rem 0;
+  border: none;
+  border-top: 2px dashed var(--border);
+}
+
+.md-chat strong {
+  font-weight: 700;
+  color: var(--foreground);
+  background: linear-gradient(180deg, transparent 58%, rgba(255, 217, 61, 0.38) 58% 92%, transparent 92%);
+}
+
+.md-chat code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.86em;
+  background: color-mix(in srgb, var(--card-soft) 90%, var(--accent) 7%);
+  border: 1px dashed color-mix(in srgb, var(--foreground) 28%, transparent);
+  border-radius: 2px;
+  padding: 0.08em 0.36em;
+}
+
+.md-chat pre {
+  margin: 0.6rem 0;
+  padding: 0.7rem 0.9rem;
+  overflow-x: auto;
+  background: var(--card-soft);
+  border: 1.5px dashed color-mix(in srgb, var(--foreground) 36%, transparent);
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 rgba(44, 44, 44, 0.08);
+}
+
+.md-chat pre code {
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.md-chat a {
+  color: var(--accent);
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1.5px;
+}
+
+.md-chat table {
+  width: 100%;
+  margin: 0.6rem 0;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.md-chat th,
+.md-chat td {
+  padding: 0.3rem 0.55rem;
+  border: 1px dashed var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-chat th {
+  background: var(--card-soft);
+  font-weight: 700;
+}
+
+.md-chat img {
+  max-width: 100%;
+  border: 1px dashed var(--border);
+  border-radius: 2px;
 }
 
 /* 会话树抽屉：右侧滑入的全局导航面板 */

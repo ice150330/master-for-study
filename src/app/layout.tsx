@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   description: "一个运行在本地、有长期记忆的私人学习老师",
 };
 
-/** 防首屏闪烁：默认使用纸白，用户选择护眼暖纸时才挂载 .dark。 */
-const themeInitScript = `(function(){try{if(localStorage.getItem('mentor-theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})()`;
+/** 防首屏闪烁：默认纸白，非默认主题在首帧前写入 data-theme（旧值 light/dark 已迁移）。 */
+const themeInitScript = `(function(){try{var v=localStorage.getItem('mentor-theme');if(v==='light')v='paper';if(v==='dark')v='warm';if(v&&v!=='paper'){document.documentElement.setAttribute('data-theme',v);if(v==='night'){document.documentElement.style.colorScheme='dark'}}}catch(e){}})()`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

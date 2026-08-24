@@ -57,9 +57,9 @@ test('基础组件具备完整视觉状态和键盘行为', async ({ page }, tes
   await page.getByRole('button', { name: '显示通知' }).click();
   await expect(page.getByRole('status').filter({ hasText: '已加入复习队列' })).toBeVisible();
 
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'night'));
   await page.screenshot({
-    path: path.join(captureRoot, `${phase}-components-dark-desktop-after.png`),
+    path: path.join(captureRoot, `${phase}-components-night-desktop-after.png`),
     fullPage: true,
     animations: 'disabled',
   });
