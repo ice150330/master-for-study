@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -375,6 +375,61 @@ export function exportWorkspaceData(): WorkspaceExport {
     tables[name] = getDb().select().from(table).all();
   }
   return { generatedAt: new Date(), tables };
+}
+
+/**
+ * 整库导入（B1 备份恢复）：事务内先清空全部表再插入导出快照。
+ * - 表键必须是 schema 已知导出名，未知键直接抛错（整笔拒绝，不产生半状态）；
+ * - `PRAGMA defer_foreign_keys` 让清空与插入顺序对外键免疫，提交时统一校验；
+ * - 日期列按 schema 列类型把 ISO 字符串还原为 Date。
+ */
+export function importWorkspaceData(payload: {
+  generatedAt?: unknown;
+  tables: Record<string, unknown[]>;
+}): { imported: Record<string, number> } {
+  const db = getDb();
+  const entries = Object.entries(schema);
+  const known = new Map(entries);
+  for (const key of Object.keys(payload.tables ?? {})) {
+    if (!known.has(key)) throw new Error(`导出文件包含未知表：${key}`);
+  }
+
+  // 日期列清单（timestamp_ms 模式 dataType === 'date'）
+  const dateColumns = new Map<string, Set<string>>();
+  for (const [name, table] of entries) {
+    const dates = new Set<string>();
+    for (const [columnName, column] of Object.entries(getTableColumns(table))) {
+      if ((column as { dataType?: string }).dataType === 'date') dates.add(columnName);
+    }
+    dateColumns.set(name, dates);
+  }
+
+  const imported: Record<string, number> = {};
+  db.transaction((tx) => {
+    tx.run(sql`PRAGMA defer_foreign_keys = ON`);
+    // 先清空（含未出现在快照中的表，保证"恢复到快照时刻"语义）
+    for (const [, table] of entries) {
+      tx.delete(table).run();
+    }
+    for (const [name, table] of entries) {
+      const rows = payload.tables[name];
+      if (!rows) continue;
+      const dates = dateColumns.get(name) ?? new Set<string>();
+      for (const raw of rows) {
+        const row = { ...(raw as Record<string, unknown>) };
+        for (const key of dates) {
+          const value = row[key];
+          if (typeof value === 'string' && value) {
+            const parsed = new Date(value);
+            row[key] = Number.isNaN(parsed.getTime()) ? null : parsed;
+          }
+        }
+        tx.insert(table).values(row as never).run();
+      }
+      imported[name] = rows.length;
+    }
+  });
+  return { imported };
 }
 
 /** 按 id 查询单个会话。 */

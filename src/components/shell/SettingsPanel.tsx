@@ -1,7 +1,9 @@
 'use client';
 
-import { Download, Flag, GraduationCap, Gauge, Layers, Bell } from 'lucide-react';
+import { Download, Flag, GraduationCap, Gauge, Layers, Bell, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Field';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useToast } from '@/components/ui/Toast';
@@ -42,6 +44,10 @@ export function SettingsPanel() {
   const [notifyPermission, setNotifyPermission] = useState<'unsupported' | 'default' | 'granted' | 'denied'>(
     () => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission),
   );
+  const [importOpen, setImportOpen] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFileRef = useRef<File | null>(null);
   const loadRan = useRef(false);
 
   useEffect(() => {
@@ -79,6 +85,37 @@ export function SettingsPanel() {
       setSettings(previous);
       applySettings(setSettings, setGoalDraft, setLimitDraft, previous);
       toast({ title: '设置保存失败', description: '请稍后重试', tone: 'error' });
+    }
+  }
+
+  /** B1 导入：选文件 → 确认弹窗（提示先导出）→ POST 整库替换 → 刷新页面。 */
+  function handleImportFile(file: File | null) {
+    if (!file) return;
+    pendingFileRef.current = file;
+    setImportOpen(true);
+  }
+
+  async function confirmImport() {
+    const file = pendingFileRef.current;
+    if (!file || importBusy) return;
+    setImportBusy(true);
+    try {
+      const text = await file.text();
+      const body: unknown = JSON.parse(text);
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        throw new Error(data?.error?.message ?? `导入失败（HTTP ${res.status}）`);
+      }
+      window.location.reload();
+    } catch (error) {
+      toast({ title: '导入失败', description: error instanceof Error ? error.message : '文件无效', tone: 'error' });
+      setImportBusy(false);
+      setImportOpen(false);
     }
   }
 
@@ -298,23 +335,62 @@ export function SettingsPanel() {
         </div>
       </section>
 
-      {/* 数据备份：全量导出 JSON（蓝图 §1 私有原则：可随时导出 / 备份 / 迁移） */}
+      {/* 数据备份：全量导出 / 导入 JSON（蓝图 §1 私有原则：可随时导出 / 备份 / 迁移） */}
       <section className="border-t border-dashed border-border/70 pt-3">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-foreground">数据备份</p>
-            <p className="mt-0.5 text-[11px] text-muted">导出全部本地数据为 JSON 文件</p>
+            <p className="mt-0.5 text-[11px] text-muted">导出全部本地数据，或从备份恢复</p>
           </div>
-          <a
-            href="/api/export"
-            download
-            className="inline-flex h-8 items-center gap-1.5 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:-translate-x-px hover:-translate-y-px hover:bg-highlight/15 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-          >
-            <Download aria-hidden="true" className="size-3.5" />
-            导出
-          </a>
+          <div className="flex items-center gap-1.5">
+            <a
+              href="/api/export"
+              download
+              className="inline-flex h-8 items-center gap-1.5 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:-translate-x-px hover:-translate-y-px hover:bg-highlight/15 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            >
+              <Download aria-hidden="true" className="size-3.5" />
+              导出
+            </a>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-[2px] border border-dashed border-border px-3 text-xs font-semibold text-muted transition-[background-color,border-color,color] hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground"
+            >
+              <Upload aria-hidden="true" className="size-3.5" />
+              导入
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              aria-label="选择备份文件"
+              onChange={(event) => {
+                handleImportFile(event.target.files?.[0] ?? null);
+                event.target.value = '';
+              }}
+            />
+          </div>
         </div>
       </section>
+
+      <Dialog open={importOpen} onOpenChange={(open) => {
+        setImportOpen(open);
+        if (!open) pendingFileRef.current = null;
+      }}>
+        <DialogContent className="w-96">
+          <DialogTitle>确认导入备份？</DialogTitle>
+          <DialogDescription>
+            导入会<strong className="text-foreground">覆盖当前全部数据</strong>（会话、概念、复习记录与设置），恢复到备份时刻。此操作不可撤销，建议先导出当前数据留底。
+          </DialogDescription>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setImportOpen(false)} disabled={importBusy}>取消</Button>
+            <Button onClick={() => void confirmImport()} loading={importBusy}>
+              {importBusy ? '导入中…' : '覆盖导入'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="border-t border-dashed border-border/70 pt-2 text-[11px] leading-relaxed text-muted">
         老师风格与深浅影响对话讲解方式；保留率与每日新学量决定复习调度。学习记录保存在本地

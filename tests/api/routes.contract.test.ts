@@ -25,6 +25,7 @@ let workspacesGet: GetHandler;
 // [id] 路由带动态段上下文（Next 16 的 params 是 Promise）
 let workspacesPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let reviewGet: GetHandler;
+let importPost: PostHandler;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -56,6 +57,7 @@ beforeAll(async () => {
   workspacesGet = (await import('../../src/app/api/workspaces/route')).GET;
   workspacesPatch = (await import('../../src/app/api/workspaces/[id]/route')).PATCH;
   reviewGet = (await import('../../src/app/api/review/route')).GET;
+  importPost = (await import('../../src/app/api/import/route')).POST;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -157,6 +159,28 @@ describe('Route Handler zod 合同', () => {
     expect(typeof data.pendingCount).toBe('number');
     // 轻量模式不返回完整队列
     expect('reviews' in data).toBe(false);
+  });
+
+  it('导入接口：非法结构 400，导出快照可整库回灌（B1）', async () => {
+    const invalid = await importPost(jsonRequest('/api/import', { tables: 'not-an-object' }));
+    expect(invalid.status).toBe(400);
+
+    // 用导出接口拿当前快照回灌（往返一致性）
+    const exportResponse = await exportGet(new Request('http://localhost/api/export'));
+    const snapshot = (await exportResponse.json()) as { generatedAt: string; tables: Record<string, unknown[]> };
+    const restored = await importPost(jsonRequest('/api/import', snapshot));
+    expect(restored.status).toBe(200);
+    const body = (await restored.json()) as { imported: Record<string, number>; total: number };
+    expect(body.imported.workspaces).toBeGreaterThanOrEqual(1);
+    expect(body.total).toBeGreaterThan(0);
+
+    // 未知表键返回 400 且带原因
+    const unknownTable = await importPost(jsonRequest('/api/import', {
+      generatedAt: snapshot.generatedAt,
+      tables: { ...snapshot.tables, bogus: [] },
+    }));
+    expect(unknownTable.status).toBe(400);
+    expect(await unknownTable.json()).toMatchObject({ error: { code: 'IMPORT_INVALID' } });
   });
 
   it('导出接口返回带附件头的完整 JSON', async () => {

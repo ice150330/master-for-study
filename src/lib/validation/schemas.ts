@@ -63,6 +63,14 @@ export const workspaceUpdateSchema = z
   })
   .strict();
 
+/** 全库导入（B1）：结构宽松（键为 schema 导出名、值为行数组），语义校验在仓库层做。 */
+export const importRequestSchema = z
+  .object({
+    generatedAt: z.string().min(4),
+    tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))),
+  })
+  .strict();
+
 /** 工作区设置部分更新：全部字段可缺省，场景覆盖 / 目标传 null 恢复默认。 */
 export const settingsPatchSchema = z
   .object({

@@ -487,6 +487,33 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(dump.generatedAt.getTime()).toBeLessThanOrEqual(Date.now());
   });
 
+  it('整库导入：快照覆盖当前数据并可完整恢复（B1 备份恢复）', () => {
+    const sessionsBefore = repository.listSessions().length;
+    // 取快照（Date 序列化为 ISO，模拟真实导出文件的形态）
+    const snapshot = repository.exportWorkspaceData();
+    const serialized = JSON.parse(JSON.stringify(snapshot, (_key, value: unknown) =>
+      value instanceof Date ? value.toISOString() : value)) as { generatedAt: string; tables: Record<string, unknown[]> };
+
+    // 快照之后写入的新数据，导入后应当消失
+    const extraSession = repository.createSession({
+      title: '导入后不应存在',
+      idempotencyKey: 'session:import:extra',
+    });
+    expect(repository.listSessions().length).toBe(sessionsBefore + 1);
+
+    const { imported } = repository.importWorkspaceData(serialized);
+    expect(imported.sessions).toBe(sessionsBefore);
+    expect(repository.listSessions().some((session) => session.id === extraSession.id)).toBe(false);
+    expect(repository.listSessions().length).toBe(sessionsBefore);
+    // 概念与掌握度（含日期列）完整还原
+    expect(repository.getWorkspaceSettings().memoryInjection).toBe(true);
+    // 未知表键整笔拒绝
+    expect(() => repository.importWorkspaceData({
+      generatedAt: '2026-08-24T00:00:00.000Z',
+      tables: { ...serialized.tables, notATable: [{ id: 'x' }] },
+    })).toThrow(/未知表/);
+  });
+
   it('多工作区：新建即切换、数据按工作区隔离、可切回并重命名', () => {
     const original = repository.ensureWorkspace();
     const sessionInOriginal = repository.createSession({
