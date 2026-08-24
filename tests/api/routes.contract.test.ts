@@ -19,6 +19,7 @@ let chatPost: PostHandler;
 let termsPost: PostHandler;
 let knowledgePatch: PostHandler;
 let analyticsGet: GetHandler;
+let exportGet: GetHandler;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -45,6 +46,7 @@ beforeAll(async () => {
   termsPost = (await import('../../src/app/api/terms/route')).POST;
   knowledgePatch = (await import('../../src/app/api/knowledge-graph/route')).PATCH;
   analyticsGet = (await import('../../src/app/api/analytics/route')).GET;
+  exportGet = (await import('../../src/app/api/export/route')).GET;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -133,6 +135,19 @@ describe('Route Handler zod 合同', () => {
     );
     expect(valid.status).toBe(200);
     expect(await valid.json()).toMatchObject({ settings: { teacherStyle: 'feynman' } });
+  });
+
+  it('导出接口返回带附件头的完整 JSON', async () => {
+    const response = await exportGet(new Request('http://localhost/api/export'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    expect(response.headers.get('content-disposition')).toMatch(/^attachment; filename="mentor-export-\d{4}-\d{2}-\d{2}\.json"$/);
+    const data = (await response.json()) as { generatedAt: string; tables: Record<string, unknown[]> };
+    expect(Object.keys(data.tables).length).toBeGreaterThanOrEqual(20);
+    expect(data.tables.workspaces.length).toBeGreaterThan(0);
+    // Date 已序列化为 ISO 字符串
+    expect(typeof data.generatedAt).toBe('string');
+    expect(data.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('重复资源请求返回同一对象且数据库只有一条记录', async () => {

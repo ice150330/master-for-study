@@ -1,6 +1,6 @@
 'use client';
 
-import { Flag, GraduationCap, Gauge, Layers } from 'lucide-react';
+import { Download, Flag, GraduationCap, Gauge, Layers } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/Field';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -235,6 +235,24 @@ export function SettingsPanel() {
             ]}
             onValueChange={(value) => setThemeMode(value === 'dark' ? 'dark' : 'light')}
           />
+        </div>
+      </section>
+
+      {/* 数据备份：全量导出 JSON（蓝图 §1 私有原则：可随时导出 / 备份 / 迁移） */}
+      <section className="border-t border-dashed border-border/70 pt-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-foreground">数据备份</p>
+            <p className="mt-0.5 text-[11px] text-muted">导出全部本地数据为 JSON 文件</p>
+          </div>
+          <a
+            href="/api/export"
+            download
+            className="inline-flex h-8 items-center gap-1.5 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:-translate-x-px hover:-translate-y-px hover:bg-highlight/15 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+          >
+            <Download aria-hidden="true" className="size-3.5" />
+            导出
+          </a>
         </div>
       </section>
 

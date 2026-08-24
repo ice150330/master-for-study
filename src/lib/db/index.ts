@@ -251,6 +251,24 @@ export function updateWorkspaceSettings(patch: WorkspaceSettingsPatch): Workspac
   return getWorkspaceSettings();
 }
 
+export type WorkspaceExport = {
+  generatedAt: Date;
+  tables: Record<string, unknown[]>;
+};
+
+/**
+ * 全库导出（备份/迁移用）：按 schema 导出名返回全部表行。
+ * Date 字段保持原样，由调用方在 JSON 序列化时转 ISO 字符串。
+ */
+export function exportWorkspaceData(): WorkspaceExport {
+  getDb(); // 确保连接与迁移已就绪
+  const tables: Record<string, unknown[]> = {};
+  for (const [name, table] of Object.entries(schema)) {
+    tables[name] = getDb().select().from(table).all();
+  }
+  return { generatedAt: new Date(), tables };
+}
+
 /** 按 id 查询单个会话。 */
 export function getSession(id: string): Session | undefined {
   return getDb().select().from(schema.sessions).where(eq(schema.sessions.id, id)).limit(1).get();

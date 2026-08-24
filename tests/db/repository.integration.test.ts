@@ -388,6 +388,21 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(restored.summary.due).toBe(restored.reviews.length);
   });
 
+  it('全库导出包含全部表与已写入数据', () => {
+    repository.upsertTerm({
+      name: '导出概念',
+      definition: '导出完整性验证。',
+      idempotencyKey: 'term:export:one',
+    });
+    const dump = repository.exportWorkspaceData();
+    // 26 张表全部在场
+    expect(Object.keys(dump.tables).length).toBeGreaterThanOrEqual(20);
+    expect(Object.keys(dump.tables)).toContain('learningEvents');
+    expect(dump.tables.workspaces.length).toBeGreaterThan(0);
+    expect(dump.tables.terms.some((row) => (row as { name?: string }).name === '导出概念')).toBe(true);
+    expect(dump.generatedAt.getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
   it('结构化面试按评分策略调整三题难度，并保留重答版本', () => {
     const skill = repository.upsertTerm({
       name: '索引设计',
