@@ -1,17 +1,22 @@
 'use client';
 
 import { ArchiveRestore, FolderTree, ListTree, Pin, Plus, Search } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { IconButton } from '@/components/ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
 import type { ChatSession } from './chat-types';
 
+/** 悬停开关延迟：进入 180ms 防误触，离开 240ms 留出移进面板的宽限 */
+const HOVER_OPEN_MS = 180;
+const HOVER_CLOSE_MS = 240;
+
 /**
  * 会话树气泡（原右侧抽屉改为向下弹出）：从卡片头部的树形按钮向下弹出的
- * 气泡面板，Radix Popover 锚定触发器——外点关闭 / Escape / 焦点返回全部继承，
- * 顶部小尾巴（.tree-bubble）指回按钮。内容：搜索、完整会话树、置顶与相对时间、
- * 归档恢复、新话题；「+N」胶带溢出共用同一受控 open。
+ * 气泡面板，**鼠标悬停即开、移开即关**（进面板停留不关；触摸设备仍走点击，
+ * 悬停只对 pointerType=mouse 生效避免点按竞态）。Radix Popover 锚定触发器，
+ * 外点关闭 / Escape / 焦点返回全部继承，顶部小尾巴指回按钮。
+ * 内容：搜索、完整会话树、置顶与相对时间、归档恢复、新话题；「+N」胶带共用受控 open。
  */
 export function SessionTreeMenu({
   open,
@@ -33,6 +38,32 @@ export function SessionTreeMenu({
   onRestore: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
+  const openTimer = useRef(0);
+  const closeTimer = useRef(0);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(openTimer.current);
+      window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  function hoverOpen(event: React.PointerEvent) {
+    if (event.pointerType !== 'mouse') return;
+    window.clearTimeout(closeTimer.current);
+    openTimer.current = window.setTimeout(() => onOpenChange(true), HOVER_OPEN_MS);
+  }
+
+  function hoverClose(event?: React.PointerEvent) {
+    if (event && event.pointerType !== 'mouse') return;
+    window.clearTimeout(openTimer.current);
+    closeTimer.current = window.setTimeout(() => onOpenChange(false), HOVER_CLOSE_MS);
+  }
+
+  function hoverStay() {
+    window.clearTimeout(closeTimer.current);
+  }
   const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN');
   const visibleSessions = useMemo(
     () =>
@@ -55,11 +86,18 @@ export function SessionTreeMenu({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <SessionTreeTrigger count={sessions.length} />
+        <SessionTreeTrigger
+          count={sessions.length}
+          tooltip={false}
+          onPointerEnter={hoverOpen}
+          onPointerLeave={(event) => hoverClose(event)}
+        />
       </PopoverTrigger>
       <PopoverContent
         align="end"
         className="tree-bubble w-[min(22rem,92vw)] p-0"
+        onPointerEnter={hoverStay}
+        onPointerLeave={(event) => hoverClose(event)}
         onKeyDown={(event) => {
           // 显式兜底：受控 open 下确保 Escape 一定关闭（与 Radix 内部处理幂等）
           if (event.key === 'Escape') onOpenChange(false);
@@ -131,14 +169,17 @@ export function SessionTreeMenu({
 }
 
 /** 会话卡头部触发按钮：IconButton（统一悬停样式）+ 会话数角标；
-    透传 props / ref 给 Radix asChild（PopoverTrigger 注入开关语义）。 */
+    透传 props / ref 给 Radix asChild（PopoverTrigger 注入开关语义），
+    tooltip 可关（悬停已用于开面板，提示反而碍事）。 */
 export function SessionTreeTrigger({
   count,
+  tooltip = true,
   ...props
-}: { count: number } & React.ComponentPropsWithoutRef<'button'>) {
+}: { count: number; tooltip?: boolean } & React.ComponentPropsWithoutRef<'button'>) {
   return (
     <IconButton
       className="relative size-8 shrink-0"
+      tooltip={tooltip}
       {...props}
       label={count > 0 ? `打开会话树（共 ${count} 个会话）` : '打开会话树'}
     >

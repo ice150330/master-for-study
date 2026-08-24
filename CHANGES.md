@@ -4,6 +4,7 @@
 
 ## 2026-08-25
 
+- 会话树气泡改为悬停开关：鼠标悬停头部树形按钮 180ms 即开、移开 240ms 即关（移进面板取消关闭，短暂扫过不误触；悬停只对 `pointerType=mouse` 生效，触摸设备保持点击开关避免点按竞态），Escape / 外点关闭保留；IconButton 新增 `tooltip` 开关，悬停开面板的触发钮关掉 Tooltip 避免提示盖住弹层。无头浏览器六项行为断言（悬停开 / 进面板留 / 离开关 / 快扫不误触 / 点击开 / Escape 关）全过
 - 胶带撕裂化 + 会话树改向下气泡（验收反馈四项）：底部状态条移除「返回来源」与退出 X 按钮（只留路径与提示）；胶带全面改为**撕裂不规则端**真胶带——共享 `--tape-torn` clip-path（两端锯齿 + 轻微波动的边缘），去掉虚线边框、键盘焦点用四向 drop-shadow 拼出跟随撕裂形状的描边，卡片顶部黄条 / 概念便利贴青条 / 分析页 doodle-feature 贴条同款替换；会话树由右侧抽屉改为**从卡片头部树形按钮向下弹出的气泡面板**（Radix Popover 锚定，顶部小尾巴指回按钮，搜索 / 树 / 置顶时间 / 归档恢复 / 新话题全保留，「+N」胶带共用受控 open，`drawer-in` 动画随抽屉移除）。期间修正：PopoverTrigger asChild 的子组件 SessionTreeTrigger 未透传 props 致点击无响应，补 spread 修复；受控 open 下 Escape 兜底显式关闭。mock 验证：面板开于按钮下方 / 尾巴 / 树项点击切换 / Escape 与外点关闭 / 胶带 clip-path 计算样式，截图目检通过
 - 新增全局手绘滚动条（设计系统组件）：滑块 = 半透明墨色填充 + 墨色虚线描边的手绘小框（1.5px dashed、1px 圆角），轨道透明露出纸张底色，悬停 / 按下换红色路径色；颜色全走主题令牌，四种纸张主题自动适配（夜墨下浅墨描边对比良好）；Chrome / Edge / Safari 经通用 `::-webkit-scrollbar` 系列作用于全部滚动容器（消息流 / 抽屉 / 输入框 / 白板 / 主滚动区），Firefox 走 `scrollbar-width: thin` + 同源 `scrollbar-color`（不支持虚线退化为实色细条）。纸白与夜墨双主题截图目检通过
 - 输入焦点去重与发送按钮补文字（验收反馈）：聚焦态重复描边的根因是无层级全局 `:focus-visible` 红色虚线 outline 压过 textarea 的 `outline-none` 工具类（同 paper-subtle 压 focus-within 的层叠问题），新增 `.chat-input:focus-within textarea { outline: none }` 同层级豁免，焦点指示只剩外框一层红边红影；发送按钮补「发送」文字（图标 + 文字，红底墨边黄影不变），高度改 `min-h-11 self-stretch` 与输入框严格一致（单行 48、多行随内容同步拉伸至 92 实测相等）
