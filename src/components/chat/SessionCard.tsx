@@ -49,7 +49,6 @@ import {
 } from '@/lib/ai/teacher-style';
 import { MessageContent } from './MessageContent';
 import { MentorAvatar } from './MentorAvatar';
-import { SessionTreeTrigger } from './SessionTreeDrawer';
 import type { TermAction } from './Term';
 import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
@@ -85,8 +84,7 @@ export function SessionCard({
   styleOverride,
   fallbackStyle,
   onStyleChange,
-  sessionCount,
-  onOpenTree,
+  treeMenu,
   onNewSession,
   onRename,
   onPin,
@@ -130,9 +128,8 @@ export function SessionCard({
   styleOverride: TeacherStyle | null;
   fallbackStyle: TeacherStyle;
   onStyleChange: (next: TeacherStyle | null) => void;
-  /** 会话总数（树按钮角标） */
-  sessionCount: number;
-  onOpenTree: () => void;
+  /** 会话树气泡（含触发器），渲染在头部 */
+  treeMenu: React.ReactNode;
   onNewSession: () => void;
   onRename: (title: string) => void;
   onPin: (pinned: boolean) => void;
@@ -175,7 +172,7 @@ export function SessionCard({
         </p>
         <div className="flex shrink-0 items-center gap-1">
           <WorkspaceSwitcher />
-          <SessionTreeTrigger count={sessionCount} onOpen={onOpenTree} />
+          {treeMenu}
           <IconButton label="新话题" onClick={onNewSession}>
             <Plus aria-hidden="true" />
           </IconButton>

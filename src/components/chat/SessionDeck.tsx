@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { TeacherStyle } from '@/lib/ai/teacher-style';
 import type { TermAction } from './Term';
 import { SessionCard } from './SessionCard';
@@ -44,6 +44,7 @@ export function SessionDeck({
   onDelete,
   onBranchFromMessage,
   onOpenTree,
+  treeMenu,
 }: {
   sessions: ChatSession[];
   currentSessionId: string | null;
@@ -81,8 +82,10 @@ export function SessionDeck({
   onArchive: () => void;
   onDelete: () => void;
   onBranchFromMessage: (messageId: string) => void;
-  /** 胶带溢出时打开会话树抽屉 */
+  /** 胶带溢出时打开会话树气泡 */
   onOpenTree: () => void;
+  /** 会话树气泡（含触发器），渲染在卡片头部 */
+  treeMenu: ReactNode;
 }) {
   const [motionDirection, setMotionDirection] = useState<'neutral' | 'back' | 'forward'>('neutral');
   const nodeById = useMemo(() => {
@@ -170,8 +173,7 @@ export function SessionDeck({
               styleOverride={styleOverride}
               fallbackStyle={fallbackStyle}
               onStyleChange={onStyleChange}
-              sessionCount={sessions.length}
-              onOpenTree={onOpenTree}
+              treeMenu={treeMenu}
               onNewSession={onNewSession}
               onRename={onRename}
               onPin={onPin}

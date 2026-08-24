@@ -368,9 +368,8 @@ a {
   height: 18px;
   pointer-events: none;
   content: "";
-  background: rgba(255, 217, 61, 0.46);
-  border: 1px dashed rgba(44, 44, 44, 0.1);
-  border-radius: 2px;
+  background: rgba(255, 217, 61, 0.5);
+  clip-path: var(--tape-torn);
   transform: translateX(-50%) rotate(-1.5deg);
 }
 
@@ -468,30 +467,40 @@ a {
   left: 50%;
   top: -6px;
   z-index: 3;
-  width: 92px;
+  width: 96px;
   height: 20px;
   pointer-events: none;
   content: "";
-  background: rgba(255, 217, 61, 0.46);
-  border: 1px dashed rgba(44, 44, 44, 0.11);
-  border-radius: 2px;
+  background: rgba(255, 217, 61, 0.5);
+  clip-path: var(--tape-torn);
   transform: translateX(-50%) rotate(-1.5deg);
 }
 
+/* ── 手绘胶带形状（共享）：两端撕裂不规则 + 轻微波动的边缘 ────────── */
+:root {
+  --tape-torn: polygon(
+    0% 30%, 3% 8%, 7% 34%, 11% 0%,
+    89% 4%, 92% 16%, 96% 6%, 100% 30%,
+    99% 64%, 100% 92%, 95% 100%,
+    88% 92%, 12% 98%, 6% 100%, 2% 86%, 0% 60%
+  );
+}
+
 /* 会话胶带纸签：贴在当前卡上缘（父级链，左上）与下缘（分支，右下）的倾斜胶带，
-   半透明显色 + 墨色虚线边，骑缝贴在卡边不遮挡卡内内容（替代旧纸签）。 */
+   两端撕裂不规则（共享 --tape-torn），半透明显色 + 墨色文字，
+   骑缝贴在卡边不遮挡卡内内容。 */
 .session-tape-tab {
   --tape-bg: rgba(255, 217, 61, 0.5);
-  border: 1px dashed color-mix(in srgb, var(--foreground) 30%, transparent);
-  border-radius: 1px;
+  border: none;
+  border-radius: 0;
   color: color-mix(in srgb, var(--foreground) 88%, transparent);
   background: var(--tape-bg);
   box-shadow: 1px 2px 0 rgba(44, 44, 44, 0.12);
+  clip-path: var(--tape-torn);
   transition:
     background-color 160ms ease,
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 160ms ease,
-    border-color 160ms ease;
+    box-shadow 160ms ease;
   will-change: transform;
 }
 
@@ -505,7 +514,6 @@ a {
 
 .session-tape-tab:hover,
 .session-tape-tab:focus-visible {
-  border-color: color-mix(in srgb, var(--foreground) 58%, transparent);
   box-shadow: 2px 3px 0 rgba(44, 44, 44, 0.18);
 }
 
@@ -524,6 +532,16 @@ a {
 .session-tape-tab:active {
   transform: rotate(var(--tab-rotate)) translate3d(0, 0, 0);
   box-shadow: none;
+}
+
+/* clip-path 会裁掉 outline，键盘焦点用四向 drop-shadow 拼出手绘描边（跟随撕裂形状） */
+.session-tape-tab:focus-visible {
+  outline: none;
+  filter:
+    drop-shadow(0 1px 0 var(--ring))
+    drop-shadow(0 -1px 0 var(--ring))
+    drop-shadow(1px 0 0 var(--ring))
+    drop-shadow(-1px 0 0 var(--ring));
 }
 
 /* 堆叠分支胶带：悬停 / 聚焦时浮到堆叠最上层，完整标题展开可读 */
@@ -607,13 +625,12 @@ a {
   left: 50%;
   top: -9px;
   z-index: 3;
-  width: 78px;
-  height: 18px;
+  width: 82px;
+  height: 19px;
   pointer-events: none;
   content: "";
-  background: rgba(78, 205, 196, 0.42);
-  border: 1px dashed rgba(44, 44, 44, 0.14);
-  border-radius: 2px;
+  background: rgba(78, 205, 196, 0.44);
+  clip-path: var(--tape-torn);
   transform: translateX(-50%) rotate(-2deg);
 }
 
@@ -811,18 +828,19 @@ a {
   border-radius: 2px;
 }
 
-/* 会话树抽屉：右侧滑入的全局导航面板 */
-@keyframes drawer-in {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.animate-drawer-in {
-  animation: drawer-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+/* 会话树气泡：从卡片头部按钮向下弹出，顶部小尾巴指回按钮 */
+.tree-bubble::before {
+  position: absolute;
+  top: -7px;
+  right: 16px;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  content: "";
+  background: var(--card);
+  border-left: 2px dashed color-mix(in srgb, var(--foreground) 62%, transparent);
+  border-top: 2px dashed color-mix(in srgb, var(--foreground) 62%, transparent);
+  transform: rotate(45deg);
 }
 
 @media (prefers-reduced-motion: reduce) {

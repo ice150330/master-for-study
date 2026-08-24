@@ -1,17 +1,15 @@
 'use client';
 
-import { ChevronRight, CircleDot, Database, FolderTree, Link2, X } from 'lucide-react';
+import { ChevronRight, CircleDot, Database, FolderTree, Link2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { IconButton } from '@/components/ui/IconButton';
 import { requestJson } from '@/lib/http/client';
 import {
   attemptHref,
   parseLearningContext,
   sourceHref,
   withLearningContext,
-  withoutLearningContext,
 } from '@/lib/learning-context';
 import { findActiveItem } from '@/lib/nav';
 import { selectTrailSession, subscribeSessionTrail, getSessionTrail } from '@/lib/session-trail';
@@ -31,7 +29,7 @@ const attemptLabels = {
 /**
  * 底部状态条（常驻，h-8）：**会话树路径追踪**——像目录一样显示 根 → … → 当前会话
  * 的完整血缘路径，点击任意上游会话直接切换；右侧保留学习上下文（来源 / 概念 / 作答）
- * 的紧凑指示与退出。不在会话页时回退为 工作区 · 当前位置。路径数据来自
+ * 的紧凑指示。不在会话页时回退为 工作区 · 学习上下文 · 当前位置。路径数据来自
  * session-trail store（Chat 写入，`useSyncExternalStore` 引用稳定）。
  */
 export function LearningContextBar() {
@@ -41,9 +39,6 @@ export function LearningContextBar() {
   const context = useMemo(() => parseLearningContext(searchParams), [searchParams]);
   const trail = useSyncExternalStore(subscribeSessionTrail, getSessionTrail, () => null);
   const [conceptLabel, setConceptLabel] = useState<{ id: string; name: string } | null>(null);
-  const serialized = searchParams.toString();
-  const currentHref = `${pathname}${serialized ? `?${serialized}` : ''}`;
-  const hasContext = Boolean(context.conceptId || context.source || context.attempt);
 
   useEffect(() => {
     if (!context.conceptId) return;
@@ -145,24 +140,7 @@ export function LearningContextBar() {
         </nav>
       )}
 
-      {hasContext ? (
-        <>
-          {context.source ? (
-            <Link href={sourceHref(context.source, context)} className="doodle-link hidden shrink-0 font-semibold text-foreground min-[900px]:inline">
-              返回来源
-            </Link>
-          ) : null}
-          <IconButton
-            className="size-6 [&_svg]:size-3.5"
-            label="退出当前学习上下文"
-            onClick={() => router.replace(withoutLearningContext(currentHref))}
-          >
-            <X aria-hidden="true" />
-          </IconButton>
-        </>
-      ) : (
-        <span className="hidden shrink-0 text-[10px] text-muted md:inline">路径随会话切换更新</span>
-      )}
+      <span className="hidden shrink-0 text-[10px] text-muted md:inline">路径随会话切换更新</span>
     </div>
   );
 }

@@ -139,7 +139,7 @@ function TapeTab({
       style={style}
       className={`session-tape-tab session-tape-tab--${side} pointer-events-auto ${
         stacked ? 'tape-in-stack' : 'absolute'
-      } inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4`}
+      } inline-flex items-center gap-1 px-3 py-0.5 text-[10px] font-semibold leading-4`}
     >
       {icon}
       <span className="shrink-0">{label}</span>
@@ -175,7 +175,7 @@ function TapeTabOverflow({
       style={style}
       className={`session-tape-tab session-tape-tab--${side} pointer-events-auto ${
         stacked ? 'tape-in-stack' : 'absolute'
-      } inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4`}
+      } inline-flex items-center gap-1 px-3 py-0.5 text-[10px] font-semibold leading-4`}
     >
       <Layers3 aria-hidden="true" className="size-3" />
       <span>+{count}</span>

@@ -24,7 +24,7 @@ import {
   setSessionTrailSelector,
 } from '@/lib/session-trail';
 import { SessionDeck } from './SessionDeck';
-import { SessionTreeDrawer } from './SessionTreeDrawer';
+import { SessionTreeMenu } from './SessionTreeMenu';
 import type { TermAction } from './Term';
 import type { ChatModel, ChatMsg, ChatResource, ChatSession, HistoricalTerm } from './chat-types';
 
@@ -798,28 +798,29 @@ export function Chat() {
         onDelete={deleteCurrentSession}
         onBranchFromMessage={branchFromMessage}
         onOpenTree={() => setTreeOpen(true)}
+        treeMenu={
+          <SessionTreeMenu
+            open={treeOpen}
+            onOpenChange={setTreeOpen}
+            sessions={sessions}
+            archivedSessions={archivedSessions}
+            currentId={currentSessionId}
+            onSelect={(id) => {
+              setTreeOpen(false);
+              void openSession(id);
+            }}
+            onNew={() => {
+              setTreeOpen(false);
+              void newSession();
+            }}
+            onRestore={(id) => {
+              setTreeOpen(false);
+              void restoreSession(id);
+            }}
+          />
+        }
       />
 
-      {/* 会话树抽屉：全局会话导航（卡头按钮 / 胶带溢出入口共用） */}
-      <SessionTreeDrawer
-        open={treeOpen}
-        onOpenChange={setTreeOpen}
-        sessions={sessions}
-        archivedSessions={archivedSessions}
-        currentId={currentSessionId}
-        onSelect={(id) => {
-          setTreeOpen(false);
-          void openSession(id);
-        }}
-        onNew={() => {
-          setTreeOpen(false);
-          void newSession();
-        }}
-        onRestore={(id) => {
-          setTreeOpen(false);
-          restoreSession(id);
-        }}
-      />
 
       {/* 概念便利贴弹窗：点击未知知识点弹出的手写便签（替代右侧轨道） */}
       <Dialog
