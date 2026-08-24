@@ -1,6 +1,6 @@
 import { createTextStreamResponse, streamText, toTextStream } from 'ai';
 import { fastModel, proModel } from '@/lib/ai/provider';
-import { teacherStyleDirective } from '@/lib/ai/teacher-style';
+import { answerDepthDirective, teacherStyleDirective } from '@/lib/ai/teacher-style';
 import { TERM_ANNOTATION_SYSTEM_PROMPT } from '@/lib/ai/term-annotation';
 import {
   findMessageByIdempotencyKey,
@@ -39,8 +39,10 @@ export async function POST(req: Request) {
 
     const selected = model === 'pro' ? proModel : fastModel;
     const resources = getResourceContext(resourceIds);
-    // 风格解析：会话内临时切换优先，缺省用全局默认（蓝图 §5 风格使用层次）。
-    const style = parsed.data.teacherStyle ?? getWorkspaceSettings().teacherStyle;
+    // 风格与深浅：会话内临时切换优先，缺省用全局设置（蓝图 §5/§6）。
+    const settings = getWorkspaceSettings();
+    const style = parsed.data.teacherStyle ?? settings.teacherStyle;
+    const depth = settings.answerDepth;
     const previousUser = findMessageByIdempotencyKey(idempotencyKey);
     const contextMessages = listSessionContextMessages(sessionId).map(({ role, content }) => ({
       role,
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: selected,
-      system: chatSystemPrompt(resources, style),
+      system: chatSystemPrompt(resources, style, depth),
       messages: previousUser
         ? contextMessages
         : [...contextMessages, { role: 'user' as const, content: message }],
@@ -80,12 +82,17 @@ export async function POST(req: Request) {
   });
 }
 
-/** 系统提示词 = 术语标注指令 + 老师风格指令 +（可选）本轮学习资源。 */
-function chatSystemPrompt(resources: ReturnType<typeof getResourceContext>, style: string) {
+/** 系统提示词 = 术语标注指令 + 老师风格指令 + 深浅偏好 +（可选）本轮学习资源。 */
+function chatSystemPrompt(
+  resources: ReturnType<typeof getResourceContext>,
+  style: string,
+  depth: string,
+) {
   const base = [
     TERM_ANNOTATION_SYSTEM_PROMPT,
     '',
     teacherStyleDirective(style),
+    answerDepthDirective(depth),
   ].join('\n');
   if (resources.length === 0) return base;
   const sourceText = resources.map((resource, index) => [

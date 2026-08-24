@@ -7,9 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Field';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { NAV_SECTIONS, type AppRoute } from '@/lib/nav';
-import { setThemeMode, useThemeMode } from '@/lib/theme-client';
+import { SettingsPanel } from './SettingsPanel';
 import { ThemeToggle } from './ThemeToggle';
 
 const pages = NAV_SECTIONS.flatMap((section) =>
@@ -18,7 +17,6 @@ const pages = NAV_SECTIONS.flatMap((section) =>
 
 export function ShellTools() {
   const router = useRouter();
-  const mode = useThemeMode();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -91,26 +89,8 @@ export function ShellTools() {
             <Settings2 />
           </IconButton>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80">
-          <p className="text-[13px] font-semibold text-foreground">工作台设置</p>
-          <div className="mt-3 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium text-foreground">纸张色温</p>
-              <p className="mt-0.5 text-[11px] text-muted">在纸白与护眼暖纸之间切换</p>
-            </div>
-            <SegmentedControl
-              ariaLabel="界面主题"
-              value={mode}
-              items={[
-                { value: 'light', label: '纸白' },
-                { value: 'dark', label: '暖纸' },
-              ]}
-              onValueChange={(value) => setThemeMode(value === 'dark' ? 'dark' : 'light')}
-            />
-          </div>
-          <div className="mt-3 border-t border-dashed border-border/70 pt-3 text-[11px] leading-relaxed text-muted">
-            学习记录保存在本地 SQLite；发送给老师的内容会用于 DeepSeek 在线推理。
-          </div>
+        <PopoverContent align="end" className="w-[22rem]">
+          <SettingsPanel />
         </PopoverContent>
       </Popover>
 

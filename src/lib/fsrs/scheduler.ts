@@ -59,14 +59,30 @@ export function formatReviewInterval(now: Date, dueAt: Date): string {
   return `${Math.round(months / 12)} 年`;
 }
 
-const scheduler = fsrs({
-  request_retention: 0.9,
-  maximum_interval: 36_500,
-  enable_fuzz: false,
-  enable_short_term: true,
-  learning_steps: ['1m', '10m'],
-  relearning_steps: ['10m'],
-});
+/** 调度器保留率基线：调用方未指定时沿用历史行为（ts-fsrs 默认 0.9）。 */
+export const DEFAULT_REQUEST_RETENTION = 0.9;
+
+/** 保留率 → 调度器实例缓存：可配置项面板只允许离散档位，实例数有界。 */
+const schedulerCache = new Map<number, ReturnType<typeof fsrs>>();
+
+function schedulerFor(retention: number) {
+  const key = Math.min(1, Math.max(0.7, Math.round(retention * 100) / 100));
+  let instance = schedulerCache.get(key);
+  if (!instance) {
+    instance = fsrs({
+      request_retention: key,
+      maximum_interval: 36_500,
+      enable_fuzz: false,
+      enable_short_term: true,
+      learning_steps: ['1m', '10m'],
+      relearning_steps: ['10m'],
+    });
+    schedulerCache.set(key, instance);
+  }
+  return instance;
+}
+
+const scheduler = schedulerFor(DEFAULT_REQUEST_RETENTION);
 
 const stateToFsrs: Record<ReviewCardState, State> = {
   new: State.New,
@@ -194,8 +210,12 @@ export function createReviewCard(now = new Date()): StoredReviewCard {
   return fromFsrsCard(createEmptyCard(now));
 }
 
-export function previewReview(card: StoredReviewCard, now = new Date()): ReviewPreview {
-  const preview = scheduler.repeat(toFsrsCard(card), now);
+export function previewReview(
+  card: StoredReviewCard,
+  now = new Date(),
+  retention: number = DEFAULT_REQUEST_RETENTION,
+): ReviewPreview {
+  const preview = schedulerFor(retention).repeat(toFsrsCard(card), now);
   return {
     again: fromFsrsCard(preview[Rating.Again].card),
     hard: fromFsrsCard(preview[Rating.Hard].card),
@@ -208,8 +228,9 @@ export function scheduleReview(
   card: StoredReviewCard,
   grade: ReviewGrade,
   now = new Date(),
+  retention: number = DEFAULT_REQUEST_RETENTION,
 ): ReviewOutcome {
-  const result = scheduler.next(toFsrsCard(card), now, ratingToFsrs[grade]);
+  const result = schedulerFor(retention).next(toFsrsCard(card), now, ratingToFsrs[grade]);
   return { card: fromFsrsCard(result.card), log: fromFsrsLog(result.log) };
 }
 

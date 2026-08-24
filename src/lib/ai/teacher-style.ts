@@ -56,3 +56,31 @@ export function teacherStyleLabel(style: string): string {
   const hit = TEACHER_STYLES.find((item) => item.value === style);
   return (hit ?? TEACHER_STYLES.find((item) => item.value === DEFAULT_TEACHER_STYLE))!.label;
 }
+
+/** 回答深浅（蓝图 §6 内容深浅）：一句话 / 详解 / 带代码。 */
+export const ANSWER_DEPTH_VALUES = ['brief', 'standard', 'deep'] as const;
+
+export type AnswerDepth = (typeof ANSWER_DEPTH_VALUES)[number];
+
+export const DEFAULT_ANSWER_DEPTH: AnswerDepth = 'standard';
+
+export const ANSWER_DEPTHS: Array<{ value: AnswerDepth; label: string }> = [
+  { value: 'brief', label: '一句话' },
+  { value: 'standard', label: '详解' },
+  { value: 'deep', label: '带代码' },
+];
+
+const DEPTH_DIRECTIVES: Record<AnswerDepth, string> = {
+  brief: '回答长度偏好「一句话」：先给一句直击要害的结论，仅在用户追问时再展开细节。',
+  standard: '回答长度偏好「详解」：给出完整解释，配必要的例子，不刻意压缩也不冗长。',
+  deep: '回答长度偏好「带代码」：在详解基础上附上可运行的代码示例（标注语言与运行方式），用代码落实概念。',
+};
+
+export function isAnswerDepth(value: unknown): value is AnswerDepth {
+  return typeof value === 'string' && (ANSWER_DEPTH_VALUES as readonly string[]).includes(value);
+}
+
+/** 宽松取深浅指令：未知值回退默认。 */
+export function answerDepthDirective(depth: string): string {
+  return isAnswerDepth(depth) ? DEPTH_DIRECTIVES[depth] : DEPTH_DIRECTIVES[DEFAULT_ANSWER_DEPTH];
+}

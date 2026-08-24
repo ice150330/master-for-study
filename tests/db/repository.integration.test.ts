@@ -365,6 +365,29 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(repository.getWorkspaceSettings()).toMatchObject({ teacherStyle: 'strict' });
   });
 
+  it('每日新学量上限约束新卡进入今日队列，超额新卡顺延', () => {
+    const now = new Date('2027-01-03T08:00:00.000Z');
+    const before = repository.getReviewQueue(now, 500);
+    const newBefore = before.reviews.filter((review) => review.state === 'new').length;
+
+    // 上限设为当前可见新卡数：存量不动，新增新卡应被顺延
+    repository.updateWorkspaceSettings({ dailyNewLimit: newBefore });
+    const extra = repository.upsertTerm({
+      name: '每日上限新卡',
+      definition: '超出每日新学量的新卡顺延到明天。',
+      idempotencyKey: 'term:cap:extra',
+    });
+    const capped = repository.getReviewQueue(now, 500);
+    expect(capped.reviews.some((review) => review.termId === extra.id)).toBe(false);
+    expect(capped.reviews.filter((review) => review.state === 'new').length).toBe(newBefore);
+
+    // 提高上限后恢复可见，摘要与队列保持一致
+    repository.updateWorkspaceSettings({ dailyNewLimit: newBefore + 1 });
+    const restored = repository.getReviewQueue(now, 500);
+    expect(restored.reviews.some((review) => review.termId === extra.id)).toBe(true);
+    expect(restored.summary.due).toBe(restored.reviews.length);
+  });
+
   it('结构化面试按评分策略调整三题难度，并保留重答版本', () => {
     const skill = repository.upsertTerm({
       name: '索引设计',

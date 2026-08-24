@@ -6,6 +6,7 @@ import {
   BookOpenText,
   ClipboardCheck,
   Clock3,
+  Flag,
   MessageCircle,
   NotebookPen,
 } from 'lucide-react';
@@ -35,7 +36,13 @@ const iconByKind = {
   note: NotebookPen,
 };
 
-export function TodayView({ initialActions }: { initialActions: TodayLearningAction[] }) {
+export function TodayView({
+  initialActions,
+  goal,
+}: {
+  initialActions: TodayLearningAction[];
+  goal?: string | null;
+}) {
   const laterRaw = useSyncExternalStore(
     subscribeLater,
     () => localStorage.getItem(LATER_KEY) ?? '[]',
@@ -68,6 +75,12 @@ export function TodayView({ initialActions }: { initialActions: TodayLearningAct
 
   return (
     <PageShell title="今日学习" width="lg">
+      {goal ? (
+        <p className="paper-subtle mb-2 inline-flex rotate-[-0.3deg] items-center gap-1.5 rounded-[2px] border border-dashed px-2 py-1 text-[11px] text-muted">
+          <Flag aria-hidden="true" className="size-3 text-accent" />
+          成长目标 · {goal}
+        </p>
+      ) : null}
       {visible.length === 0 ? (
         <div className="paper-panel rotate-[-0.15deg] rounded-[2px] border-2 border-dashed py-16 text-center">
           <BookOpenCheck aria-hidden="true" className="mx-auto size-7 text-accent" />

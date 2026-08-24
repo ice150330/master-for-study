@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, lte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -1522,8 +1522,8 @@ export function ensureMastery(termId: string): void {
   ensureReviewCard(termId);
 }
 
-function previewValues(card: StoredReviewCard, now: Date): ReviewItem['preview'] {
-  const preview = previewReview(card, now);
+function previewValues(card: StoredReviewCard, now: Date, retention: number): ReviewItem['preview'] {
+  const preview = previewReview(card, now, retention);
   return Object.fromEntries(
     (Object.keys(preview) as ReviewGrade[]).map((grade) => {
       const next = preview[grade];
@@ -1537,11 +1537,30 @@ function previewValues(card: StoredReviewCard, now: Date): ReviewItem['preview']
   ) as ReviewItem['preview'];
 }
 
-/** 到期队列投影：卡片、来源、四档预计间隔与今日工作量。 */
-export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
+/** 今日已引入的新卡数（评级前状态为 new 的复习日志数），用于「每日新学量」上限。 */
+function countIntroducedToday(now: Date): number {
   const db = getDb();
   const ws = ensureWorkspace();
-  const summary = getReviewLoadSummary(now);
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  return db.select({ c: count() }).from(schema.reviewLogs)
+    .where(and(
+      eq(schema.reviewLogs.workspaceId, ws.id),
+      eq(schema.reviewLogs.state, 'new'),
+      gte(schema.reviewLogs.reviewAt, startOfDay),
+    )).get()?.c ?? 0;
+}
+
+/**
+ * 拉取到期卡片并按「每日新学量」上限过滤新卡：
+ * 今天已引入的新卡用完后，剩余新卡顺延到明天（旧卡不受影响）。
+ */
+function visibleDueRows(now: Date) {
+  const db = getDb();
+  const ws = ensureWorkspace();
+  const settings = getWorkspaceSettings();
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
   const rows = db
     .select({
       card: schema.reviewCards,
@@ -1555,10 +1574,24 @@ export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
       lte(schema.reviewCards.dueAt, now),
     ))
     .orderBy(asc(schema.reviewCards.dueAt))
-    .limit(limit)
     .all();
+  const remainingNew = Math.max(0, settings.dailyNewLimit - countIntroducedToday(now));
+  let newSeen = 0;
+  const visible = rows.filter(({ card }) => {
+    if (card.state !== 'new') return true;
+    newSeen += 1;
+    return newSeen <= remainingNew;
+  });
+  return { visible, startOfDay, retention: settings.retentionTarget };
+}
 
-  const reviews = rows.map(({ card, name, definition }) => {
+/** 到期队列投影：卡片、来源、四档预计间隔与今日工作量。 */
+export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
+  const db = getDb();
+  const { visible, startOfDay, retention } = visibleDueRows(now);
+  const summary = summarizeDue(visible, startOfDay);
+
+  const reviews = visible.slice(0, limit).map(({ card, name, definition }) => {
     const source = db
       .select()
       .from(schema.conceptMentions)
@@ -1584,7 +1617,7 @@ export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
       sourceHref: source?.sessionId
         ? `/?session=${source.sessionId}&message=${source.sourceId}&concept=${card.termId}`
         : `/?concept=${card.termId}`,
-      preview: previewValues(toStoredReviewCard(card), now),
+      preview: previewValues(toStoredReviewCard(card), now, retention),
     } satisfies ReviewItem;
   });
 
@@ -1594,27 +1627,24 @@ export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
   };
 }
 
-/** 只统计当前工作区负荷，不触发 FSRS 预览，供首页和分析投影复用。 */
-function getReviewLoadSummary(now = new Date()): ReviewQueue['summary'] {
-  const db = getDb();
-  const ws = ensureWorkspace();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const due = db.select({ c: count() }).from(schema.reviewCards)
-    .where(and(
-      eq(schema.reviewCards.workspaceId, ws.id),
-      lte(schema.reviewCards.dueAt, now),
-    )).get()?.c ?? 0;
-  const overdue = db.select({ c: count() }).from(schema.reviewCards)
-    .where(and(
-      eq(schema.reviewCards.workspaceId, ws.id),
-      lte(schema.reviewCards.dueAt, startOfDay),
-    )).get()?.c ?? 0;
+/** 负荷摘要：与新卡上限过滤后的可见集保持一致。 */
+function summarizeDue(
+  visible: Array<{ card: { dueAt: Date } }>,
+  startOfDay: Date,
+): ReviewQueue['summary'] {
+  const due = visible.length;
+  const overdue = visible.filter(({ card }) => card.dueAt.getTime() <= startOfDay.getTime()).length;
   return {
     due,
     overdue,
     estimatedMinutes: due === 0 ? 0 : Math.max(1, Math.ceil(due * 0.75)),
   };
+}
+
+/** 只统计当前工作区负荷（同样受每日新学量上限约束），供首页和分析投影复用。 */
+function getReviewLoadSummary(now = new Date()): ReviewQueue['summary'] {
+  const { visible, startOfDay } = visibleDueRows(now);
+  return summarizeDue(visible, startOfDay);
 }
 
 export function getDueReviews(limit = 20): ReviewItem[] {
@@ -1670,7 +1700,9 @@ export function reviewTerm(input: {
 
   const reviewedAt = input.reviewedAt ?? new Date();
   const card = ensureReviewCard(input.termId, reviewedAt);
-  const outcome = scheduleReview(toStoredReviewCard(card), input.grade, reviewedAt);
+  // 调度沿用「复习保留率目标」设置；ReviewLog 记录的是实际调度结果，可复算。
+  const retention = getWorkspaceSettings().retentionTarget;
+  const outcome = scheduleReview(toStoredReviewCard(card), input.grade, reviewedAt, retention);
   const logId = randomUUID();
   const ws = ensureWorkspace();
   const logValues = {

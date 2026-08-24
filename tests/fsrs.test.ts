@@ -5,6 +5,7 @@ import {
   previewReview,
   rollbackReview,
   scheduleReview,
+  type StoredReviewCard,
 } from '../src/lib/fsrs';
 
 describe('正式 FSRS 调度适配器', () => {
@@ -61,5 +62,29 @@ describe('正式 FSRS 调度适配器', () => {
     expect(outcome.log.difficulty).toBe(0);
     expect(outcome.card.reps).toBe(1);
     expect(outcome.card.stability).toBeGreaterThan(0);
+  });
+
+  it('保留率目标可参数化：目标越高复习间隔越短，预览与调度一致', () => {
+    const reviewing: StoredReviewCard = {
+      dueAt: now,
+      stability: 10,
+      difficulty: 5,
+      scheduledDays: 10,
+      learningSteps: 2,
+      reps: 5,
+      lapses: 0,
+      state: 'reviewing',
+      lastReviewAt: new Date('2026-08-05T08:00:00.000Z'),
+    };
+    const tighter = scheduleReview(reviewing, 'good', now, 0.9);
+    const looser = scheduleReview(reviewing, 'good', now, 0.85);
+    expect(tighter.card.scheduledDays).toBeGreaterThan(0);
+    expect(tighter.card.scheduledDays).toBeLessThan(looser.card.scheduledDays);
+    // 同一保留率下，评级按钮上的预览与实际调度结果一致
+    const preview = previewReview(reviewing, now, 0.85);
+    expect(preview.good.dueAt.getTime()).toBe(looser.card.dueAt.getTime());
+    // 不传保留率时沿用历史基线（ts-fsrs 默认 0.9），与显式 0.9 相同
+    const baseline = scheduleReview(reviewing, 'good', now);
+    expect(baseline.card.dueAt.getTime()).toBe(tighter.card.dueAt.getTime());
   });
 });
