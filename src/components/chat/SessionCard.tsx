@@ -40,6 +40,7 @@ import { Input } from '@/components/ui/Field';
 import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { WorkspaceSwitcher } from '@/components/shell/WorkspaceSwitcher';
 import {
   TEACHER_STYLES,
@@ -370,7 +371,7 @@ export function SessionCard({
         ) : null}
         {/* 输入框（外框承载边框/焦点态）：三个功能图标（风格/模型/引用资源）内嵌框内右侧；发送钮在框外 */}
         <div className="flex items-end gap-2">
-          <div className="paper-subtle flex min-h-11 w-full min-w-0 flex-1 items-end gap-1 rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-3.5 pr-1 transition-[transform,border-color,box-shadow] focus-within:-translate-x-px focus-within:-translate-y-px focus-within:border-accent focus-within:shadow-[4px_4px_0_rgba(78,205,196,0.36)]">
+          <div className="flex min-h-11 w-full min-w-0 flex-1 items-end gap-1 rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-3.5 pr-1 shadow-[2px_2px_0_rgba(44,44,44,0.07)] transition-[border-color,box-shadow] focus-within:border-primary focus-within:shadow-[4px_4px_0_var(--marker-red)]">
             <textarea
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
@@ -395,21 +396,25 @@ export function SessionCard({
               />
             </div>
           </div>
-          {/* 发送 / 停止：图标即可表意，悬停 Tooltip 显示功能；发送加粗边框更醒目 */}
+          {/* 发送：红底墨边主按钮（marker 黄硬影，悬停轻抬、按下落影）；停止保持幽灵图标钮 */}
           {isStreaming ? (
             <IconButton className="size-11" label="停止生成" onClick={onStop}>
               <Square aria-hidden="true" className="size-4 fill-current" />
             </IconButton>
           ) : (
-            <IconButton
-              tone="primary"
-              className="size-11"
-              style={{ borderWidth: 3 }}
-              label="发送（Enter）"
-              onClick={onSend}
-            >
-              <SendHorizontal aria-hidden="true" className="size-4" />
-            </IconButton>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="发送（Enter）"
+                  onClick={onSend}
+                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-primary text-primary-foreground shadow-[3px_3px_0_var(--marker-yellow)] transition-[transform,box-shadow] duration-150 hover:-translate-x-px hover:-translate-y-px hover:shadow-[5px_5px_0_var(--marker-yellow)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+                >
+                  <SendHorizontal aria-hidden="true" className="size-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>发送（Enter）</TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -553,7 +558,7 @@ function MessageAction({
   );
 }
 
-/** 模型单钮双态切换：闪电（v4-flash，默认）⇄ 深思（v4-pro，重任务），图标 + Tooltip。 */
+/** 模型单钮双态切换：闪电（v4-flash，默认）⇄ 深思（v4-pro），图标即状态——pro 换青色，无边框装饰。 */
 function ModelToggle({
   value,
   onChange,
@@ -564,10 +569,10 @@ function ModelToggle({
   const pro = value === 'pro';
   return (
     <IconButton
-      tone={pro ? 'primary' : 'default'}
       aria-pressed={pro}
       label={pro ? '深思 · v4-pro 深度思考，点击切回闪电' : '闪电 · v4-flash 快速回复，点击切换深思'}
       className="size-7 [&_svg]:size-3.5"
+      style={pro ? { color: 'var(--accent)' } : undefined}
       onClick={() => onChange(pro ? 'fast' : 'pro')}
     >
       {pro ? (
