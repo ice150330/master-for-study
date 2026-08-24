@@ -1,6 +1,6 @@
 'use client';
 
-import { Archive, ArchiveRestore, Check, ChevronDown, Database, FolderCog, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Check, Database, FolderCog, FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
+import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Field';
 
 type WorkspaceItem = {
@@ -146,17 +147,12 @@ export function WorkspaceSwitcher() {
         if (open) setError(null);
       }}>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`学习工作区：${active?.title ?? '本地工作区'}，点按切换`}
-            className="flex h-8 shrink-0 rotate-[0.35deg] items-center gap-1.5 rounded-[2px] border border-dashed border-border px-2 text-[11px] text-muted transition-[background-color,border-color,color] hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground"
+          <IconButton
+            label={`学习工作区：${active?.title ?? '本地工作区'}，点按切换`}
+            className="size-8 shrink-0"
           >
-            <Database aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
-            <span className="hidden max-w-28 truncate sm:inline">
-              {active?.title ?? '本地工作区'}
-            </span>
-            <ChevronDown aria-hidden="true" className="size-3 shrink-0" />
-          </button>
+            <Database aria-hidden="true" className="text-accent" />
+          </IconButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {switchable.map((item) => (

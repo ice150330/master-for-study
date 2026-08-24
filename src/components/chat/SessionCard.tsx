@@ -4,7 +4,6 @@ import {
   Archive,
   BookOpenText,
   Check,
-  ChevronDown,
   ExternalLink,
   FileText,
   GitBranch,
@@ -296,26 +295,23 @@ export function SessionCard({
                     </div>
                   ) : null}
                 </div>
-                {/* 回复操作行：重新生成（仅最后一条）/ 详细综述 / 从这里分支 */}
+                {/* 回复操作行：重新生成（仅最后一条）/ 详细综述 / 从这里分支——图标 + Tooltip */}
                 {showActions ? (
                   <div className="mt-1 flex items-center gap-0.5 pl-1">
                     <MessageAction
                       icon={<RotateCcw aria-hidden="true" className="size-3" />}
-                      label="重新生成"
                       title={m.id === lastAssistantId ? '重写这条回答' : '只有最后一条回答可以原位重新生成，更早的回答请用分支'}
                       disabled={m.id !== lastAssistantId}
                       onClick={onRegenerate}
                     />
                     <MessageAction
                       icon={<FileText aria-hidden="true" className="size-3" />}
-                      label="详细综述"
-                      title="从这条回答派生分支，生成结构化的详细综述"
+                                      title="从这条回答派生分支，生成结构化的详细综述"
                       onClick={() => onSummarize(m.id, m.content)}
                     />
                     <MessageAction
                       icon={<GitBranch aria-hidden="true" className="size-3" />}
-                      label="从这里分支"
-                      title="从这条回答派生新分支继续提问"
+                                      title="从这条回答派生新分支继续提问"
                       onClick={() => onBranchFromMessage(m.id)}
                     />
                   </div>
@@ -507,36 +503,31 @@ function ResourceSelector({
   );
 }
 
-/** 回复操作行按钮：重新生成 / 详细综述 / 从这里分支（小型幽灵按钮）。 */
+/** 回复操作行按钮：图标 + Tooltip 悬停显示功能（IconButton 统一悬停样式）。 */
 function MessageAction({
   icon,
-  label,
   title,
   onClick,
   disabled = false,
 }: {
   icon: React.ReactNode;
-  label: string;
   title: string;
   onClick: () => void;
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      label={title}
       onClick={onClick}
       disabled={disabled}
-      title={title}
-      aria-label={title}
-      className="inline-flex h-6 items-center gap-1 rounded-[2px] border border-dashed border-transparent px-1.5 text-[10px] font-medium text-muted transition-[transform,background-color,color,border-color] hover:border-accent/60 hover:bg-highlight/15 hover:text-foreground active:translate-x-px active:translate-y-px disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:border-transparent disabled:hover:bg-transparent"
+      className="size-6 [&_svg]:size-3.5"
     >
       {icon}
-      {label}
-    </button>
+    </IconButton>
   );
 }
 
-/** 模型单钮双态切换：闪电（v4-flash，默认）⇄ 深思（v4-pro，重任务）。 */
+/** 模型单钮双态切换：闪电（v4-flash，默认）⇄ 深思（v4-pro，重任务），图标 + Tooltip。 */
 function ModelToggle({
   value,
   onChange,
@@ -546,28 +537,23 @@ function ModelToggle({
 }) {
   const pro = value === 'pro';
   return (
-    <button
-      type="button"
+    <IconButton
+      tone={pro ? 'primary' : 'default'}
       aria-pressed={pro}
-      title={pro ? '深思 · v4-pro 深度思考，点击切回闪电' : '闪电 · v4-flash 快速回复，点击切换深思'}
+      label={pro ? '深思 · v4-pro 深度思考，点击切回闪电' : '闪电 · v4-flash 快速回复，点击切换深思'}
+      className="size-7 [&_svg]:size-3.5"
       onClick={() => onChange(pro ? 'fast' : 'pro')}
-      className={`flex h-7 shrink-0 items-center gap-1 rounded-[2px] border border-dashed px-2 text-[11px] font-semibold transition-[transform,box-shadow,background-color,color,border-color] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${
-        pro
-          ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
-          : 'border-border text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground'
-      }`}
     >
       {pro ? (
-        <Sparkles aria-hidden="true" className="size-3" />
+        <Sparkles aria-hidden="true" />
       ) : (
-        <Zap aria-hidden="true" className="size-3" />
+        <Zap aria-hidden="true" />
       )}
-      {pro ? '深思' : '闪电'}
-    </button>
+    </IconButton>
   );
 }
 
-/** 老师风格切换：显示生效风格（临时切换优先，缺省显示全局默认），可恢复跟随全局。 */
+/** 老师风格切换：图标触发（Tooltip 显示生效风格），菜单内保留文字说明。 */
 function StyleSwitch({
   value,
   fallback,
@@ -581,15 +567,12 @@ function StyleSwitch({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`老师风格：${teacherStyleLabel(effective)}${value ? '' : '，跟随全局默认，点按切换'}`}
-          className="flex h-7 shrink-0 items-center gap-1 rounded-[2px] border border-dashed border-border px-2 text-[11px] font-semibold text-foreground transition-[transform,background-color,border-color] hover:border-accent/60 hover:bg-highlight/10 active:translate-x-[2px] active:translate-y-[2px]"
+        <IconButton
+          label={`老师风格：${teacherStyleLabel(effective)}${value ? '' : '（跟随全局默认）'}，点按切换`}
+          className="size-7 [&_svg]:size-3.5"
         >
-          <GraduationCap aria-hidden="true" className="size-3 text-primary" />
-          {teacherStyleLabel(effective)}
-          <ChevronDown aria-hidden="true" className="size-3 text-muted" />
-        </button>
+          <GraduationCap aria-hidden="true" className="text-primary" />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {TEACHER_STYLES.map((item) => (

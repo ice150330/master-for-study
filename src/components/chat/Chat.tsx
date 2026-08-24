@@ -19,6 +19,10 @@ import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/
 import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { starterPrompts } from '@/lib/chat-starters';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
+import {
+  setSessionTrail,
+  setSessionTrailSelector,
+} from '@/lib/session-trail';
 import { SessionDeck } from './SessionDeck';
 import { SessionTreeDrawer } from './SessionTreeDrawer';
 import type { TermAction } from './Term';
@@ -151,6 +155,35 @@ export function Chat() {
       cancelled = true;
     };
   }, []);
+
+  // 底部状态条的会话树路径追踪：写入 根→当前 完整路径；离开会话页清空
+  useEffect(() => {
+    setSessionTrailSelector((id) => void openSession(id));
+    return () => setSessionTrailSelector(null);
+    // 仅首挂载注册一次；openSession 经由最新闭包调用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!currentSessionId) {
+      setSessionTrail(null);
+      return;
+    }
+    const map = new Map(sessions.map((session) => [session.id, session]));
+    const path: Array<{ id: string; title: string }> = [];
+    let cursor = map.get(currentSessionId);
+    while (cursor) {
+      path.unshift({ id: cursor.id, title: cursor.title });
+      cursor = cursor.parentId ? map.get(cursor.parentId) : undefined;
+    }
+    setSessionTrail({
+      path: path.map((item, index) => ({ ...item, depth: index })),
+      branchCount: sessions.filter((session) => session.parentId === currentSessionId).length,
+      currentId: currentSessionId,
+    });
+    return () => {
+      setSessionTrail(null);
+    };
+  }, [sessions, currentSessionId]);
 
   // 初始化：加载会话列表，有则打开最近一个。
   useEffect(() => {
