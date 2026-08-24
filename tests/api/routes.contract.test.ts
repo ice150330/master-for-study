@@ -26,6 +26,7 @@ let workspacesGet: GetHandler;
 let workspacesPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let reviewGet: GetHandler;
 let importPost: PostHandler;
+let searchGet: GetHandler;
 let conceptsPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let handlers: Record<string, PostHandler>;
 
@@ -59,6 +60,7 @@ beforeAll(async () => {
   workspacesPatch = (await import('../../src/app/api/workspaces/[id]/route')).PATCH;
   reviewGet = (await import('../../src/app/api/review/route')).GET;
   importPost = (await import('../../src/app/api/import/route')).POST;
+  searchGet = (await import('../../src/app/api/search/route')).GET;
   conceptsPatch = (await import('../../src/app/api/concepts/[id]/route')).PATCH;
   handlers = {
     resources: resourcesPost,
@@ -214,6 +216,17 @@ describe('Route Handler zod 合同', () => {
       { params: Promise.resolve({ id: crypto.randomUUID() }) },
     );
     expect(missing.status).toBe(404);
+  });
+
+  it('搜索接口：空查询 400，合法查询返回命中数组（C1）', async () => {
+    const invalid = await searchGet(new Request('http://localhost/api/search?q='));
+    expect(invalid.status).toBe(400);
+
+    const valid = await searchGet(new Request(`http://localhost/api/search?q=${encodeURIComponent('B2 合同概念')}`));
+    expect(valid.status).toBe(200);
+    const data = (await valid.json()) as { hits: Array<{ type: string; id: string; title: string }> };
+    expect(Array.isArray(data.hits)).toBe(true);
+    expect(data.hits.some((hit) => hit.type === 'concept')).toBe(true);
   });
 
   it('导出接口返回带附件头的完整 JSON', async () => {

@@ -472,6 +472,37 @@ describe('SQLite 仓库事务与幂等性', () => {
     repository.updateWorkspaceSettings({ memoryInjection: true });
   });
 
+  it('全局内容搜索跨会话、消息、概念、笔记与资源命中（C1）', () => {
+    const marker = `搜索标记${Date.now() % 100_000}`;
+    const session = repository.createSession({
+      title: `${marker}会话`,
+      idempotencyKey: `session:search:${marker}`,
+    });
+    repository.saveMessage({
+      sessionId: session.id,
+      role: 'user',
+      content: `这段正文包含 ${marker} 关键词`,
+      idempotencyKey: `message:search:${marker}`,
+    });
+    repository.upsertTerm({
+      name: `${marker}概念`,
+      definition: `定义里也有 ${marker}。`,
+      idempotencyKey: `term:search:${marker}`,
+    });
+
+    const hits = repository.searchContent(marker, 10);
+    const types = new Set(hits.map((hit) => hit.type));
+    expect(types).toContain('session');
+    expect(types).toContain('message');
+    expect(types).toContain('concept');
+    // 消息命中带所属会话，摘要包含关键词上下文
+    const messageHit = hits.find((hit) => hit.type === 'message');
+    expect(messageHit?.sessionId).toBe(session.id);
+    expect(messageHit?.excerpt).toContain(marker);
+    // 空白查询返回空
+    expect(repository.searchContent('   ')).toEqual([]);
+  });
+
   it('全库导出包含全部表与已写入数据', () => {
     repository.upsertTerm({
       name: '导出概念',

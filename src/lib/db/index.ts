@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, like, lte, ne, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -1039,6 +1039,112 @@ export function updateTermDefinition(termId: string, definition: string): Term |
   if (!existing) return undefined;
   db.update(schema.terms).set({ definition }).where(eq(schema.terms.id, termId)).run();
   return db.select().from(schema.terms).where(eq(schema.terms.id, termId)).limit(1).get();
+}
+
+/** 全局内容搜索结果条目（C1）：type 决定前端跳转目标。 */
+export type SearchHit = {
+  type: 'session' | 'message' | 'concept' | 'note' | 'resource';
+  id: string;
+  title: string;
+  excerpt: string;
+  /** 消息命中时带回所属会话，供 /?session=&message= 定位 */
+  sessionId?: string;
+};
+
+function likePattern(query: string) {
+  return `%${query.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+}
+
+/**
+ * 跨模块内容搜索（C1）：会话标题、消息正文、概念、笔记与资源，
+ * 按当前工作区作用域，每类最多 limit 条。LIKE 通配符已转义。
+ */
+export function searchContent(query: string, limit = 5): SearchHit[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const db = getDb();
+  const ws = ensureWorkspace();
+  const pattern = likePattern(trimmed);
+  const hits: SearchHit[] = [];
+
+  const sessions = db.select().from(schema.sessions)
+    .where(and(
+      eq(schema.sessions.workspaceId, ws.id),
+      like(schema.sessions.title, pattern),
+    ))
+    .orderBy(desc(schema.sessions.updatedAt)).limit(limit).all();
+  for (const session of sessions) {
+    hits.push({ type: 'session', id: session.id, title: session.title, excerpt: '学习会话' });
+  }
+
+  const messages = db.select({
+    id: schema.messages.id,
+    sessionId: schema.messages.sessionId,
+    content: schema.messages.content,
+    sessionTitle: schema.sessions.title,
+  })
+    .from(schema.messages)
+    .innerJoin(schema.sessions, eq(schema.messages.sessionId, schema.sessions.id))
+    .where(and(
+      eq(schema.sessions.workspaceId, ws.id),
+      like(schema.messages.content, pattern),
+    ))
+    .orderBy(desc(schema.messages.createdAt)).limit(limit).all();
+  for (const message of messages) {
+    hits.push({
+      type: 'message',
+      id: message.id,
+      sessionId: message.sessionId,
+      title: message.sessionTitle,
+      excerpt: excerptOf(message.content, trimmed),
+    });
+  }
+
+  const terms = db.select().from(schema.terms)
+    .where(or(
+      like(schema.terms.name, pattern),
+      like(schema.terms.definition, pattern),
+    ))
+    .orderBy(desc(schema.terms.createdAt)).limit(limit).all();
+  for (const term of terms) {
+    hits.push({ type: 'concept', id: term.id, title: term.canonicalName || term.name, excerpt: excerptOf(term.definition, trimmed) });
+  }
+
+  const notes = db.select().from(schema.notes)
+    .where(and(
+      eq(schema.notes.workspaceId, ws.id),
+      or(like(schema.notes.title, pattern), like(schema.notes.markdown, pattern)),
+    ))
+    .orderBy(desc(schema.notes.createdAt)).limit(limit).all();
+  for (const note of notes) {
+    hits.push({ type: 'note', id: note.id, title: note.title, excerpt: excerptOf(note.markdown, trimmed) });
+  }
+
+  const resources = db.select().from(schema.resources)
+    .where(and(
+      eq(schema.resources.workspaceId, ws.id),
+      or(like(schema.resources.title, pattern), like(schema.resources.description, pattern)),
+    ))
+    .orderBy(desc(schema.resources.createdAt)).limit(limit).all();
+  for (const resource of resources) {
+    hits.push({
+      type: 'resource',
+      id: resource.id,
+      title: resource.title,
+      excerpt: excerptOf(`${resource.description ?? ''} ${resource.url}`, trimmed),
+    });
+  }
+
+  return hits;
+}
+
+/** 取命中词附近片段做摘要。 */
+function excerptOf(content: string, query: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  const index = normalized.toLocaleLowerCase('zh-CN').indexOf(query.toLocaleLowerCase('zh-CN'));
+  if (index < 0) return normalized.slice(0, 60);
+  const start = Math.max(0, index - 18);
+  return (start > 0 ? '…' : '') + normalized.slice(start, start + 60);
 }
 
 export function getConceptDetail(input: { id?: string; name?: string }): ConceptDetail | undefined {
