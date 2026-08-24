@@ -472,6 +472,41 @@ describe('SQLite 仓库事务与幂等性', () => {
     repository.updateWorkspaceSettings({ memoryInjection: true });
   });
 
+  it('隐性感知：同难度下回忆更慢的概念排在薄弱清单更前（B4）', () => {
+    const make = (name: string, key: string, durationMs: number) => {
+      const term = repository.upsertTerm({
+        name,
+        definition: '隐性感知验证概念。',
+        idempotencyKey: `term:${key}`,
+      });
+      repository.setTermQueueStatus(term.id, 'active');
+      repository.reviewTerm({
+        termId: term.id,
+        grade: 'good',
+        answerMode: 'typed',
+        recallText: '回忆内容',
+        durationMs,
+        reviewedAt: new Date(),
+        idempotencyKey: `review:${key}`,
+      });
+      return term;
+    };
+    const fast = make('隐性感知快概念', 'implicit:fast', 2_000);
+    const slow = make('隐性感知慢概念', 'implicit:slow', 90_000);
+
+    const snapshot = repository.getLearnerProfileSnapshot();
+    const names = snapshot.weakConcepts.map((concept) => concept.name);
+    expect(names).toContain('隐性感知快概念');
+    expect(names).toContain('隐性感知慢概念');
+    // 同评级同状态，慢概念应排在前
+    expect(names.indexOf('隐性感知慢概念')).toBeLessThan(names.indexOf('隐性感知快概念'));
+    // 今日薄弱推荐也命中慢概念（或更高分概念）
+    const today = repository.getTodayLearningActions();
+    expect(today.some((action) => action.kind === 'interview')).toBe(true);
+    expect(fast.id).toBeTruthy();
+    expect(slow.id).toBeTruthy();
+  });
+
   it('全局内容搜索跨会话、消息、概念、笔记与资源命中（C1）', () => {
     const marker = `搜索标记${Date.now() % 100_000}`;
     const session = repository.createSession({

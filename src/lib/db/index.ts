@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, getTableColumns, gte, inArray, isNotNull, isNull, like, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, getTableColumns, gt, gte, inArray, isNotNull, isNull, like, lte, ne, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -33,6 +33,7 @@ import { DEFAULT_TITLE, deriveSessionTitle } from '../session-title';
 import { parseTermMarkers } from '../term-parse';
 import { DEFAULT_TEACHER_STYLE } from '../ai/teacher-style';
 import type { LearnerProfileSnapshot } from '../ai/learner-memory';
+import { weaknessScore } from '../analytics/weakness';
 import { KNOWLEDGE_SEED_EDGES, KNOWLEDGE_SEED_NODES } from '../knowledge/seed';
 import type {
   KnowledgeEvidence,
@@ -323,7 +324,8 @@ export function updateWorkspaceSettings(patch: WorkspaceSettingsPatch): Workspac
 
 /**
  * 学习者画像快照（A1 记忆注入）：近期学习主题 + 薄弱概念。
- * 薄弱概念只取「已确认入队且学过」的（排除 new 与待确认），按 FSRS 难度降序。
+ * 薄弱概念只取「已确认入队且学过」的（排除 new 与待确认）；
+ * 排序按薄弱度评分（B4：FSRS 难度 + 状态 + 回忆偏慢加权）。
  */
 export function getLearnerProfileSnapshot(): LearnerProfileSnapshot {
   const db = getDb();
@@ -341,8 +343,10 @@ export function getLearnerProfileSnapshot(): LearnerProfileSnapshot {
     .map((row) => row.title)
     .filter((title) => title !== DEFAULT_TITLE)
     .slice(0, 5);
-  const weakConcepts = db
+
+  const candidates = db
     .select({
+      termId: schema.termMasteries.termId,
       name: schema.terms.name,
       state: schema.termMasteries.state,
       difficulty: schema.termMasteries.difficulty,
@@ -354,9 +358,64 @@ export function getLearnerProfileSnapshot(): LearnerProfileSnapshot {
       ne(schema.termMasteries.state, 'new'),
     ))
     .orderBy(desc(schema.termMasteries.difficulty))
-    .limit(8)
-    .all() as LearnerProfileSnapshot['weakConcepts'];
+    .limit(24)
+    .all();
+  const stats = recallDurationStats(ws.id);
+  const weakConcepts = candidates
+    .map((candidate) => ({
+      candidate,
+      score: weaknessScore({
+        difficulty: candidate.difficulty,
+        state: candidate.state,
+        avgDurationMs: stats.perTerm.get(candidate.termId) ?? null,
+        medianDurationMs: stats.median,
+      }),
+    }))
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 8)
+    .map(({ candidate }) => ({
+      name: candidate.name,
+      state: candidate.state,
+      difficulty: candidate.difficulty,
+    })) as LearnerProfileSnapshot['weakConcepts'];
   return { recentTopics, weakConcepts };
+}
+
+/** 回忆耗时统计（B4 隐性感知）：每概念均值 + 全局中位；0 值日志（历史/口头快评）不计入。 */
+function recallDurationStats(workspaceId: string): {
+  perTerm: Map<string, number>;
+  median: number | null;
+} {
+  const rows = getDb()
+    .select({
+      termId: schema.reviewLogs.termId,
+      durationMs: schema.reviewLogs.durationMs,
+    })
+    .from(schema.reviewLogs)
+    .where(and(
+      eq(schema.reviewLogs.workspaceId, workspaceId),
+      gt(schema.reviewLogs.durationMs, 0),
+    ))
+    .all();
+  const buckets = new Map<string, number[]>();
+  const all: number[] = [];
+  for (const row of rows) {
+    const list = buckets.get(row.termId) ?? [];
+    list.push(row.durationMs);
+    buckets.set(row.termId, list);
+    all.push(row.durationMs);
+  }
+  const perTerm = new Map<string, number>();
+  for (const [termId, list] of buckets) {
+    perTerm.set(termId, list.reduce((sum, value) => sum + value, 0) / list.length);
+  }
+  all.sort((left, right) => left - right);
+  const median = all.length === 0
+    ? null
+    : all.length % 2 === 1
+      ? all[(all.length - 1) / 2]
+      : (all[all.length / 2 - 1] + all[all.length / 2]) / 2;
+  return { perTerm, median };
 }
 
 export type WorkspaceExport = {
@@ -2648,9 +2707,11 @@ export function getTodayLearningActions(): TodayLearningAction[] {
     });
   }
 
-  const weakConcept = getDb()
+  // 薄弱点推荐（B4 隐性感知）：难度预筛后按薄弱度评分（含回忆偏慢加权）取最弱一个
+  const weakCandidates = getDb()
     .select({
       id: schema.terms.id,
+      termId: schema.termMasteries.termId,
       name: schema.terms.canonicalName,
       difficulty: schema.termMasteries.difficulty,
       state: schema.termMasteries.state,
@@ -2658,7 +2719,20 @@ export function getTodayLearningActions(): TodayLearningAction[] {
     .from(schema.termMasteries)
     .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
     .all()
-    .sort((left, right) => (right.difficulty ?? 0) - (left.difficulty ?? 0))[0];
+    .sort((left, right) => (right.difficulty ?? 0) - (left.difficulty ?? 0))
+    .slice(0, 12);
+  const durationStats = recallDurationStats(ensureWorkspace().id);
+  const weakConcept = weakCandidates
+    .map((candidate) => ({
+      candidate,
+      score: weaknessScore({
+        difficulty: candidate.difficulty,
+        state: candidate.state,
+        avgDurationMs: durationStats.perTerm.get(candidate.termId) ?? null,
+        medianDurationMs: durationStats.median,
+      }),
+    }))
+    .sort((left, right) => right.score - left.score)[0]?.candidate;
   if (weakConcept) {
     actions.push({
       id: `interview:${weakConcept.id}`,
