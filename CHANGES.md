@@ -4,6 +4,7 @@
 
 ## 2026-08-25
 
+- 修复术语黑名单快照引发的消息区无限重渲染：`readTermBlacklist()` 每次调用都 `new Set()`，`useSyncExternalStore` 的 getSnapshot 引用不稳定，React 视为持续变更刷出 "Maximum update depth exceeded"（有消息的聊天页必崩）；改为按 localStorage 原始字符串缓存解析结果，相同内容复用同一 Set 引用、变更才换新引用，返回类型收紧为 `ReadonlySet<string>`。全站其余四处 store（主题 / 模型 / 风格 / 稍后处理）均返回原始值，无同类问题；无头浏览器实测消息区 6 条消息渲染、控制台零错误
 - 重设计会话卡片堆叠交互为「边缘纸签 + 会话树抽屉」：删除实体卡堆叠（AncestorStack / BranchFan）与主卡四周的永久预留（原上下各 ~112px 空间税归零），父级改为贴主卡左缘的手绘索引纸签、子分支贴右缘，越上游越向外探出形成深度暗示，每侧 3 枚直接可见、溢出收进「+N」纸签；新增右侧滑入的会话树抽屉（Radix Dialog 派生，焦点陷阱 / Escape / 焦点返回），吸收原 SessionPicker 的搜索、置顶标记、归档恢复与新话题，树视图复用 `buildSessionTree` 与白板同源并补相对时间；桌面与移动统一走纸签 + 抽屉（移除 <720px 面包屑双实现）；DESIGN.md §6 同步改写。冒烟验证（Playwright）：抽屉开合 / Escape / 搜索 / 新话题、多级会话纸签渲染与点击切换均通过；旧 `semantic-branch` 等 E2E 用例仍指向已删除的堆叠选择器，待后续回归更新
 
 - 使用回路优化方向文档更新进度：P2 批七项（B6/B4/C3/C4/C2/B3/B5）全部交付，P0/P1/P2 三批次完结，仅多岗位能力树种子留待后续内容建设
