@@ -157,6 +157,10 @@ export const reviewCards = sqliteTable('review_cards', {
   lapses: integer('lapses').notNull().default(0),
   lastReviewAt: integer('last_review_at', { mode: 'timestamp_ms' }),
   isDifficult: integer('is_difficult', { mode: 'boolean' }).notNull().default(false),
+  // B5 卡片形态：definition = 名词→定义；relation = 概念间关系问答（快照存问答文本）
+  variant: text('variant', { enum: ['definition', 'relation'] }).notNull().default('definition'),
+  question: text('question'),
+  answer: text('answer'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 }, (table) => [

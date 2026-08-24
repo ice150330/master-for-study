@@ -43,6 +43,7 @@ import type {
   KnowledgeGraphNode,
   KnowledgeRelation,
 } from '../knowledge/types';
+import { KNOWLEDGE_RELATION_LABELS } from '../knowledge/types';
 import {
   analyticsCategory,
   buildActivityTrend,
@@ -141,6 +142,10 @@ export type ReviewItem = {
   difficulty: number;
   dueAt: string;
   isDifficult: boolean;
+  /** B5 卡片形态：relation 时前端显示 question/answer 而非名词定义 */
+  variant: 'definition' | 'relation';
+  question: string | null;
+  answer: string | null;
   sourceLabel: string;
   sourceHref: string;
   preview: Record<ReviewGrade, {
@@ -1993,6 +1998,63 @@ export function deferReviewCard(termId: string, days: number): void {
     .where(eq(schema.reviewCards.id, card.id)).run();
 }
 
+/**
+ * B5 卡片形态切换：definition = 名词→定义；relation = 概念间关系问答。
+ * 关系卡从知识图挑两端都已学到概念的最强边，快照问答文本到卡片（边重建不影响已发卡片）。
+ * 变体切换不重置 FSRS 状态，也不写复习日志。
+ */
+export function setReviewCardVariant(
+  termId: string,
+  variant: 'definition' | 'relation',
+): { termId: string; variant: 'definition' | 'relation'; question: string | null; answer: string | null } {
+  const db = getDb();
+  const card = ensureReviewCard(termId);
+  if (variant === 'definition') {
+    db.update(schema.reviewCards)
+      .set({ variant, question: null, answer: null, updatedAt: new Date() })
+      .where(eq(schema.reviewCards.id, card.id)).run();
+    return { termId, variant, question: null, answer: null };
+  }
+
+  const ws = ensureWorkspace();
+  ensureKnowledgeProjection(); // 新学的概念可能还没被投影关联到知识节点，先补一次（幂等）
+  const nodes = db.select().from(schema.knowledgeNodes)
+    .where(eq(schema.knowledgeNodes.workspaceId, ws.id)).all();
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const labelOf = (nodeId: string) => {
+    const node = byId.get(nodeId);
+    if (!node?.termId) return node?.label ?? '';
+    const term = getTerm(node.termId);
+    return term?.canonicalName || term?.name || node.label;
+  };
+  const definitionOf = (nodeId: string) => {
+    const node = byId.get(nodeId);
+    return node?.termId ? (getTerm(node.termId)?.definition ?? '') : (node?.description ?? '');
+  };
+  const best = db.select().from(schema.knowledgeEdges)
+    .where(eq(schema.knowledgeEdges.workspaceId, ws.id)).all()
+    .filter((edge) => {
+      const source = byId.get(edge.sourceNodeId);
+      const target = byId.get(edge.targetNodeId);
+      if (!source?.termId || !target?.termId || source.termId === target.termId) return false;
+      return source.termId === termId || target.termId === termId;
+    })
+    .sort((left, right) => right.weight - left.weight)[0];
+  if (!best) {
+    throw new Error('该概念暂无可用的概念关系：先在对话或白板中把它与其他概念建立关联');
+  }
+  const question = `「${labelOf(best.sourceNodeId)}」与「${labelOf(best.targetNodeId)}」是什么关系？`;
+  const answer = [
+    `关系：${KNOWLEDGE_RELATION_LABELS[best.relation]}。`,
+    `「${labelOf(best.sourceNodeId)}」：${definitionOf(best.sourceNodeId)}`,
+    `「${labelOf(best.targetNodeId)}」：${definitionOf(best.targetNodeId)}`,
+  ].join('\n');
+  db.update(schema.reviewCards)
+    .set({ variant, question, answer, updatedAt: new Date() })
+    .where(eq(schema.reviewCards.id, card.id)).run();
+  return { termId, variant, question, answer };
+}
+
 /** 待确认概念清单（复习页空态批量确认用）。terms 与 mastery 均为全局单源，不做工作区过滤。 */
 export function listPendingQueueTerms(limit = 30): Array<{
   termId: string;
@@ -2112,6 +2174,9 @@ export function getReviewQueue(now = new Date(), limit = 20): ReviewQueue {
       difficulty: card.difficulty,
       dueAt: card.dueAt.toISOString(),
       isDifficult: card.isDifficult,
+      variant: card.variant,
+      question: card.question,
+      answer: card.answer,
       sourceLabel: session ? `来源：${session.title}` : '来源：概念卡',
       sourceHref: source?.sessionId
         ? `/?session=${source.sessionId}&message=${source.sourceId}&concept=${card.termId}`

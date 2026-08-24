@@ -554,6 +554,52 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(plain.nodes.every((node) => !node.mainline)).toBe(true);
   });
 
+  it('概念关系复习卡：从知识图最强边生成问答并可切回定义卡（B5）', () => {
+    // SQL 与 索引 两个概念（种子边 sql→index prerequisite 会被投影关联）
+    const sqlTerm = repository.upsertTerm({
+      name: 'SQL',
+      definition: '关系数据查询与修改语言。',
+      idempotencyKey: 'term:variant:sql',
+    });
+    repository.upsertTerm({
+      name: '索引',
+      definition: '以额外存储换取查询定位效率的数据结构。',
+      idempotencyKey: 'term:variant:index',
+    });
+    repository.setTermQueueStatus(sqlTerm.id, 'active');
+
+    // 转为关系卡：问答快照来自两端都已学到概念的最强边
+    const relation = repository.setReviewCardVariant(sqlTerm.id, 'relation');
+    expect(relation.variant).toBe('relation');
+    expect(relation.question).toContain('「SQL」');
+    expect(relation.question).toContain('是什么关系');
+    expect(relation.answer).toContain('关系：');
+    // 队列里的这张卡以关系形态出现
+    const queue = repository.getReviewQueue(new Date(), 500);
+    const item = queue.reviews.find((review) => review.termId === sqlTerm.id);
+    expect(item?.variant).toBe('relation');
+    expect(item?.question).toBe(relation.question);
+
+    // 关系卡照常评级（FSRS 状态推进，日志有效）
+    const graded = repository.reviewTerm({
+      termId: sqlTerm.id,
+      grade: 'good',
+      answerMode: 'typed',
+      recallText: '索引是加速 SQL 查询的前置结构',
+      reviewedAt: new Date(),
+      idempotencyKey: 'review:variant:sql',
+    });
+    expect(graded.state).not.toBe('new');
+
+    // 切回定义卡后恢复名词形态（评级后卡片 10 分钟后到期，用未来时间查询）
+    const back = repository.setReviewCardVariant(sqlTerm.id, 'definition');
+    expect(back.variant).toBe('definition');
+    expect(back.question).toBeNull();
+    const after = repository.getReviewQueue(new Date(Date.now() + 3_600_000), 500)
+      .reviews.find((review) => review.termId === sqlTerm.id);
+    expect(after?.variant).toBe('definition');
+  });
+
   it('全局内容搜索跨会话、消息、概念、笔记与资源命中（C1）', () => {
     const marker = `搜索标记${Date.now() % 100_000}`;
     const session = repository.createSession({

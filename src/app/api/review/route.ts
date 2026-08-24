@@ -6,6 +6,7 @@ import {
   listPendingQueueTerms,
   reviewTerm,
   setReviewCardDifficult,
+  setReviewCardVariant,
   setTermQueueStatus,
   undoReview,
 } from '@/lib/db';
@@ -60,6 +61,18 @@ export async function POST(req: Request) {
     if (parsed.data.action === 'defer') {
       deferReviewCard(parsed.data.termId, parsed.data.days);
       return Response.json({ deferred: { termId: parsed.data.termId, days: parsed.data.days } });
+    }
+    if (parsed.data.action === 'variant') {
+      try {
+        const card = setReviewCardVariant(parsed.data.termId, parsed.data.variant);
+        return Response.json({ card });
+      } catch (error) {
+        throw new DomainError(
+          'NO_RELATION_AVAILABLE',
+          error instanceof Error ? error.message : '没有可用的概念关系',
+          409,
+        );
+      }
     }
     return Response.json({ next: reviewTerm(parsed.data) });
   });

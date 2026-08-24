@@ -206,6 +206,15 @@ export const reviewRequestSchema = z.union([
       idempotencyKey,
     })
     .strict(),
+  // B5 卡片形态：定义卡 ↔ 概念关系卡
+  z
+    .object({
+      action: z.literal('variant'),
+      termId: id,
+      variant: z.enum(['definition', 'relation']),
+      idempotencyKey,
+    })
+    .strict(),
 ]);
 
 export const resourceCreateSchema = z

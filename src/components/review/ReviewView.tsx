@@ -35,6 +35,9 @@ type ReviewItem = {
   difficulty: number;
   dueAt: string;
   isDifficult: boolean;
+  variant: 'definition' | 'relation';
+  question: string | null;
+  answer: string | null;
   sourceLabel: string;
   sourceHref: string;
   preview: Record<Grade, {
@@ -305,6 +308,43 @@ export function ReviewView({
     }
   }
 
+  /** B5 卡片形态切换：定义卡 ↔ 概念关系卡；切换后重载队列显示新问答。 */
+  async function toggleVariant() {
+    if (!current || busy) return;
+    const next = current.variant === 'relation' ? 'definition' : 'relation';
+    setBusy(true);
+    setError(null);
+    try {
+      await requestJson('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'variant',
+          termId: current.termId,
+          variant: next,
+          idempotencyKey: createIdempotencyKey('review-variant'),
+        }),
+      });
+      toast({ title: next === 'relation' ? '已转为关系卡' : '已转回定义卡', tone: 'success' });
+      await reloadQueue();
+      resetCard();
+    } catch (error) {
+      toast({ title: '卡片形态切换失败', description: getErrorMessage(error, '请稍后重试'), tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** 重载到期队列（形态切换后刷新显示）。 */
+  async function reloadQueue() {
+    const data = await requestJson<{ reviews: ReviewItem[]; summary: typeof summary; pending?: typeof pending }>(
+      '/api/review',
+    );
+    setQueue(data.reviews);
+    setSummary(data.summary);
+    if (data.pending !== undefined) setPending(data.pending);
+  }
+
   async function toggleDifficult() {
     if (!current || busy) return;
     const difficult = !current.isDifficult;
@@ -466,8 +506,13 @@ export function ReviewView({
           <div className="flex min-w-0 flex-col p-5 min-[1180px]:p-7">
             <div className="mb-4 flex items-start justify-between gap-4 min-[1180px]:mb-6">
               <div>
-                <p className="text-xs font-medium text-muted">{completed + 1} / {totalInSession} · {STATE_LABELS[current.state]}</p>
-                <h2 className="doodle-heading marker-highlight mt-2 text-2xl font-extrabold text-card-foreground">{current.name}</h2>
+                <p className="text-xs font-medium text-muted">
+                  {completed + 1} / {totalInSession} · {STATE_LABELS[current.state]}
+                  {current.variant === 'relation' ? ' · 关系卡' : ''}
+                </p>
+                <h2 className="doodle-heading marker-highlight mt-2 text-2xl font-extrabold text-card-foreground">
+                  {current.variant === 'relation' && current.question ? current.question : current.name}
+                </h2>
               </div>
               <SegmentedControl
                 value={mode}
@@ -524,8 +569,12 @@ export function ReviewView({
                   </div>
                 ) : null}
                 <div className="mb-6">
-                  <p className="mb-2 text-xs font-medium text-muted">概念定义</p>
-                  <p className="whitespace-pre-wrap text-base leading-7 text-card-foreground">{current.definition}</p>
+                  <p className="mb-2 text-xs font-medium text-muted">
+                    {current.variant === 'relation' ? '关系与两边概念' : '概念定义'}
+                  </p>
+                  <p className="whitespace-pre-wrap text-base leading-7 text-card-foreground">
+                    {current.variant === 'relation' ? (current.answer ?? current.definition) : current.definition}
+                  </p>
                 </div>
                 <div className="mt-auto grid grid-cols-4 gap-2">
                   {GRADE_OPTIONS.map((option) => (
@@ -561,6 +610,9 @@ export function ReviewView({
             <Button variant="outline" size="sm" className="mt-5 w-full" onClick={toggleDifficult} loading={busy}>
               <Flag className={`size-4 ${current.isDifficult ? 'fill-current text-pink' : ''}`} />
               {current.isDifficult ? '取消困难标记' : '标为困难卡'}
+            </Button>
+            <Button variant="ghost" size="sm" className="mt-1.5 w-full" onClick={() => void toggleVariant()} disabled={busy}>
+              {current.variant === 'relation' ? '换回定义卡' : '换成关系卡'}
             </Button>
             <div className="mt-2 grid grid-cols-2 gap-1">
               <Button variant="ghost" size="sm" onClick={() => void deferCurrent(1)} disabled={busy}>
