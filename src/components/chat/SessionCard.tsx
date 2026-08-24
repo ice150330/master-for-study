@@ -4,13 +4,16 @@ import {
   Archive,
   BookOpenText,
   Check,
+  ChevronDown,
   CornerDownRight,
   ExternalLink,
   GitBranch,
+  GraduationCap,
   MoreHorizontal,
   Pencil,
   Pin,
   PinOff,
+  Plus,
   RotateCcw,
   SendHorizontal,
   Sparkles,
@@ -38,13 +41,20 @@ import { Input } from '@/components/ui/Field';
 import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
+import {
+  TEACHER_STYLES,
+  teacherStyleLabel,
+  type TeacherStyle,
+} from '@/lib/ai/teacher-style';
 import { MessageContent } from './MessageContent';
+import { SessionTreeTrigger } from './SessionTreeDrawer';
 import type { TermAction } from './Term';
 import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
 /**
- * 当前会话主卡：纸张深度与血缘标题栏 + 消息流 + 输入区。
- * 派生会话后，本卡经血缘标题栏与边缘纸签（见 SessionTabs）保持可回溯。
+ * 当前会话主卡：血缘标题栏（树 / 新话题 / 会话操作）+ 消息流 + 输入区。
+ * 输入区上方常驻紧凑工具条：老师风格与模型双态切换；派生会话后，
+ * 本卡经血缘标题栏与上下缘胶带纸签（见 SessionTabs）保持可回溯。
  */
 export function SessionCard({
   session,
@@ -70,6 +80,12 @@ export function SessionCard({
   requestError,
   model,
   onModelChange,
+  styleOverride,
+  fallbackStyle,
+  onStyleChange,
+  sessionCount,
+  onOpenTree,
+  onNewSession,
   onRename,
   onPin,
   onArchive,
@@ -106,6 +122,14 @@ export function SessionCard({
   } | null;
   model: ChatModel;
   onModelChange: (m: ChatModel) => void;
+  /** 会话内风格临时切换（null = 跟随全局默认） */
+  styleOverride: TeacherStyle | null;
+  fallbackStyle: TeacherStyle;
+  onStyleChange: (next: TeacherStyle | null) => void;
+  /** 会话总数（树按钮角标） */
+  sessionCount: number;
+  onOpenTree: () => void;
+  onNewSession: () => void;
   onRename: (title: string) => void;
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
@@ -125,7 +149,7 @@ export function SessionCard({
 
   return (
     <div className="session-current-card flex h-full flex-col overflow-hidden rounded-[2px] border border-border bg-card shadow-[var(--shadow-md)]">
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-dashed border-border px-4 py-2.5">
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-dashed border-border px-4 pb-2.5 pt-3.5">
         <div className="flex min-w-0 items-stretch gap-3">
           <span aria-hidden="true" className="w-1 shrink-0 rotate-1 bg-primary shadow-[2px_0_0_var(--marker-yellow)]" />
           <div className="min-w-0">
@@ -140,8 +164,11 @@ export function SessionCard({
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <ModelSwitch value={model} onChange={onModelChange} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <SessionTreeTrigger count={sessionCount} onOpen={onOpenTree} />
+          <IconButton label="新话题" onClick={onNewSession}>
+            <Plus aria-hidden="true" />
+          </IconButton>
           {session ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -263,7 +290,7 @@ export function SessionCard({
         )}
       </div>
 
-      {/* 输入区 */}
+      {/* 输入区：上方紧凑工具条（风格 / 模型 / 引用资源 | 重新生成 / 继续回答），输入框与发送按钮同高 */}
       <div className="shrink-0 border-t border-dashed border-border p-3">
         {requestError ? (
           <InlineNotice
@@ -275,14 +302,29 @@ export function SessionCard({
             onAction={requestError.onAction}
           />
         ) : null}
-        <div className="mb-2 flex items-center justify-between gap-2">
+        {selectedResourceIds.length > 0 ? (
+          <div className="mb-1.5 flex flex-wrap gap-1.5" role="group" aria-label="本轮已选资源">
+            {resourceOptions.filter((resource) => selectedResourceIds.includes(resource.id)).map((resource) => (
+              <span key={resource.id} className="inline-flex max-w-56 rotate-[-0.35deg] items-center gap-1 rounded-[2px] border border-dashed border-primary/60 bg-primary/10 px-2 py-1 text-[11px] text-foreground shadow-[2px_2px_0_rgba(255,107,107,0.24)]">
+                <span className="truncate">{resource.title}</span>
+                <button type="button" aria-label={`移除资源 ${resource.title}`} onClick={() => onToggleResource(resource.id)} className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-primary/10">
+                  <X aria-hidden="true" className="size-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <StyleSwitch value={styleOverride} fallback={fallbackStyle} onChange={onStyleChange} />
+          <ModelToggle value={model} onChange={onModelChange} />
           <ResourceSelector
             resources={resourceOptions}
             selectedIds={selectedResourceIds}
             onToggle={onToggleResource}
           />
+          <span aria-hidden className="min-w-0 flex-1" />
           {!isStreaming && messages.some((message) => message.role === 'user') ? (
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               <Button size="sm" variant="ghost" onClick={onRegenerate}>
                 <RotateCcw aria-hidden="true" className="size-3.5" />
                 重新生成
@@ -294,18 +336,6 @@ export function SessionCard({
             </div>
           ) : null}
         </div>
-        {selectedResourceIds.length > 0 ? (
-          <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="本轮已选资源">
-            {resourceOptions.filter((resource) => selectedResourceIds.includes(resource.id)).map((resource) => (
-              <span key={resource.id} className="inline-flex max-w-56 rotate-[-0.35deg] items-center gap-1 rounded-[2px] border border-dashed border-primary/60 bg-primary/10 px-2 py-1 text-[11px] text-foreground shadow-[2px_2px_0_rgba(255,107,107,0.24)]">
-                <span className="truncate">{resource.title}</span>
-                <button type="button" aria-label={`移除资源 ${resource.title}`} onClick={() => onToggleResource(resource.id)} className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-primary/10">
-                  <X aria-hidden="true" className="size-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : null}
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -316,17 +346,17 @@ export function SessionCard({
                 onSend();
               }
             }}
-            rows={2}
+            rows={1}
             placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
-            className="paper-subtle flex-1 resize-none rounded-[2px] border-2 border-dashed border-border bg-card-soft px-4 py-3 text-sm text-card-foreground outline-none placeholder:text-card-foreground/50 transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)]"
+            className="paper-subtle field-sizing-content min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-[2px] border-2 border-dashed border-border bg-card-soft px-3.5 py-2 text-sm leading-5 text-card-foreground outline-none placeholder:text-card-foreground/50 transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)]"
           />
           {isStreaming ? (
-            <Button className="h-[46px]" variant="outline" onClick={onStop}>
+            <Button className="h-11" variant="outline" onClick={onStop}>
               <Square aria-hidden="true" className="size-4 fill-current" />
               停止
             </Button>
           ) : (
-            <Button className="h-[46px]" onClick={onSend}>
+            <Button className="h-11" onClick={onSend}>
               <SendHorizontal aria-hidden="true" className="size-4" />
               发送
             </Button>
@@ -459,44 +489,82 @@ function MessageBranchButton({
   );
 }
 
-/** 模型切换：闪电（v4-flash，默认）/ 深思（v4-pro，重任务）。 */
-function ModelSwitch({
+/** 模型单钮双态切换：闪电（v4-flash，默认）⇄ 深思（v4-pro，重任务）。 */
+function ModelToggle({
   value,
   onChange,
 }: {
   value: ChatModel;
   onChange: (m: ChatModel) => void;
 }) {
+  const pro = value === 'pro';
   return (
-    <div className="paper-subtle flex shrink-0 items-center gap-0.5 rounded-[2px] border border-dashed border-border p-0.5">
-      <button
-        type="button"
-        onClick={() => onChange('fast')}
-        aria-pressed={value === 'fast'}
-        title="deepseek-v4-flash · 快速回复，日常问答"
-        className={`flex items-center gap-1 rounded-[2px] border border-dashed border-transparent px-2.5 py-1 text-xs font-semibold transition-[transform,box-shadow,background-color,color,border-color] active:translate-x-0.5 active:translate-y-0.5 ${
-          value === 'fast'
-            ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
-            : 'text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground'
-        }`}
-      >
-        <Zap aria-hidden="true" className="size-3" />
-        闪电
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('pro')}
-        aria-pressed={value === 'pro'}
-        title="deepseek-v4-pro · 深度思考，重任务"
-        className={`flex items-center gap-1 rounded-[2px] border border-dashed border-transparent px-2.5 py-1 text-xs font-semibold transition-[transform,box-shadow,background-color,color,border-color] active:translate-x-0.5 active:translate-y-0.5 ${
-          value === 'pro'
-            ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
-            : 'text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground'
-        }`}
-      >
+    <button
+      type="button"
+      aria-pressed={pro}
+      title={pro ? '深思 · v4-pro 深度思考，点击切回闪电' : '闪电 · v4-flash 快速回复，点击切换深思'}
+      onClick={() => onChange(pro ? 'fast' : 'pro')}
+      className={`flex h-7 shrink-0 items-center gap-1 rounded-[2px] border border-dashed px-2 text-[11px] font-semibold transition-[transform,box-shadow,background-color,color,border-color] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${
+        pro
+          ? 'border-foreground bg-foreground text-background shadow-[2px_2px_0_var(--marker-yellow)]'
+          : 'border-border text-muted hover:border-accent/60 hover:bg-accent/10 hover:text-foreground'
+      }`}
+    >
+      {pro ? (
         <Sparkles aria-hidden="true" className="size-3" />
-        深思
-      </button>
-    </div>
+      ) : (
+        <Zap aria-hidden="true" className="size-3" />
+      )}
+      {pro ? '深思' : '闪电'}
+    </button>
+  );
+}
+
+/** 老师风格切换：显示生效风格（临时切换优先，缺省显示全局默认），可恢复跟随全局。 */
+function StyleSwitch({
+  value,
+  fallback,
+  onChange,
+}: {
+  value: TeacherStyle | null;
+  fallback: TeacherStyle;
+  onChange: (next: TeacherStyle | null) => void;
+}) {
+  const effective = value ?? fallback;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`老师风格：${teacherStyleLabel(effective)}${value ? '' : '，跟随全局默认，点按切换'}`}
+          className="flex h-7 shrink-0 items-center gap-1 rounded-[2px] border border-dashed border-border px-2 text-[11px] font-semibold text-foreground transition-[transform,background-color,border-color] hover:border-accent/60 hover:bg-highlight/10 active:translate-x-[2px] active:translate-y-[2px]"
+        >
+          <GraduationCap aria-hidden="true" className="size-3 text-primary" />
+          {teacherStyleLabel(effective)}
+          <ChevronDown aria-hidden="true" className="size-3 text-muted" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {TEACHER_STYLES.map((item) => (
+          <DropdownMenuItem key={item.value} onSelect={() => onChange(item.value)}>
+            {effective === item.value ? (
+              <Check aria-hidden="true" className="size-3.5 text-primary" />
+            ) : (
+              <span aria-hidden className="size-3.5" />
+            )}
+            {item.label} · {item.tagline}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onChange(null)}>
+          {value === null ? (
+            <Check aria-hidden="true" className="size-3.5 text-primary" />
+          ) : (
+            <span aria-hidden className="size-3.5" />
+          )}
+          跟随全局默认（{teacherStyleLabel(fallback)}）
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

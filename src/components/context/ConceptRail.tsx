@@ -12,11 +12,9 @@ import {
   Pencil,
   RotateCcw,
   Trash2,
-  X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { IconButton } from '@/components/ui/IconButton';
 import { useToast } from '@/components/ui/Toast';
 import { contextFocusRef, withLearningContext, type LearningContext } from '@/lib/learning-context';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
@@ -61,7 +59,6 @@ export function ConceptRail({
   detail,
   loading,
   error,
-  onClose,
   onFollowup,
   onOpenSource,
   onRefresh,
@@ -71,7 +68,6 @@ export function ConceptRail({
   detail: ConceptDetail | null;
   loading: boolean;
   error: string | null;
-  onClose: () => void;
   onFollowup: () => void;
   onOpenSource: (source: ConceptDetail['mentions'][number]) => void;
   /** 队列状态变更后重载详情 */
@@ -137,23 +133,15 @@ export function ConceptRail({
     <div
       data-context-focus={contextFocusRef(learningContext) ?? undefined}
       tabIndex={-1}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-        event.stopPropagation();
-        onClose();
-      }}
-      className="flex h-full min-h-0 flex-col bg-card outline-none"
+      className="flex h-full min-h-0 flex-col outline-none"
     >
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-dashed border-border px-5 py-4">
-        <div className="min-w-0">
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-dashed border-border/70 px-5 pb-3 pt-4">
+        <div className="min-w-0 pr-8">
           <p className="text-[11px] font-medium text-muted">知识对象</p>
           <h2 className="doodle-heading mt-0.5 truncate text-base font-extrabold text-card-foreground">
             {concept?.canonicalName || name}
           </h2>
         </div>
-        <IconButton label="关闭概念详情" onClick={onClose}>
-          <X aria-hidden="true" />
-        </IconButton>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">

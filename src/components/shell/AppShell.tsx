@@ -10,15 +10,15 @@ import {
   MessageCircle,
   Network,
   NotebookText,
+  Settings2,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Suspense } from 'react';
 import {
   NAV_SECTIONS,
-  findActiveItem,
   findActiveSection,
   isNavActive,
   type AppRoute,
@@ -29,7 +29,7 @@ import { cn } from '@/lib/cn';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { ReviewReminder } from './ReviewReminder';
-import { ShellTools } from './ShellTools';
+import { SettingsDialog, SidebarTools } from './ShellTools';
 import { LearningContextBar } from '@/components/context/LearningContextBar';
 import { RouteScrollRegion, saveCurrentRouteScrollPosition } from '@/components/context/RouteScrollRegion';
 
@@ -52,7 +52,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const activeSection = findActiveSection(pathname);
-  const activeItem = findActiveItem(pathname);
+  // 设置大弹窗：侧边栏工具与移动端工具格共用一个实例
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (!activeSection) return;
@@ -154,34 +155,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
+        {/* 工具下沉：工作区切换 + 搜索 / 设置 / 主题（顶栏移除后的唯一全局工具位） */}
+        <div className="shrink-0 space-y-1 border-t border-dashed border-border px-2 py-2.5">
+          <SidebarTools onOpenSettings={() => setSettingsOpen(true)} />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="paper-control relative z-10 flex h-[52px] shrink-0 items-center gap-3 border-b border-dashed border-border px-4 md:px-5">
-          <div className="min-w-0 flex-1">
-            <p className="hidden text-[10px] text-muted md:block">
-              {activeSection?.label ?? 'Mentor'}
-            </p>
-            <p
-              data-testid="page-context-title"
-              className="marker-highlight inline-block max-w-full truncate text-[13px] font-extrabold text-foreground"
-            >
-              {activeItem?.label ?? (pathname.startsWith('/dev/') ? '开发视图' : '学习工作台')}
-            </p>
-          </div>
-          <ShellTools />
-          {/* 到期提醒：标题徽标 + 浏览器通知（A4） */}
-          <ReviewReminder />
-        </header>
-        <Suspense fallback={null}><LearningContextBar /></Suspense>
-        <Suspense fallback={<main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}</main>}>
+        {/* 到期提醒：标题徽标 + 浏览器通知（A4），无界面输出 */}
+        <ReviewReminder />
+        <Suspense fallback={<main className="min-h-0 min-w-0 flex-1 overflow-y-auto" />}>
           <RouteScrollRegion>{children}</RouteScrollRegion>
         </Suspense>
+        {/* 学习上下文条：常驻页底，显示工作区 / 来源 / 概念 / 当前位置 */}
+        <Suspense fallback={null}><LearningContextBar /></Suspense>
       </div>
 
       <nav
         aria-label="移动端区域导航"
-        className="paper-control fixed inset-x-0 bottom-0 z-40 grid h-14 grid-cols-4 border-t border-dashed px-2 md:hidden"
+        className="paper-control fixed inset-x-0 bottom-0 z-40 grid h-14 grid-cols-5 border-t border-dashed px-2 md:hidden"
       >
         {NAV_SECTIONS.map((section) => {
           const item = section.items[0];
@@ -203,7 +195,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted"
+        >
+          <Settings2 aria-hidden="true" className="size-[18px]" />
+          <span>工具</span>
+        </button>
       </nav>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

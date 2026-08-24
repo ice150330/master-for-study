@@ -133,7 +133,7 @@ export function SessionTreeDrawer({
   );
 }
 
-/** 顶栏触发按钮（原 SessionPicker 的入口视觉延续）。 */
+/** 会话卡头部触发按钮：紧凑图标按钮 + 会话数角标（原顶栏大按钮收进卡头）。 */
 export function SessionTreeTrigger({
   count,
   onOpen,
@@ -142,15 +142,19 @@ export function SessionTreeTrigger({
   onOpen: () => void;
 }) {
   return (
-    <Button variant="outline" size="sm" aria-label="打开会话树" onClick={onOpen}>
+    <button
+      type="button"
+      aria-label={count > 0 ? `打开会话树（共 ${count} 个会话）` : '打开会话树'}
+      onClick={onOpen}
+      className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted transition-[transform,background-color,color,border-color,box-shadow] hover:-translate-x-px hover:-translate-y-px hover:border-foreground/45 hover:bg-highlight/20 hover:text-foreground hover:shadow-[2px_2px_0_rgba(78,205,196,0.42)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+    >
       <ListTree aria-hidden="true" className="size-4" />
-      会话树
       {count > 0 ? (
-        <span className="rotate-[-1deg] rounded-[2px] border border-dashed border-border bg-highlight/20 px-1.5 text-[10px] text-muted">
-          {count}
+        <span className="absolute -right-1 -top-1 rotate-[-2deg] rounded-[2px] border border-dashed border-border bg-card px-1 text-[9px] font-semibold leading-3.5 text-muted">
+          {count > 99 ? '99+' : count}
         </span>
       ) : null}
-    </Button>
+    </button>
   );
 }
 

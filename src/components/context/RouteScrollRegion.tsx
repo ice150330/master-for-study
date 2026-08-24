@@ -78,7 +78,7 @@ export function RouteScrollRegion({ children }: { children: ReactNode }) {
       aria-label="主要内容"
       data-testid="route-scroll-region"
       onClickCapture={saveCurrentRouteScrollPosition}
-      className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-16 md:pb-0"
+      className="min-h-0 min-w-0 flex-1 overflow-y-auto"
     >
       {children}
     </main>

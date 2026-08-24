@@ -149,11 +149,13 @@ export function WorkspaceSwitcher() {
           <button
             type="button"
             aria-label={`学习工作区：${active?.title ?? '本地工作区'}，点按切换`}
-            className="paper-subtle mr-1 hidden h-7 rotate-[0.35deg] items-center gap-1.5 rounded-[2px] border border-dashed px-2 text-[11px] text-muted transition-[background-color,border-color] hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground sm:inline-flex"
+            className="flex h-8 w-full rotate-[0.35deg] items-center justify-center gap-1.5 rounded-[2px] border border-dashed border-border px-1 text-[11px] text-muted transition-[background-color,border-color,color] hover:border-accent/60 hover:bg-highlight/10 hover:text-foreground min-[1180px]:justify-start min-[1180px]:px-2"
           >
-            <Database aria-hidden="true" className="size-3.5 text-accent" />
-            <span className="max-w-24 truncate">{active?.title ?? '本地工作区'}</span>
-            <ChevronDown aria-hidden="true" className="size-3" />
+            <Database aria-hidden="true" className="size-3.5 shrink-0 text-accent" />
+            <span className="hidden min-w-0 flex-1 truncate min-[1180px]:inline">
+              {active?.title ?? '本地工作区'}
+            </span>
+            <ChevronDown aria-hidden="true" className="hidden size-3 shrink-0 min-[1180px]:inline" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

@@ -163,9 +163,7 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="max-h-[min(34rem,70vh)] space-y-3 overflow-y-auto">
-      <p className="text-[13px] font-semibold text-foreground">工作台设置</p>
-
+    <div className="space-y-4">
       {/* 老师风格：全局默认（会话内临时切换不受影响） */}
       <section>
         <div className="flex items-center gap-1.5">

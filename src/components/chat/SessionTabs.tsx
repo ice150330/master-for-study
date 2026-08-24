@@ -4,14 +4,14 @@ import type { CSSProperties } from 'react';
 import { CornerDownRight, CornerUpLeft, Layers3 } from 'lucide-react';
 import type { ChatSession } from './chat-types';
 
-/** 每侧最多直接可见的纸签数，超出收进树抽屉 */
+/** 每侧最多直接可见的胶带数，超出收进树抽屉 */
 const MAX_VISIBLE = 3;
 
 /**
- * 会话纸签（替代旧实体卡堆叠）：
- * 父级贴在当前卡左缘、从顶部往下排；子分支贴右缘、从底部往上排。
- * 越靠上游越向外探出，形成"深度"暗示；主卡不再为堆叠预留任何尺寸。
- * 点击纸签直接切换；超出上限的层级经「+N」进入会话树抽屉。
+ * 会话胶带纸签（替代旧边缘纸签）：父级链是骑缝贴在主卡上缘、
+ * 从左上角向右排的黄色胶带，分支是贴在下缘、从右下角向左排的青色胶带。
+ * 胶带骑在卡边框上（一半在卡外的页面留白里），不遮挡卡内任何内容；
+ * 倾斜角度逐条交替，呼应全局手绘胶带语言。
  */
 export function SessionTabs({
   ancestors,
@@ -34,20 +34,20 @@ export function SessionTabs({
 
   return (
     <>
-      {/* 父级纸签：左缘，越上游越向外探出 */}
+      {/* 父级胶带：上缘左上角向右排（最近父级最靠左） */}
       {ancestorLayers.map((session, index) => (
-        <PaperTab
+        <TapeTab
           key={session.id}
           side="ancestor"
           index={index}
-          icon={<CornerUpLeft aria-hidden="true" className="size-3 text-primary" />}
-          label={index === 0 ? '父会话' : `上游 ${index + 1}`}
+          icon={<CornerUpLeft aria-hidden="true" className="size-3" />}
+          label={index === 0 ? '父' : index === 1 ? '祖父' : `上游${index + 1}`}
           session={session}
           onSelect={onSelect}
         />
       ))}
       {ancestorOverflow > 0 ? (
-        <PaperTabOverflow
+        <TapeTabOverflow
           key="ancestor-overflow"
           side="ancestor"
           index={ancestorLayers.length}
@@ -57,20 +57,20 @@ export function SessionTabs({
         />
       ) : null}
 
-      {/* 子分支纸签：右缘，从底部往上排 */}
+      {/* 子分支胶带：下缘右下角向左排（第一分支最靠右） */}
       {branchLayers.map((session, index) => (
-        <PaperTab
+        <TapeTab
           key={session.id}
           side="branch"
           index={index}
-          icon={<CornerDownRight aria-hidden="true" className="size-3 text-primary" />}
-          label={`分支 ${index + 1}`}
+          icon={<CornerDownRight aria-hidden="true" className="size-3" />}
+          label={`分支${index + 1}`}
           session={session}
           onSelect={onSelect}
         />
       ))}
       {branchOverflow > 0 ? (
-        <PaperTabOverflow
+        <TapeTabOverflow
           key="branch-overflow"
           side="branch"
           index={branchLayers.length}
@@ -83,25 +83,26 @@ export function SessionTabs({
   );
 }
 
-/** 纸签定位：上游向左外探、分支向右外探；越深探出越多，形成"路径深度"暗示。 */
-function paperTabStyle(side: 'ancestor' | 'branch', index: number): CSSProperties {
-  const outward = 10 + index * 9;
+/** 胶带定位：沿卡边排布（上缘从左、下缘从右），倾斜角逐条交替。 */
+function tapeTabStyle(side: 'ancestor' | 'branch', index: number): CSSProperties {
+  const alongEdge = 12 + index * 104;
+  const rotate = [-1.6, 1.1, -0.8, 1.4][index % 4];
   const base: CSSProperties & Record<string, string | number> = {
     zIndex: 40 + index,
-    '--tab-rotate': `${index % 2 === 0 ? -0.7 : 0.5}deg`,
+    '--tab-rotate': `${rotate}deg`,
     transform: 'rotate(var(--tab-rotate))',
   };
   if (side === 'ancestor') {
-    base.left = `${-outward}px`;
-    base.top = `${60 + index * 34}px`;
+    base.top = '-9px';
+    base.left = `${alongEdge}px`;
   } else {
-    base.right = `${-outward}px`;
-    base.bottom = `${128 + index * 34}px`;
+    base.bottom = '-9px';
+    base.right = `${alongEdge}px`;
   }
   return base as CSSProperties;
 }
 
-function PaperTab({
+function TapeTab({
   side,
   index,
   icon,
@@ -116,24 +117,24 @@ function PaperTab({
   session: ChatSession;
   onSelect: (id: string) => void;
 }) {
-  const style = paperTabStyle(side, index);
+  const style = tapeTabStyle(side, index);
   return (
     <button
       type="button"
       title={`回到：${session.title}`}
-      aria-label={`${label}：${session.title}，点击切换`}
+      aria-label={`${label}会话：${session.title}，点击切换`}
       onClick={() => onSelect(session.id)}
       style={style}
-      className={`session-paper-tab session-paper-tab--${side} pointer-events-auto absolute hidden max-w-44 items-center gap-1.5 px-2.5 py-1 text-[11px] text-muted @min-[720px]/session-stack:flex`}
+      className={`session-tape-tab session-tape-tab--${side} pointer-events-auto absolute inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4`}
     >
       {icon}
-      <span className="shrink-0 text-[10px]">{label}</span>
-      <span className="min-w-0 truncate font-semibold text-card-foreground">{session.title}</span>
+      <span className="shrink-0">{label}</span>
+      <span className="max-w-28 truncate font-medium">{session.title}</span>
     </button>
   );
 }
 
-function PaperTabOverflow({
+function TapeTabOverflow({
   side,
   index,
   count,
@@ -146,7 +147,7 @@ function PaperTabOverflow({
   direction: 'up' | 'down';
   onOpenTree: () => void;
 }) {
-  const style = paperTabStyle(side, index);
+  const style = tapeTabStyle(side, index);
   return (
     <button
       type="button"
@@ -154,11 +155,11 @@ function PaperTabOverflow({
       aria-label={`还有 ${count} 个${direction === 'up' ? '更早的父级' : '其余分支'}，打开会话树`}
       onClick={onOpenTree}
       style={style}
-      className={`session-paper-tab session-paper-tab--${side} pointer-events-auto absolute hidden items-center gap-1.5 px-2.5 py-1 text-[11px] text-muted @min-[720px]/session-stack:flex`}
+      className={`session-tape-tab session-tape-tab--${side} pointer-events-auto absolute inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold leading-4`}
     >
-      <Layers3 aria-hidden="true" className="size-3 text-primary" />
-      <span className="font-semibold text-card-foreground">+{count}</span>
-      <span className="shrink-0 text-[10px]">{direction === 'up' ? '更早路径' : '其余分支'}</span>
+      <Layers3 aria-hidden="true" className="size-3" />
+      <span>+{count}</span>
+      <span className="shrink-0">{direction === 'up' ? '更早路径' : '其余分支'}</span>
     </button>
   );
 }

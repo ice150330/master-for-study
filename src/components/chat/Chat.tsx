@@ -2,23 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, ChevronDown, GraduationCap } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { ConceptRail, type ConceptDetail } from '@/components/context/ConceptRail';
 import {
   DEFAULT_TEACHER_STYLE,
-  TEACHER_STYLES,
   isTeacherStyle,
-  teacherStyleLabel,
   type TeacherStyle,
 } from '@/lib/ai/teacher-style';
 import { getErrorMessage, isAbortError, request, requestJson } from '@/lib/http/client';
@@ -26,7 +20,7 @@ import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { starterPrompts } from '@/lib/chat-starters';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { SessionDeck } from './SessionDeck';
-import { SessionTreeDrawer, SessionTreeTrigger } from './SessionTreeDrawer';
+import { SessionTreeDrawer } from './SessionTreeDrawer';
 import type { TermAction } from './Term';
 import type { ChatModel, ChatMsg, ChatResource, ChatSession, HistoricalTerm } from './chat-types';
 
@@ -715,27 +709,8 @@ export function Chat() {
   }
 
   return (
-    <div
-      className={`grid h-full min-h-0 ${
-        conceptPanel ? 'min-[1180px]:grid-cols-[minmax(0,1fr)_20rem]' : ''
-      }`}
-    >
-      <div className="flex min-h-0 min-w-0 flex-col gap-3 px-4 py-4">
-      {/* 工具行：会话树 + 新话题 + 老师风格 */}
-      <div className="flex shrink-0 items-center gap-2">
-        <SessionTreeTrigger count={sessions.length} onOpen={() => setTreeOpen(true)} />
-        <Button size="sm" onClick={newSession}>
-          <Plus aria-hidden="true" className="size-4" />
-          新话题
-        </Button>
-        <StyleSwitch
-          value={styleOverride}
-          fallback={globalStyle}
-          onChange={changeStyle}
-        />
-      </div>
-
-      {/* 卡片堆舞台（祖先堆 + 当前会话大卡片 + 分支扇） */}
+    <div className="flex h-full min-h-0 flex-col px-4 py-4">
+      {/* 卡片舞台：主卡占满高度，父级/分支胶带骑缝贴卡上下缘 */}
       <SessionDeck
         sessions={sessions}
         currentSessionId={currentSessionId}
@@ -769,6 +744,10 @@ export function Chat() {
         }
         model={model}
         onModelChange={changeModel}
+        styleOverride={styleOverride}
+        fallbackStyle={globalStyle}
+        onStyleChange={changeStyle}
+        onNewSession={newSession}
         onSelect={openSession}
         onRename={(title) => updateCurrentSession({ action: 'rename', title })}
         onPin={(pinned) => updateCurrentSession({ action: 'pin', pinned })}
@@ -777,9 +756,8 @@ export function Chat() {
         onBranchFromMessage={branchFromMessage}
         onOpenTree={() => setTreeOpen(true)}
       />
-      </div>
 
-      {/* 会话树抽屉：全局会话导航（纸签溢出入口共用） */}
+      {/* 会话树抽屉：全局会话导航（卡头按钮 / 胶带溢出入口共用） */}
       <SessionTreeDrawer
         open={treeOpen}
         onOpenChange={setTreeOpen}
@@ -799,79 +777,44 @@ export function Chat() {
           restoreSession(id);
         }}
       />
-      {conceptPanel ? (
-        <aside aria-label="概念详情" className="paper-popover z-40 min-h-0 overflow-hidden border-l max-[1179px]:fixed max-[1179px]:inset-x-0 max-[1179px]:bottom-0 max-[1179px]:h-[68vh] max-[1179px]:rounded-t-lg max-[1179px]:border">
-          <ConceptRail
-            name={conceptPanel.name}
-            detail={conceptPanel.detail}
-            loading={conceptPanel.loading}
-            error={conceptPanel.error}
-            onClose={() => setConceptPanel(null)}
-            onFollowup={followupConcept}
-            onOpenSource={openConceptSource}
-            onRefresh={
-              conceptPanel.detail
-                ? () => void loadConcept({
-                    id: conceptPanel.detail?.concept.id,
-                    name: conceptPanel.name,
-                    sourceMessageId: conceptPanel.sourceMessageId,
-                    syncUrl: false,
-                  })
-                : undefined
-            }
-            learningContext={learningContext}
-          />
-        </aside>
-      ) : null}
-    </div>
-  );
-}
 
-/** 老师风格切换：显示生效风格（临时切换优先，缺省显示全局默认），可恢复跟随全局。 */
-function StyleSwitch({
-  value,
-  fallback,
-  onChange,
-}: {
-  value: TeacherStyle | null;
-  fallback: TeacherStyle;
-  onChange: (next: TeacherStyle | null) => void;
-}) {
-  const effective = value ?? fallback;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`老师风格：${teacherStyleLabel(effective)}${value ? '' : '，跟随全局默认，点按切换'}`}
-          className="paper-control flex h-8 shrink-0 items-center gap-1.5 rounded-[2px] border border-dashed border-border px-2.5 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:bg-highlight/10 active:translate-x-[2px] active:translate-y-[2px]"
-        >
-          <GraduationCap aria-hidden="true" className="size-3.5 text-primary" />
-          {teacherStyleLabel(effective)}
-          <ChevronDown aria-hidden="true" className="size-3 text-muted" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {TEACHER_STYLES.map((item) => (
-          <DropdownMenuItem key={item.value} onSelect={() => onChange(item.value)}>
-            {effective === item.value ? (
-              <Check aria-hidden="true" className="size-3.5 text-primary" />
-            ) : (
-              <span aria-hidden className="size-3.5" />
-            )}
-            {item.label} · {item.tagline}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onChange(null)}>
-          {value === null ? (
-            <Check aria-hidden="true" className="size-3.5 text-primary" />
-          ) : (
-            <span aria-hidden className="size-3.5" />
-          )}
-          跟随全局默认（{teacherStyleLabel(fallback)}）
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      {/* 概念便利贴弹窗：点击未知知识点弹出的手写便签（替代右侧轨道） */}
+      <Dialog
+        open={conceptPanel !== null}
+        onOpenChange={(open) => {
+          if (!open) setConceptPanel(null);
+        }}
+      >
+        <DialogContent className="w-[min(92vw,30rem)] p-0">
+          <DialogTitle className="sr-only">概念详情</DialogTitle>
+          <DialogDescription className="sr-only">
+            查看术语定义与来源，并从这里继续追问、记笔记或加入复习
+          </DialogDescription>
+          {conceptPanel ? (
+            <div className="concept-note flex max-h-[min(34rem,78dvh)] flex-col">
+              <ConceptRail
+                name={conceptPanel.name}
+                detail={conceptPanel.detail}
+                loading={conceptPanel.loading}
+                error={conceptPanel.error}
+                onFollowup={followupConcept}
+                onOpenSource={openConceptSource}
+                onRefresh={
+                  conceptPanel.detail
+                    ? () => void loadConcept({
+                        id: conceptPanel.detail?.concept.id,
+                        name: conceptPanel.name,
+                        sourceMessageId: conceptPanel.sourceMessageId,
+                        syncUrl: false,
+                      })
+                    : undefined
+                }
+                learningContext={learningContext}
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

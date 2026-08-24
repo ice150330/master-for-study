@@ -1,14 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { TeacherStyle } from '@/lib/ai/teacher-style';
 import type { TermAction } from './Term';
 import { SessionCard } from './SessionCard';
 import { SessionTabs } from './SessionTabs';
 import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
 /**
- * 会话卡片舞台：主卡占满可用空间，父级 / 分支以「纸签」贴在卡片左右边缘
- * （不再为堆叠预留尺寸）；完整树形导航由会话树抽屉承担。
+ * 会话卡片舞台：主卡占满可用空间，父级 / 分支以「胶带纸签」骑缝贴在卡上下缘
+ * （不占布局尺寸、不遮挡卡内内容）；完整树形导航由会话树抽屉承担。
  * 祖先链与分支都从扁平 sessions 派生，不在前端复制会话树状态。
  */
 export function SessionDeck({
@@ -32,6 +33,10 @@ export function SessionDeck({
   requestError,
   model,
   onModelChange,
+  styleOverride,
+  fallbackStyle,
+  onStyleChange,
+  onNewSession,
   onSelect,
   onRename,
   onPin,
@@ -65,14 +70,18 @@ export function SessionDeck({
   } | null;
   model: ChatModel;
   onModelChange: (m: ChatModel) => void;
-  /** 点击纸签切换会话 */
+  styleOverride: TeacherStyle | null;
+  fallbackStyle: TeacherStyle;
+  onStyleChange: (next: TeacherStyle | null) => void;
+  onNewSession: () => void;
+  /** 点击胶带纸签切换会话 */
   onSelect: (id: string) => void;
   onRename: (title: string) => void;
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
   onDelete: () => void;
   onBranchFromMessage: (messageId: string) => void;
-  /** 纸签溢出时打开会话树抽屉 */
+  /** 胶带溢出时打开会话树抽屉 */
   onOpenTree: () => void;
 }) {
   const [motionDirection, setMotionDirection] = useState<'neutral' | 'back' | 'forward'>('neutral');
@@ -115,7 +124,7 @@ export function SessionDeck({
   };
 
   return (
-    <div className="@container/session-stack flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1">
         <SessionTabs
           ancestors={ancestors}
@@ -158,6 +167,12 @@ export function SessionDeck({
               requestError={requestError}
               model={model}
               onModelChange={onModelChange}
+              styleOverride={styleOverride}
+              fallbackStyle={fallbackStyle}
+              onStyleChange={onStyleChange}
+              sessionCount={sessions.length}
+              onOpenTree={onOpenTree}
+              onNewSession={onNewSession}
               onRename={onRename}
               onPin={onPin}
               onArchive={onArchive}
