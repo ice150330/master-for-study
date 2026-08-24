@@ -47,6 +47,7 @@ import {
   type TeacherStyle,
 } from '@/lib/ai/teacher-style';
 import { MessageContent } from './MessageContent';
+import { MentorAvatar } from './MentorAvatar';
 import { SessionTreeTrigger } from './SessionTreeDrawer';
 import type { TermAction } from './Term';
 import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
@@ -253,13 +254,23 @@ export function SessionCard({
               }`}
             >
               <div className={`flex min-w-0 max-w-[85%] flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {/* AI 老师头像：气泡正上方靠左，气泡折角尾巴指向它 */}
+                {m.role === 'assistant' ? (
+                  <MentorAvatar className="mb-1 ml-1.5 size-6" />
+                ) : null}
                 <div
-                  className={`break-words rounded-[2px] border-2 border-dashed px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere] ${
+                  className={`relative break-words rounded-[2px] border-2 border-dashed px-4 py-3 text-sm leading-relaxed [overflow-wrap:anywhere] ${
                     m.role === 'user'
                       ? 'rotate-[0.2deg] border-primary/60 bg-primary/8 text-card-foreground shadow-[4px_4px_0_rgba(255,107,107,0.2)]'
                       : 'paper-subtle -rotate-[0.1deg] border-accent/55 text-card-foreground shadow-[4px_4px_0_rgba(78,205,196,0.2)]'
                   } ${m.status === 'error' ? 'border border-danger/35' : ''}`}
                 >
+                  {m.role === 'assistant' ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-[7px] left-3 size-3 rotate-45 rounded-[1px] border-l-2 border-t-2 border-dashed border-accent/55 bg-[color-mix(in_srgb,var(--card-soft)_94%,transparent)]"
+                    />
+                  ) : null}
                   {m.content ? (
                     <MessageContent
                       text={m.content}
