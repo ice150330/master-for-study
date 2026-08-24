@@ -193,6 +193,12 @@ a {
   box-shadow: none;
 }
 
+/* 聊天输入框：焦点指示（红边 + 红影）由外框承担，textarea 自身不再重复描边
+   （无层级 :focus-visible 会压过 outline-none 工具类，需同层级豁免） */
+.chat-input:focus-within textarea {
+  outline: none;
+}
+
 @keyframes ui-enter {
   from {
     opacity: 0;

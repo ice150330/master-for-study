@@ -371,7 +371,7 @@ export function SessionCard({
         ) : null}
         {/* 输入框（外框承载边框/焦点态）：三个功能图标（风格/模型/引用资源）内嵌框内右侧；发送钮在框外 */}
         <div className="flex items-end gap-2">
-          <div className="flex min-h-11 w-full min-w-0 flex-1 items-end gap-1 rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-3.5 pr-1 shadow-[2px_2px_0_rgba(44,44,44,0.07)] transition-[border-color,box-shadow] focus-within:border-primary focus-within:shadow-[4px_4px_0_var(--marker-red)]">
+          <div className="chat-input flex min-h-11 w-full min-w-0 flex-1 items-end gap-1 rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-3.5 pr-1 shadow-[2px_2px_0_rgba(44,44,44,0.07)] transition-[border-color,box-shadow] focus-within:border-primary focus-within:shadow-[4px_4px_0_var(--marker-red)]">
             <textarea
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
@@ -396,7 +396,7 @@ export function SessionCard({
               />
             </div>
           </div>
-          {/* 发送：红底墨边主按钮（marker 黄硬影，悬停轻抬、按下落影）；停止保持幽灵图标钮 */}
+          {/* 发送：红底墨边主按钮（marker 黄硬影），带文字、高度与输入框一致（随内容增高拉伸） */}
           {isStreaming ? (
             <IconButton className="size-11" label="停止生成" onClick={onStop}>
               <Square aria-hidden="true" className="size-4 fill-current" />
@@ -408,9 +408,10 @@ export function SessionCard({
                   type="button"
                   aria-label="发送（Enter）"
                   onClick={onSend}
-                  className="inline-flex size-11 shrink-0 items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-primary text-primary-foreground shadow-[3px_3px_0_var(--marker-yellow)] transition-[transform,box-shadow] duration-150 hover:-translate-x-px hover:-translate-y-px hover:shadow-[5px_5px_0_var(--marker-yellow)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 self-stretch rounded-[2px] border-2 border-dashed border-foreground bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[3px_3px_0_var(--marker-yellow)] transition-[transform,box-shadow] duration-150 hover:-translate-x-px hover:-translate-y-px hover:shadow-[5px_5px_0_var(--marker-yellow)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
                 >
-                  <SendHorizontal aria-hidden="true" className="size-5" />
+                  <SendHorizontal aria-hidden="true" className="size-4" />
+                  发送
                 </button>
               </TooltipTrigger>
               <TooltipContent>发送（Enter）</TooltipContent>
