@@ -1,5 +1,5 @@
 import { ReviewView } from '@/components/review/ReviewView';
-import { getReviewLog, getReviewQueue, getTerm } from '@/lib/db';
+import { getReviewLog, getReviewQueue, getTerm, listPendingQueueTerms } from '@/lib/db';
 import { parseLearningContext } from '@/lib/learning-context';
 
 // 本地 SQLite 数据，每次请求实时渲染。
@@ -18,7 +18,7 @@ export default async function ReviewPage({
   const term = log ? getTerm(log.termId) : undefined;
   return (
     <ReviewView
-      initialQueue={getReviewQueue()}
+      initialQueue={{ ...getReviewQueue(), pending: listPendingQueueTerms() }}
       focusReview={log ? {
         id: log.id,
         termId: log.termId,

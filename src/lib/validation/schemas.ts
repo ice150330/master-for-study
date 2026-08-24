@@ -171,6 +171,24 @@ export const reviewRequestSchema = z.union([
       idempotencyKey,
     })
     .strict(),
+  // A2 队列治理：确认入队 / 移出队列（dismissed，可再恢复）
+  z
+    .object({
+      action: z.literal('queue'),
+      termId: id,
+      queueStatus: z.enum(['pending', 'active', 'dismissed']),
+      idempotencyKey,
+    })
+    .strict(),
+  // A2 队列治理：跳过本次（+1 天）/ 降低频率（+30 天），不写复习日志
+  z
+    .object({
+      action: z.literal('defer'),
+      termId: id,
+      days: z.union([z.literal(1), z.literal(30)]),
+      idempotencyKey,
+    })
+    .strict(),
 ]);
 
 export const resourceCreateSchema = z

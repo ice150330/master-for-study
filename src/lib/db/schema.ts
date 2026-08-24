@@ -115,6 +115,12 @@ export const termMasteries = sqliteTable('term_masteries', {
   })
     .notNull()
     .default('new'),
+  // 队列状态（A2 队列治理）：新概念默认待确认，确认后进入复习队列；dismissed = 移出
+  queueStatus: text('queue_status', {
+    enum: ['pending', 'active', 'dismissed'],
+  })
+    .notNull()
+    .default('active'),
   stability: real('stability'),
   difficulty: real('difficulty'),
   dueAt: integer('due_at', { mode: 'timestamp_ms' }),

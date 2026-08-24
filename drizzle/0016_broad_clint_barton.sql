@@ -1,0 +1,1 @@
+ALTER TABLE `term_masteries` ADD `queue_status` text DEFAULT 'active' NOT NULL;

@@ -764,6 +764,16 @@ export function Chat() {
             onClose={() => setConceptPanel(null)}
             onFollowup={followupConcept}
             onOpenSource={openConceptSource}
+            onRefresh={
+              conceptPanel.detail
+                ? () => void loadConcept({
+                    id: conceptPanel.detail?.concept.id,
+                    name: conceptPanel.name,
+                    sourceMessageId: conceptPanel.sourceMessageId,
+                    syncUrl: false,
+                  })
+                : undefined
+            }
             learningContext={learningContext}
           />
         </aside>

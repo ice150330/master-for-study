@@ -4,15 +4,23 @@ import {
   BookOpenText,
   ClipboardCheck,
   ExternalLink,
+  EyeOff,
   LoaderCircle,
   MapPin,
   MessageCircleMore,
   NotebookPen,
+  RotateCcw,
+  Trash2,
   X,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { IconButton } from '@/components/ui/IconButton';
+import { useToast } from '@/components/ui/Toast';
 import { contextFocusRef, withLearningContext, type LearningContext } from '@/lib/learning-context';
+import { createIdempotencyKey } from '@/lib/http/idempotency';
+import { requestJson } from '@/lib/http/client';
+import { addTermToBlacklist } from '@/lib/term-blacklist';
 
 export type ConceptDetail = {
   concept: {
@@ -24,7 +32,10 @@ export type ConceptDetail = {
     example: string | null;
     confidence: number;
   };
-  mastery: { state: 'new' | 'learning' | 'reviewing' | 'relearning' } | null;
+  mastery: {
+    state: 'new' | 'learning' | 'reviewing' | 'relearning';
+    queueStatus?: 'pending' | 'active' | 'dismissed';
+  } | null;
   mentions: Array<{
     id: string;
     sourceType: 'message' | 'note' | 'resource';
@@ -52,6 +63,7 @@ export function ConceptRail({
   onClose,
   onFollowup,
   onOpenSource,
+  onRefresh,
   learningContext,
 }: {
   name: string;
@@ -61,9 +73,38 @@ export function ConceptRail({
   onClose: () => void;
   onFollowup: () => void;
   onOpenSource: (source: ConceptDetail['mentions'][number]) => void;
+  /** 队列状态变更后重载详情 */
+  onRefresh?: () => void;
   learningContext: LearningContext;
 }) {
+  const toast = useToast();
+  const [queueBusy, setQueueBusy] = useState(false);
   const concept = detail?.concept;
+  const queueStatus = detail?.mastery?.queueStatus ?? (detail?.mastery ? 'active' : 'pending');
+
+  /** A2 队列治理：确认入队 / 移出 / 恢复。 */
+  async function setQueueStatus(next: 'active' | 'dismissed') {
+    if (!concept || queueBusy) return;
+    setQueueBusy(true);
+    try {
+      await requestJson('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'queue',
+          termId: concept.id,
+          queueStatus: next,
+          idempotencyKey: createIdempotencyKey('review-queue'),
+        }),
+      });
+      toast({ title: next === 'active' ? '已加入复习队列' : '已移出复习队列', tone: 'success' });
+      onRefresh?.();
+    } catch {
+      toast({ title: '队列状态更新失败', description: '请稍后重试', tone: 'error' });
+    } finally {
+      setQueueBusy(false);
+    }
+  }
   return (
     <div
       data-context-focus={contextFocusRef(learningContext) ?? undefined}
@@ -98,10 +139,19 @@ export function ConceptRail({
         ) : concept ? (
           <div className="space-y-5">
             <section>
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="rotate-[-1deg] rounded-[2px] border border-dashed border-accent bg-accent/15 px-2 py-1 text-[11px] font-semibold text-accent-foreground shadow-[2px_2px_0_rgba(78,205,196,0.28)]">
                   {detail?.mastery ? masteryLabel[detail.mastery.state] : '待加入'}
                 </span>
+                {queueStatus === 'pending' ? (
+                  <span className="rounded-[2px] border border-dashed border-primary px-2 py-1 text-[11px] font-semibold text-primary">
+                    待确认入队
+                  </span>
+                ) : queueStatus === 'dismissed' ? (
+                  <span className="rounded-[2px] border border-dashed border-border px-2 py-1 text-[11px] text-muted">
+                    已移出复习
+                  </span>
+                ) : null}
                 <span className="text-[11px] text-muted">
                   置信度 {Math.round(concept.confidence * 100)}%
                 </span>
@@ -189,7 +239,29 @@ export function ConceptRail({
           <div className="mt-2 grid grid-cols-3 gap-1">
             <RailLink href={withLearningContext('/notes', { ...learningContext, conceptId: concept.id, attempt: null })} label="创建笔记" icon={<NotebookPen />} />
             <RailLink href={withLearningContext('/interview', { ...learningContext, conceptId: concept.id, attempt: null })} label="模拟测验" icon={<ClipboardCheck />} />
-            <RailLink href={withLearningContext('/review', { ...learningContext, conceptId: concept.id, attempt: null })} label="加入复习" icon={<BookOpenText />} />
+            {queueStatus === 'active' ? (
+              <RailLink href={withLearningContext('/review', { ...learningContext, conceptId: concept.id, attempt: null })} label="去复习" icon={<BookOpenText />} />
+            ) : (
+              <RailButton
+                label={queueStatus === 'dismissed' ? '恢复复习' : '确认入队'}
+                icon={queueStatus === 'dismissed' ? <RotateCcw /> : <BookOpenText />}
+                busy={queueBusy}
+                onClick={() => void setQueueStatus('active')}
+              />
+            )}
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            {queueStatus !== 'dismissed' ? (
+              <RailButton label="移出复习" icon={<Trash2 />} busy={queueBusy} onClick={() => void setQueueStatus('dismissed')} />
+            ) : null}
+            <RailButton
+              label="不再高亮"
+              icon={<EyeOff />}
+              onClick={() => {
+                addTermToBlacklist(concept.canonicalName || concept.name);
+                toast({ title: `已不再高亮「${concept.canonicalName || concept.name}」`, tone: 'success' });
+              }}
+            />
           </div>
         </div>
       ) : null}
@@ -226,5 +298,30 @@ function RailLink({ href, label, icon }: { href: string; label: string; icon: Re
       {icon}
       {label}
     </a>
+  );
+}
+
+/** 与 RailLink 同视觉的动作按钮（队列治理 / 黑名单）。 */
+function RailButton({
+  label,
+  icon,
+  onClick,
+  busy = false,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="doodle-row flex min-h-10 flex-col items-center justify-center gap-1 rounded-[2px] border border-dashed border-border bg-card-soft px-1 text-center text-[11px] text-card-foreground hover:bg-highlight/15 disabled:opacity-50 [&_svg]:size-3.5"
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

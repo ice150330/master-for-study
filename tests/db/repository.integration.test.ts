@@ -279,6 +279,8 @@ describe('SQLite 仓库事务与幂等性', () => {
       definition: '从记忆中主动提取答案。',
       idempotencyKey: 'term:review:preview',
     });
+    // A2 队列治理：新概念默认待确认，显式确认后才进入队列
+    repository.setTermQueueStatus(term.id, 'active');
     const now = new Date('2027-01-01T08:00:00.000Z');
     const item = repository.getReviewQueue(now).reviews.find((review) => review.termId === term.id);
     expect(item).toBeTruthy();
@@ -302,6 +304,7 @@ describe('SQLite 仓库事务与幂等性', () => {
       definition: '撤销只追加新事实。',
       idempotencyKey: 'term:review:undo',
     });
+    repository.setTermQueueStatus(term.id, 'active');
     const reviewedAt = new Date('2027-01-02T08:00:00.000Z');
     const result = repository.reviewTerm({
       termId: term.id,
@@ -381,11 +384,53 @@ describe('SQLite 仓库事务与幂等性', () => {
     expect(capped.reviews.some((review) => review.termId === extra.id)).toBe(false);
     expect(capped.reviews.filter((review) => review.state === 'new').length).toBe(newBefore);
 
-    // 提高上限后恢复可见，摘要与队列保持一致
+    // 提高上限并确认入队后恢复可见，摘要与队列保持一致
     repository.updateWorkspaceSettings({ dailyNewLimit: newBefore + 1 });
+    repository.setTermQueueStatus(extra.id, 'active');
     const restored = repository.getReviewQueue(now, 500);
     expect(restored.reviews.some((review) => review.termId === extra.id)).toBe(true);
     expect(restored.summary.due).toBe(restored.reviews.length);
+  });
+
+  it('队列治理：新概念默认待确认，确认后入队，可移出、恢复与顺延', () => {
+    // 上限测试留下的小额度会挡住本用例的新卡；放开每日新学量，聚焦队列状态语义。
+    // 顺延以真实 now 为基准，因此整个用例用真实时间断言。
+    repository.updateWorkspaceSettings({ dailyNewLimit: 50 });
+    const term = repository.upsertTerm({
+      name: '队列治理概念',
+      definition: '待确认概念不进入到期队列。',
+      idempotencyKey: 'term:queue:governance',
+    });
+    const now = new Date();
+
+    // 新概念默认待确认：队列不可见，但出现在待确认清单
+    let queue = repository.getReviewQueue(now, 500);
+    expect(queue.reviews.some((review) => review.termId === term.id)).toBe(false);
+    expect(repository.listPendingQueueTerms()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ termId: term.id, name: '队列治理概念' })]),
+    );
+
+    // 确认入队后可见（新卡立即到期）
+    repository.setTermQueueStatus(term.id, 'active');
+    queue = repository.getReviewQueue(now, 500);
+    expect(queue.reviews.some((review) => review.termId === term.id)).toBe(true);
+
+    // 移出队列后不可见，待确认清单同样不含
+    repository.setTermQueueStatus(term.id, 'dismissed');
+    queue = repository.getReviewQueue(now, 500);
+    expect(queue.reviews.some((review) => review.termId === term.id)).toBe(false);
+    expect(repository.listPendingQueueTerms().some((item) => item.termId === term.id)).toBe(false);
+
+    // 恢复入队后重新可见
+    repository.setTermQueueStatus(term.id, 'active');
+    queue = repository.getReviewQueue(now, 500);
+    expect(queue.reviews.some((review) => review.termId === term.id)).toBe(true);
+
+    // 顺延 30 天后到期队列不可见，且不产生复习日志（这不是一次检索）
+    repository.deferReviewCard(term.id, 30);
+    queue = repository.getReviewQueue(now, 500);
+    expect(queue.reviews.some((review) => review.termId === term.id)).toBe(false);
+    expect(repository.listReviewLogs(term.id)).toHaveLength(0);
   });
 
   it('全库导出包含全部表与已写入数据', () => {
@@ -749,6 +794,15 @@ describe('SQLite 仓库事务与幂等性', () => {
   });
 
   it('今日行动投影只引用真实会话、到期记录和未完成资源', () => {
+    // 自包含：确认一张立即到期的复习卡，并放开每日新学量，保证 review 行动必然出现
+    repository.updateWorkspaceSettings({ dailyNewLimit: 50 });
+    const dueTerm = repository.upsertTerm({
+      name: '今日到期概念',
+      definition: '用于今日行动投影的到期卡。',
+      idempotencyKey: 'term:test:today-due',
+    });
+    repository.setTermQueueStatus(dueTerm.id, 'active');
+
     const session = repository.createSession({
       title: '今日投影会话',
       idempotencyKey: 'session:test:today-projection',

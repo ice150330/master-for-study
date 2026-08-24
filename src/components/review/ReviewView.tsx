@@ -47,6 +47,8 @@ type ReviewItem = {
 type ReviewQueue = {
   reviews: ReviewItem[];
   summary: { due: number; overdue: number; estimatedMinutes: number };
+  /** A2 队列治理：待确认入队的新概念（空态批量确认用） */
+  pending?: Array<{ termId: string; name: string; definition: string }>;
 };
 
 type LastReview = {
@@ -93,6 +95,7 @@ export function ReviewView({
   const toast = useToast();
   const [queue, setQueue] = useState(initialQueue.reviews);
   const [summary, setSummary] = useState(initialQueue.summary);
+  const [pending, setPending] = useState(initialQueue.pending ?? []);
   const [completed, setCompleted] = useState(0);
   const [mode, setMode] = useState<AnswerMode>('typed');
   const [recall, setRecall] = useState('');
@@ -196,6 +199,91 @@ export function ReviewView({
     }
   }
 
+  /** A2 队列治理：跳过本次（+1 天）/ 降低频率（+30 天），不产生复习记录。 */
+  async function deferCurrent(days: 1 | 30) {
+    if (!current || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await requestJson('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'defer',
+          termId: current.termId,
+          days,
+          idempotencyKey: createIdempotencyKey('review-defer'),
+        }),
+      });
+      consumeCurrent();
+      toast({ title: days === 1 ? '已跳过，明天再见' : '已降低频率，30 天后回来', tone: 'success' });
+    } catch (error) {
+      setError({ message: getErrorMessage(error, '队列操作失败'), retry: () => deferCurrent(days), label: '重试' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** A2 队列治理：把这个概念移出复习队列（可从概念轨道恢复）。 */
+  async function dismissCurrent() {
+    if (!current || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await requestJson('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'queue',
+          termId: current.termId,
+          queueStatus: 'dismissed',
+          idempotencyKey: createIdempotencyKey('review-dismiss'),
+        }),
+      });
+      consumeCurrent();
+      toast({ title: '已移出复习队列', description: '可在概念详情中恢复', tone: 'success' });
+    } catch (error) {
+      setError({ message: getErrorMessage(error, '移出失败'), retry: dismissCurrent, label: '重试' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** 从当前队列消耗一张卡（跳过/移出共用：不计数为完成，只收缩今日余量）。 */
+  function consumeCurrent() {
+    if (!current) return;
+    setQueue((items) => items.slice(1));
+    setSummary((value) => {
+      const due = Math.max(0, value.due - 1);
+      return {
+        ...value,
+        due,
+        overdue: isOverdue(current.dueAt) ? Math.max(0, value.overdue - 1) : value.overdue,
+        estimatedMinutes: due === 0 ? 0 : Math.max(1, Math.ceil(due * 0.75)),
+      };
+    });
+    resetCard();
+  }
+
+  /** A2：确认一个待定概念入队。 */
+  async function confirmPending(termId: string) {
+    try {
+      await requestJson('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'queue',
+          termId,
+          queueStatus: 'active',
+          idempotencyKey: createIdempotencyKey('review-queue'),
+        }),
+      });
+      setPending((items) => items.filter((item) => item.termId !== termId));
+    } catch (error) {
+      toast({ title: '确认入队失败', description: getErrorMessage(error, '请稍后重试'), tone: 'error' });
+    }
+  }
+
   async function toggleDifficult() {
     if (!current || busy) return;
     const difficult = !current.isDifficult;
@@ -260,6 +348,12 @@ export function ReviewView({
         <Metric icon={<Clock3 />} label="预计" value={`${summary.estimatedMinutes} 分钟`} />
       </section>
 
+      {summary.overdue > 0 ? (
+        <p className="mb-3 rotate-[-0.1deg] border-l-2 border-dashed border-yellow/70 bg-yellow/8 px-3 py-1.5 text-xs text-yellow-foreground">
+          有 {summary.overdue} 张逾期卡——队列已按到期时间排序，建议先清最旧的几张，不必一次清完。
+        </p>
+      ) : null}
+
       {focusReview ? (
         <section
           data-context-focus={`review:${focusReview.id}`}
@@ -301,6 +395,44 @@ export function ReviewView({
           <span className="mb-4 grid size-11 rotate-[-2deg] place-items-center rounded-[2px] border-2 border-dashed border-accent bg-accent/12 text-accent-foreground shadow-[3px_3px_0_var(--marker-yellow)]"><Check className="size-5" /></span>
           <h2 className="doodle-heading text-lg font-extrabold">本轮复习完成</h2>
           <p className="mt-2 max-w-md text-sm text-muted">今日到期内容已处理完。</p>
+          {pending.length > 0 ? (
+            <div className="mt-6 w-full max-w-lg text-left">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-foreground">
+                  {pending.length} 个新概念待确认 · 确认后进入复习队列
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    for (const item of pending) void confirmPending(item.termId);
+                  }}
+                  className="doodle-link text-xs font-semibold text-foreground"
+                >
+                  全部确认
+                </button>
+              </div>
+              <ul className="max-h-56 space-y-1 overflow-y-auto">
+                {pending.map((item) => (
+                  <li
+                    key={item.termId}
+                    className="doodle-row flex items-center justify-between gap-3 rounded-[2px] border border-dashed px-3 py-2"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold text-foreground">{item.name}</span>
+                      <span className="mt-0.5 block truncate text-[11px] text-muted">{item.definition}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void confirmPending(item.termId)}
+                      className="doodle-action shrink-0 rounded-[2px] border-2 border-dashed border-foreground bg-card px-2 py-1 text-[11px] font-semibold text-foreground"
+                    >
+                      确认入队
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <Link
             href="/"
             className="doodle-action mt-6 inline-flex h-9 items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-card px-4 text-sm font-semibold text-foreground hover:-translate-x-px hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
@@ -408,6 +540,17 @@ export function ReviewView({
             <Button variant="outline" size="sm" className="mt-5 w-full" onClick={toggleDifficult} loading={busy}>
               <Flag className={`size-4 ${current.isDifficult ? 'fill-current text-pink' : ''}`} />
               {current.isDifficult ? '取消困难标记' : '标为困难卡'}
+            </Button>
+            <div className="mt-2 grid grid-cols-2 gap-1">
+              <Button variant="ghost" size="sm" onClick={() => void deferCurrent(1)} disabled={busy}>
+                跳过本次
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => void deferCurrent(30)} disabled={busy}>
+                降低频率
+              </Button>
+            </div>
+            <Button variant="ghost" size="sm" className="mt-1 w-full text-muted" onClick={() => void dismissCurrent()} disabled={busy}>
+              移出复习队列
             </Button>
           </aside>
         </section>

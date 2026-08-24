@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
@@ -872,6 +872,7 @@ export function upsertTerm(input: {
           id: randomUUID(),
           termId: term.id,
           state: 'new',
+          queueStatus: 'pending',
           stability: 0,
           difficulty: 5,
           dueAt: new Date(),
@@ -1582,7 +1583,7 @@ function ensureReviewCard(termId: string, now = new Date()): ReviewCard {
   return values as ReviewCard;
 }
 
-/** 为术语创建掌握度与正式 FSRS 卡片（不存在时立即到期）。 */
+/** 为术语创建掌握度与正式 FSRS 卡片（不存在时立即到期）。新概念默认「待确认」，不直接进队列。 */
 export function ensureMastery(termId: string): void {
   const db = getDb();
   const existing = db
@@ -1597,6 +1598,7 @@ export function ensureMastery(termId: string): void {
         id: randomUUID(),
         termId,
         state: 'new',
+        queueStatus: 'pending',
         stability: 0,
         difficulty: 0,
         dueAt: new Date(),
@@ -1605,6 +1607,48 @@ export function ensureMastery(termId: string): void {
       .run();
   }
   ensureReviewCard(termId);
+}
+
+/** 队列状态流转（A2 队列治理）：确认入队 / 移出 / 恢复。 */
+export function setTermQueueStatus(
+  termId: string,
+  queueStatus: 'pending' | 'active' | 'dismissed',
+): void {
+  ensureMastery(termId);
+  getDb().update(schema.termMasteries)
+    .set({ queueStatus })
+    .where(eq(schema.termMasteries.termId, termId)).run();
+}
+
+/** 跳过本次 / 降频：只顺延到期时间，不改 FSRS 状态、不写复习日志（这不是一次检索）。 */
+export function deferReviewCard(termId: string, days: number): void {
+  const card = ensureReviewCard(termId);
+  const base = Math.max(card.dueAt.getTime(), Date.now());
+  const dueAt = new Date(base + days * 86_400_000);
+  getDb().update(schema.reviewCards)
+    .set({ dueAt })
+    .where(eq(schema.reviewCards.id, card.id)).run();
+}
+
+/** 待确认概念清单（复习页空态批量确认用）。terms 与 mastery 均为全局单源，不做工作区过滤。 */
+export function listPendingQueueTerms(limit = 30): Array<{
+  termId: string;
+  name: string;
+  definition: string;
+}> {
+  const db = getDb();
+  return db
+    .select({
+      termId: schema.terms.id,
+      name: schema.terms.name,
+      definition: schema.terms.definition,
+    })
+    .from(schema.termMasteries)
+    .innerJoin(schema.terms, eq(schema.termMasteries.termId, schema.terms.id))
+    .where(eq(schema.termMasteries.queueStatus, 'pending'))
+    .orderBy(desc(schema.termMasteries.dueAt))
+    .limit(limit)
+    .all();
 }
 
 function previewValues(card: StoredReviewCard, now: Date, retention: number): ReviewItem['preview'] {
@@ -1651,12 +1695,19 @@ function visibleDueRows(now: Date) {
       card: schema.reviewCards,
       name: schema.terms.name,
       definition: schema.terms.definition,
+      queueStatus: schema.termMasteries.queueStatus,
     })
     .from(schema.reviewCards)
     .innerJoin(schema.terms, eq(schema.reviewCards.termId, schema.terms.id))
+    // 队列治理：仅「已确认入队」的卡进入到期队列（历史行默认 active）
+    .leftJoin(schema.termMasteries, eq(schema.reviewCards.termId, schema.termMasteries.termId))
     .where(and(
       eq(schema.reviewCards.workspaceId, ws.id),
       lte(schema.reviewCards.dueAt, now),
+      or(
+        isNull(schema.termMasteries.queueStatus),
+        eq(schema.termMasteries.queueStatus, 'active'),
+      ),
     ))
     .orderBy(asc(schema.reviewCards.dueAt))
     .all();
