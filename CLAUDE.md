@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概况
 
-Mentor —— 本地 AI 学习老师。Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 全栈应用。AI 走 DeepSeek（Vercel AI SDK v7 + zod），数据落本地 SQLite（better-sqlite3 + Drizzle ORM），实践区内置 sql.js（WASM）SQL 沙盒。
+Mentor —— 本地 AI 学习老师。Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 全栈应用。AI 走 DeepSeek（Vercel AI SDK v7 + zod），数据落本地 SQLite（better-sqlite3 + Drizzle ORM）。
 
-规划的八大模块均已落地，每模块 = 页面（`src/app/<模块>/page.tsx`）+ 视图组件（`src/components/<模块>/`）+ 数据通道：
+规划的各模块均已落地（实践区已于 2026-08-15 下线，`/api/practice` 与事件数据保留），每模块 = 页面（`src/app/<模块>/page.tsx`）+ 视图组件（`src/components/<模块>/`）+ 数据通道：
 
 | 模块 | 页面 | 数据通道 |
 |------|------|---------|
+| 今日学习 | `/today` | Server Component 直调 `lib/db`（`force-dynamic`），无 API route |
 | 流式对话（术语标注 + 会话树） | `/` | `/api/chat`（流式）、`/api/sessions[/id]`、`/api/terms` |
 | 学习笔记 | `/notes` | `/api/notes` |
 | 模拟面试 | `/interview` | `/api/interview` |
@@ -19,7 +20,6 @@ Mentor —— 本地 AI 学习老师。Next.js 16 (App Router) + React 19 + Type
 | 成长分析 | `/analytics` | Server Component 直调 `lib/db`（`force-dynamic`），无 API route |
 | 白板（会话关系图 + 成长地图） | `/whiteboard` | 同上，服务端直调 |
 | 资源库 | `/resources` | `/api/resources` |
-| 实践区（SQL 沙盒） | `/practice` | 客户端 WASM 执行 + `/api/events` 落 `code_run` 事件 |
 
 > AGENTS.md 技术栈表里的 Zustand 与 shadcn/ui **尚未安装**：客户端状态目前是 React hooks + fetch，UI 是手写 Tailwind 组件。勿照表引入。
 
@@ -61,7 +61,7 @@ npx vitest run -t "遗忘"             # 按用例名过滤
 5. **FSRS 间隔重复**：`lib/fsrs.ts` 是简化版调度器（状态机 new → learning → reviewing，again 归零进 relearning；stability / difficulty 两参数，目标保留率 ~85%）。掌握度存 `termMasteries`，`/review` 按到期出卡。
 6. **AI 接入**：`lib/ai/provider.ts` 双模型——`fastModel`（`deepseek-v4-flash`，默认）/ `proModel`（`deepseek-v4-pro`，重任务）。旧 ID `deepseek-chat` / `deepseek-reasoner` 已于 2026-07-24 下线。AI SDK 是 **v7**：流式响应用 `createTextStreamResponse` + `toTextStream`，v4 时代的 `toDataStreamResponse` 不存在。
 7. **两种客户端数据通道**：交互页 = 客户端组件 + fetch API route；仪表盘 / 白板 = Server Component 直调仓库层（`export const dynamic = 'force-dynamic'`，本地 SQLite 每请求实时渲染）。
-8. **全局壳与主题**：`components/shell/AppShell`（顶栏「学习|测验」大胶囊 + 组内子标签 + 全局工具 + 主题切换，分组配置在 `lib/nav.ts`，跨组记忆 localStorage）；主题 = globals.css 双套令牌（`:root` 浅色默认 / `.dark` 深色），真相源是 `<html>.dark` 类，layout 防闪脚本首帧前定夺。**卡片内部文字用 `text-card-foreground`、彩色填充上用配对 `*-foreground`**（深色主题卡是浅色，`text-foreground` 在卡上不可见）。
+8. **全局壳与主题**：`components/shell/AppShell`（顶栏「学习|测验」大胶囊 + 组内子标签 + 全局工具 + 主题切换，分组配置在 `lib/nav.ts`，跨组记忆 localStorage）；主题 = globals.css 双套令牌（`:root` 纸白默认 / `.dark` 暖纸护眼），真相源是 `<html>.dark` 类，layout 防闪脚本首帧前定夺。**卡片内部文字用 `text-card-foreground`、彩色填充上用配对 `*-foreground`**（暖纸主题卡是浅色，`text-foreground` 在卡上不可见）。
 9. **会话卡片堆**：聊天页 = SessionDeck（当前会话大卡片 + 祖先链左侧竖条堆 + 分支右上卡片扇 + SessionPicker 弹层树），Chat.tsx 只是状态容器。SVG 颜色走 `var(--令牌)` + style 对象（presentation attribute 不吃 var()）。
 
 ## 排障备忘
@@ -70,6 +70,6 @@ npx vitest run -t "遗忘"             # 按用例名过滤
 
 ## 设计令牌与规范
 
-card-stack 令牌（深紫黑底 + 紫/青/粉/黄点缀）定义在 `src/app/globals.css` 的 `@theme inline`（Tailwind v4），直接用 `bg-background` / `bg-primary` / `text-foreground` / `text-muted` 等类。完整规范见 `DESIGN.md`。
+手绘纸张风令牌（纸白/暖纸底 + 墨黑虚线 + 红/青/黄 marker + 纸影/胶带，参考 StyleKit Hand-drawn Doodle）定义在 `src/app/globals.css` 的 `@theme inline`（Tailwind v4），直接用 `bg-background` / `bg-card` / `text-foreground` / `text-muted` 等类。完整规范见 `DESIGN.md`。
 
 其余约束（密钥只存 `.env`、better-sqlite3 仅服务端 + `serverExternalPackages`、注释中文、目录归位、变更追加 `CHANGES.md`）见 `AGENTS.md`。

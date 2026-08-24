@@ -22,10 +22,10 @@ test('同一 Concept 跨模块保留来源、聚焦对象与浏览器历史', as
   await expect(page.locator(`[data-context-focus="note:${noteId}"]`)).toBeFocused();
   await page.screenshot({ path: path.join(captureRoot, `${phase}-01-note-${testInfo.project.name}.png`), animations: 'disabled' });
 
-  await page.getByRole('link', { name: '实践区' }).click();
-  await expect(page).toHaveURL(new RegExp(`/practice\\?.*concept=${conceptId}.*source=note`));
-  await expect(page.getByTestId('learning-context-bar')).toContainText('实践区');
-  await page.screenshot({ path: path.join(captureRoot, `${phase}-02-practice-${testInfo.project.name}.png`), animations: 'disabled' });
+  await page.getByRole('link', { name: '模拟面试' }).click();
+  await expect(page).toHaveURL(new RegExp(`/interview\\?.*concept=${conceptId}.*source=note`));
+  await expect(page.getByTestId('learning-context-bar')).toContainText('模拟面试');
+  await page.screenshot({ path: path.join(captureRoot, `${phase}-02-interview-${testInfo.project.name}.png`), animations: 'disabled' });
 
   await page.getByRole('link', { name: '成长分析' }).click();
   await expect(page).toHaveURL(new RegExp(`/analytics\\?.*concept=${conceptId}.*source=note`));
@@ -36,14 +36,14 @@ test('同一 Concept 跨模块保留来源、聚焦对象与浏览器历史', as
   await scrollRegion.evaluate((element) => { element.scrollTop = 560; });
   await expect.poll(() => scrollRegion.evaluate((element) => element.scrollTop)).toBeGreaterThan(400);
   await expect.poll(() => page.evaluate(() => Number(sessionStorage.getItem(`mentor-scroll:${location.pathname}${location.search}`)))).toBeGreaterThan(400);
-  await page.getByRole('link', { name: '实践区' }).click();
-  await expect(page).toHaveURL(new RegExp('/practice\\?'));
+  await page.getByRole('link', { name: '模拟面试' }).click();
+  await expect(page).toHaveURL(new RegExp('/interview\\?'));
   await page.goBack({ waitUntil: 'networkidle' });
   await expect(page).toHaveURL(new RegExp('/analytics\\?'));
   await expect.poll(() => scrollRegion.evaluate((element) => element.scrollTop)).toBeGreaterThan(400);
   await page.screenshot({ path: path.join(captureRoot, `${phase}-04-history-restored-${testInfo.project.name}.png`), animations: 'disabled' });
   await page.goForward({ waitUntil: 'networkidle' });
-  await expect(page).toHaveURL(new RegExp('/practice\\?'));
+  await expect(page).toHaveURL(new RegExp('/interview\\?'));
 
   await page.goto(`/dev/review?${query}&attempt=${encodeURIComponent('review:review-fixture-1')}`, { waitUntil: 'networkidle' });
   await expect(page.getByTestId('learning-context-bar')).toContainText('复习记录');

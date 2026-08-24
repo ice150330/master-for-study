@@ -52,14 +52,14 @@ describe('跨模块学习上下文', () => {
   });
 
   it('在保留模块选择参数的同时追加上下文', () => {
-    const href = withLearningContext('/practice?challenge=sql-filter-sort#editor', {
+    const href = withLearningContext('/interview?topic=sql#setup', {
       workspaceId: 'workspace-1',
       conceptId: 'term-1',
       source: { type: 'note', id: 'note-1' },
       attempt: null,
     });
-    expect(href).toBe('/practice?challenge=sql-filter-sort&workspace=workspace-1&concept=term-1&source=note%3Anote-1#editor');
-    expect(withoutLearningContext(href)).toBe('/practice?challenge=sql-filter-sort#editor');
+    expect(href).toBe('/interview?topic=sql&workspace=workspace-1&concept=term-1&source=note%3Anote-1#setup');
+    expect(withoutLearningContext(href)).toBe('/interview?topic=sql#setup');
   });
 
   it('来源与尝试链接保持同一概念并生成聚焦引用', () => {

@@ -2,7 +2,7 @@
 
 > 一个运行在本地、有长期记忆的私人学习老师——陪你学、帮你整理、看得见你的成长、在你遗忘前悄悄考你。
 
-**当前状态**：阶段 0–18 已完成。应用已形成“今日行动 → 对话与语义分支 → Concept 来源轨道 → 笔记/资源 → SQL 实践或结构化面试 → FSRS 主动复习 → 证据化分析/知识图”的可运行学习闭环；统一 URL 上下文支持刷新、深链和浏览器历史恢复。实施记录见 [`docs/reports/`](docs/reports/) 与 [`CHANGES.md`](CHANGES.md)。
+**当前状态**：阶段 0–18 已完成。应用已形成“今日行动 → 对话与语义分支 → Concept 来源轨道 → 笔记/资源 → 结构化面试 → FSRS 主动复习 → 证据化分析/知识图”的可运行学习闭环；统一 URL 上下文支持刷新、深链和浏览器历史恢复。实施记录见 [`docs/reports/`](docs/reports/) 与 [`CHANGES.md`](CHANGES.md)。
 
 ## 技术栈
 
@@ -12,7 +12,7 @@
 | UI | Tailwind CSS v4 + Radix primitives + Lucide；React hooks + fetch 管理客户端状态 |
 | AI | Vercel AI SDK v7（`ai`）+ `@ai-sdk/deepseek`（`v4-flash` 默认 / `v4-pro` 重任务） |
 | 数据库 | SQLite（better-sqlite3）+ Drizzle ORM |
-| 学习引擎 | sql.js Web Worker 沙盒 + ts-fsrs FSRS 6 + React Flow 知识图 |
+| 学习引擎 | ts-fsrs FSRS 6 + React Flow 知识图 |
 | 测试 | Vitest（纯函数、SQLite、Route 合同）+ Playwright + axe-core |
 
 ## 快速开始
@@ -51,7 +51,7 @@ npx drizzle-kit generate            # 改 schema 后生成迁移（drizzle/，�
 src/
 ├── app/              # 路由 + API route handlers
 │   └── api/          # chat / sessions / terms / notes / interview / review / resources / events
-├── components/       # 组件（chat / notes / interview / review / analytics / whiteboard / resources / practice）
+├── components/       # 组件（today / chat / notes / interview / review / analytics / whiteboard / resources）
 └── lib/              # AI、DB、FSRS、学习上下文、知识图、分析与实践领域逻辑
 tests/
 ├── api/ / db/        # Route 合同与临时 SQLite 集成测试

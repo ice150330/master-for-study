@@ -36,18 +36,6 @@ export type SqlChallenge = {
   solution: string;
 };
 
-export type SqlWorkerRequest = {
-  id: string;
-  seedSql: string;
-  sql: string;
-  verificationSql?: string;
-  rowLimit: number;
-};
-
-export type SqlWorkerResponse =
-  | { id: string; ok: true; result: SqlExecutionResult }
-  | { id: string; ok: false; error: string; durationMs: number };
-
 export type ChallengeValidation = {
   passed: boolean;
   title: string;

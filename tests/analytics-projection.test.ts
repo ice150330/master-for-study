@@ -84,7 +84,7 @@ describe('成长分析投影', () => {
 
     expect(skills[0]).toMatchObject({
       conceptId: 'sql',
-      actionLabel: '针对练习',
+      actionLabel: '模拟测验',
       sampleSize: 3,
     });
     expect(skills[0].evidence).toContain('当前处于重学状态');

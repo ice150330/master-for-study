@@ -43,33 +43,29 @@ test('今日到分析的核心学习闭环保留同一概念与来源', async ({
   await page.getByRole('button', { name: '打开概念：Cache-Control' }).click();
   await expect(page.getByRole('complementary', { name: '概念详情' })).toBeVisible();
   await expect(page).toHaveURL(/source=message%3A/);
-  await expect(page.getByRole('link', { name: '开始练习' })).toHaveAttribute('href', /source=message%3A/);
-  await page.getByRole('link', { name: '开始练习' }).click();
-  await expect(page).toHaveURL(new RegExp(`/practice\?.*concept=${conceptId}`));
-  await expect(page.getByTestId('learning-context-bar')).toContainText('Cache-Control');
-  const editor = page.getByRole('textbox', { name: 'SQL 编辑器' });
-  await editor.fill('SELECT name, score FROM students WHERE score >= 80 ORDER BY score DESC;');
-  await page.getByRole('button', { name: '运行并验证' }).click();
-  await expect(page.getByText('任务完成', { exact: true })).toBeVisible();
-  await expect.poll(() => state.practiceAttempt).not.toBeNull();
-  expect(state.practiceAttempt).toMatchObject({ conceptId, challengeId: 'sql-filter-sort', status: 'success' });
-  await capture(page, `05-practice-${testInfo.project.name}`);
-
-  const contextQuery = new URL(page.url()).searchParams.toString();
+  const interviewHref = await page.getByRole('link', { name: '模拟测验' }).getAttribute('href');
+  expect(interviewHref).toBeTruthy();
+  const interviewUrl = new URL(interviewHref!, page.url());
+  expect(interviewUrl.pathname).toBe('/interview');
+  expect(interviewUrl.searchParams.get('concept')).toBe(conceptId);
+  expect(interviewUrl.searchParams.get('source')).toMatch(/^message:/);
+  const reviewHref = await page.getByRole('link', { name: '加入复习' }).getAttribute('href');
+  expect(reviewHref).toBeTruthy();
+  const contextQuery = new URL(reviewHref!, page.url()).searchParams.toString();
   await page.goto(`/dev/review?${contextQuery}`, { waitUntil: 'networkidle' });
   await expect(page.getByTestId('learning-context-bar')).toContainText('Cache-Control');
   await page.getByRole('textbox', { name: '主动回忆' }).fill('缓存由显式新鲜度和验证器共同决定能否复用。');
   await page.getByRole('button', { name: '查看答案' }).click();
   await page.getByRole('button', { name: /记得/ }).click();
   await expect(page.getByText('已安排在 3 天后', { exact: true })).toBeVisible();
-  await capture(page, `06-review-${testInfo.project.name}`);
+  await capture(page, `05-review-${testInfo.project.name}`);
 
   await page.getByRole('link', { name: '成长分析' }).click();
   await expect(page).toHaveURL(new RegExp(`/analytics\?.*concept=${conceptId}`));
   await expect(page.getByRole('heading', { name: '成长分析' })).toBeVisible();
   await expect(page.getByTestId('activity-trend')).toBeVisible();
   await expect(page.getByTestId('learning-context-bar')).toContainText('Cache-Control');
-  await capture(page, `07-analytics-${testInfo.project.name}`);
+  await capture(page, `06-analytics-${testInfo.project.name}`);
 });
 
 test('390 仅保留今日与复习的基础可用截图', async ({ page }, testInfo) => {
@@ -92,8 +88,7 @@ async function installJourneyRoutes(page: Page) {
   const sessions = [root];
   const state: {
     branchRequest: Record<string, unknown> | null;
-    practiceAttempt: Record<string, unknown> | null;
-  } = { branchRequest: null, practiceAttempt: null };
+  } = { branchRequest: null };
 
   await page.route('**/api/resources', (route) => route.fulfill({ json: { resources: [] } }));
   await page.route('**/api/sessions', async (route) => {
@@ -134,10 +129,6 @@ async function installJourneyRoutes(page: Page) {
   await page.route('**/api/terms', (route) => route.fulfill({
     json: { terms: [{ name: 'Cache-Control', definition: '用于声明缓存复用规则。' }] },
   }));
-  await page.route('**/api/practice', async (route) => {
-    state.practiceAttempt = route.request().postDataJSON() as Record<string, unknown>;
-    await route.fulfill({ status: 201, json: { attempt: { id: 'final-practice-attempt' } } });
-  });
   await page.route('**/api/review', async (route) => {
     await route.fulfill({ json: { next: { logId: 'final-review-log', intervalLabel: '3 天' } } });
   });

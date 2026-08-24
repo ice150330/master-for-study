@@ -4,10 +4,10 @@ import {
   ArrowRight,
   BookOpenCheck,
   BookOpenText,
+  ClipboardCheck,
   Clock3,
   MessageCircle,
   NotebookPen,
-  SquareTerminal,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -30,7 +30,7 @@ function subscribeLater(callback: () => void) {
 const iconByKind = {
   continue: MessageCircle,
   review: BookOpenCheck,
-  practice: SquareTerminal,
+  interview: ClipboardCheck,
   resource: BookOpenText,
   note: NotebookPen,
 };
@@ -67,32 +67,32 @@ export function TodayView({ initialActions }: { initialActions: TodayLearningAct
   }
 
   return (
-    <PageShell title="今日学习" description="从真实学习记录中选择下一步，不生成虚构计划" width="lg">
+    <PageShell title="今日学习" width="lg">
       {visible.length === 0 ? (
-        <div className="border-y border-border py-16 text-center">
+        <div className="paper-panel rotate-[-0.15deg] rounded-[2px] border-2 border-dashed py-16 text-center">
           <BookOpenCheck aria-hidden="true" className="mx-auto size-7 text-accent" />
           <h2 className="mt-3 text-base font-semibold text-foreground">今天的行动已处理</h2>
           <p className="mt-1 text-sm text-muted">稍后项目仍保留在本机，可以随时恢复。</p>
           <button
             type="button"
             onClick={restore}
-            className="mt-5 text-sm font-medium text-primary hover:underline"
+            className="doodle-link mt-5 text-sm font-semibold text-foreground"
           >
             恢复稍后项目
           </button>
         </div>
       ) : (
-        <div className="border-y border-border">
+        <div className="grid gap-2">
           {visible.map((action, index) => {
             const Icon = iconByKind[action.kind];
             return (
               <article
                 key={action.id}
-                className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b border-border py-5 last:border-b-0"
+                className="doodle-row paper-subtle grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-4 rounded-[2px] border border-dashed px-3 py-3.5"
               >
                 <span
-                  className={`inline-flex size-10 items-center justify-center rounded-md ${
-                    index === 0 ? 'bg-primary/12 text-primary' : 'bg-card-soft text-muted'
+                  className={`inline-flex size-9 rotate-[-1deg] items-center justify-center rounded-[2px] border border-dashed ${
+                    index === 0 ? 'border-primary bg-primary/12 text-primary shadow-[3px_3px_0_var(--marker-yellow)]' : 'border-border bg-card text-muted shadow-[2px_2px_0_rgba(78,205,196,0.28)]'
                   }`}
                 >
                   <Icon aria-hidden="true" className="size-[18px]" />
@@ -111,7 +111,7 @@ export function TodayView({ initialActions }: { initialActions: TodayLearningAct
                   </IconButton>
                   <Link
                     href={action.href}
-                    className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-[filter] hover:brightness-95"
+                    className="doodle-action inline-flex h-8 items-center gap-2 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:-translate-x-px hover:-translate-y-px hover:bg-highlight/15 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
                   >
                     {action.actionLabel}
                     <ArrowRight aria-hidden="true" className="size-3.5" />

@@ -96,9 +96,9 @@ export function buildAnalyticsMetrics(input: {
       source: 'LearningEvent · learning actions',
       href: '#activity-ledger',
     },
-    rateMetric('assessment', '评测通过', passed, assessed, '练习与面试合并计算', 'PracticeAttempt + InterviewAttempt', '/practice'),
+    rateMetric('assessment', '评测通过', passed, assessed, '练习与面试合并计算', 'PracticeAttempt + InterviewAttempt', '/interview'),
     rateMetric('retention', '复习保留', retained, input.reviewLogs.length, 'Hard / Good / Easy 计为取回', 'ReviewLog.rating', '/review'),
-    rateMetric('hints', '提示依赖', usedHints, input.practiceAttempts.length, '至少使用一次提示的练习占比', 'PracticeAttempt.hintCount', '/practice'),
+    rateMetric('hints', '提示依赖', usedHints, input.practiceAttempts.length, '至少使用一次提示的练习占比', 'PracticeAttempt.hintCount', '#activity-ledger'),
   ];
 }
 
@@ -146,8 +146,8 @@ export function rankWeakSkills(input: {
       evidence: evidence.slice(0, 3),
       sampleSize: practices.length + interviews.length + reviews.length,
       href: `/?concept=${concept.id}`,
-      actionHref: shouldPractice ? `/practice?concept=${concept.id}` : `/review?concept=${concept.id}`,
-      actionLabel: shouldPractice ? '针对练习' : '开始复习',
+      actionHref: shouldPractice ? `/interview?concept=${concept.id}` : `/review?concept=${concept.id}`,
+      actionLabel: shouldPractice ? '模拟测验' : '开始复习',
     } satisfies AnalyticsWeakSkill;
   }).filter((concept) => concept.priority > 0 && concept.evidence.length > 0)
     .sort((left, right) => right.priority - left.priority)

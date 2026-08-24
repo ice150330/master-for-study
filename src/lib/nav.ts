@@ -5,7 +5,6 @@ export type AppRoute =
   | '/'
   | '/notes'
   | '/resources'
-  | '/practice'
   | '/interview'
   | '/review'
   | '/analytics'
@@ -16,7 +15,6 @@ export type NavIconKey =
   | 'chat'
   | 'notes'
   | 'resources'
-  | 'practice'
   | 'interview'
   | 'review'
   | 'analytics'
@@ -53,7 +51,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/', label: '对话学习', shortLabel: '对话', icon: 'chat' },
       { href: '/notes', label: '学习笔记', shortLabel: '笔记', icon: 'notes' },
       { href: '/resources', label: '资源库', shortLabel: '资源', icon: 'resources' },
-      { href: '/practice', label: '实践区', shortLabel: '实践', icon: 'practice' },
     ],
   },
   {

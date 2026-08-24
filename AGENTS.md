@@ -22,7 +22,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 | UI | Tailwind CSS v4（组件手写；shadcn/ui 与 Zustand 为规划项，**尚未安装**，客户端状态用 React hooks + fetch） |
 | AI | Vercel AI SDK v7（`ai`）+ `@ai-sdk/deepseek`（`v4-flash` 默认 / `v4-pro` 重任务），校验用 zod |
 | 数据库 | SQLite（better-sqlite3）+ Drizzle ORM，仓库层在 `src/lib/db/index.ts` |
-| 实践沙盒 | sql.js（WASM，客户端跑 SQL，零安装） |
 | 测试 | Vitest（纯函数、临时 SQLite、Route 合同）+ Playwright（`config/playwright.config.ts`）+ axe-core |
 
 ## 项目结构
@@ -30,8 +29,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ```
 src/
 ├── app/              # 路由 + API route handlers
-│   └── api/          # chat / sessions / terms / notes / interview / review / resources / events
-├── components/       # 组件（chat / notes / interview / review / analytics / whiteboard / resources / practice）
+│   └── api/          # chat / sessions / terms / notes / interview / practice / review / resources / events
+├── components/       # 组件（today / chat / notes / interview / review / analytics / whiteboard / resources）
 └── lib/              # ai（provider/两段式标注/note/interview）、db（schema + 仓库层）、
                      # fsrs、session-tree、term-parse、tree-layout、skill-tree
 tests/                # Vitest 单元/集成/合同测试 + Playwright E2E

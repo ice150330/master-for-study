@@ -88,7 +88,7 @@ export function sourceHref(source: LearningSource, context: LearningContext) {
 
 export function attemptHref(attempt: LearningAttempt, context: LearningContext) {
   const path = attempt.type === 'practice'
-    ? '/practice'
+    ? '/analytics'
     : attempt.type === 'interview'
       ? '/interview'
       : '/review';

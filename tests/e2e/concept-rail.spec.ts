@@ -23,8 +23,15 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
     createdAt: '2026-08-15T00:00:00.000Z',
     updatedAt: '2026-08-15T01:00:00.000Z',
   };
+  const branchSession = {
+    ...session,
+    id: '22222222-2222-4222-8222-222222222222',
+    parentId: sessionId,
+    forkedFromMessageId: messageId,
+    title: '协商缓存',
+  };
   await page.route('**/api/sessions', (route) =>
-    route.fulfill({ json: { sessions: [session], archivedSessions: [] } }),
+    route.fulfill({ json: { sessions: [session, branchSession], archivedSessions: [] } }),
   );
   await page.route('**/api/sessions/*', (route) =>
     route.fulfill({
@@ -105,6 +112,15 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
 
   await page.goto('/', { waitUntil: 'networkidle' });
   const trigger = page.getByRole('button', { name: '打开概念：Cache-Control' });
+  await trigger.hover();
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toContainText('陌生知识点');
+  await expect(tooltip).toContainText('用于声明缓存策略的 HTTP 响应头。');
+  await page.screenshot({
+    path: path.join(captureRoot, `${phase}-term-hover-${testInfo.project.name}.png`),
+    animations: 'disabled',
+  });
+  await page.mouse.move(0, 0);
   await trigger.focus();
   await expect(trigger).toBeFocused();
   await page.screenshot({
@@ -120,6 +136,9 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
   });
 
   await expect(page.getByRole('heading', { name: 'HTTP Cache-Control' })).toBeVisible();
+  const branchStack = page.getByRole('complementary', { name: '后续分支' });
+  await expect(branchStack).toBeVisible();
+  await expect(branchStack.getByTitle('切到分支：协商缓存')).toBeVisible();
   await expect(page.getByText('置信度 96%')).toBeVisible();
   await expect(page.getByRole('link', { name: '缓存策略笔记' })).toBeVisible();
   await expect(page.getByText('MDN Cache-Control', { exact: true }).first()).toBeVisible();
@@ -127,9 +146,9 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
     'href',
     new RegExp(`/notes\\?concept=${conceptId}.*source=message%3A`),
   );
-  await expect(page.getByRole('link', { name: '开始练习' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: '模拟测验' })).toHaveAttribute(
     'href',
-    new RegExp(`/practice\\?concept=${conceptId}.*source=message%3A`),
+    new RegExp(`/interview\\?concept=${conceptId}.*source=message%3A`),
   );
   await expect(page.getByRole('link', { name: '加入复习' })).toHaveAttribute(
     'href',

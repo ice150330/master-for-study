@@ -24,9 +24,9 @@ export function analyticsFixture(mode: FixtureMode, rangeDays: AnalyticsRange = 
       trend,
       metrics: [
         metric('activity', '学习活动', '0 次', '还没有有效学习记录', 0, 'ready', 'LearningEvent · learning actions', '#activity-ledger'),
-        metric('assessment', '评测通过', '不足以判断', '仅 0 次样本，至少需要 3 次', 0, 'insufficient', 'PracticeAttempt + InterviewAttempt', '/practice'),
+        metric('assessment', '评测通过', '不足以判断', '仅 0 次样本，至少需要 3 次', 0, 'insufficient', 'PracticeAttempt + InterviewAttempt', '/interview'),
         metric('retention', '复习保留', '不足以判断', '仅 0 次样本，至少需要 3 次', 0, 'insufficient', 'ReviewLog.rating', '/review'),
-        metric('hints', '提示依赖', '不足以判断', '仅 0 次样本，至少需要 3 次', 0, 'insufficient', 'PracticeAttempt.hintCount', '/practice'),
+        metric('hints', '提示依赖', '不足以判断', '仅 0 次样本，至少需要 3 次', 0, 'insufficient', 'PracticeAttempt.hintCount', '#activity-ledger'),
       ],
       weakSkills: [],
       progress: [],
@@ -50,9 +50,9 @@ export function analyticsFixture(mode: FixtureMode, rangeDays: AnalyticsRange = 
       trend,
       metrics: [
         metric('activity', '学习活动', '2 次', '对话、概念、笔记与资料阅读的有效记录', 2, 'ready', 'LearningEvent · learning actions', '#activity-ledger'),
-        metric('assessment', '评测通过', '不足以判断', '仅 1 次样本，至少需要 3 次', 1, 'insufficient', 'PracticeAttempt + InterviewAttempt', '/practice'),
+        metric('assessment', '评测通过', '不足以判断', '仅 1 次样本，至少需要 3 次', 1, 'insufficient', 'PracticeAttempt + InterviewAttempt', '/interview'),
         metric('retention', '复习保留', '不足以判断', '仅 1 次样本，至少需要 3 次', 1, 'insufficient', 'ReviewLog.rating', '/review'),
-        metric('hints', '提示依赖', '不足以判断', '仅 1 次样本，至少需要 3 次', 1, 'insufficient', 'PracticeAttempt.hintCount', '/practice'),
+        metric('hints', '提示依赖', '不足以判断', '仅 1 次样本，至少需要 3 次', 1, 'insufficient', 'PracticeAttempt.hintCount', '#activity-ledger'),
       ],
       weakSkills: [],
       progress: [],
@@ -75,17 +75,17 @@ export function analyticsFixture(mode: FixtureMode, rangeDays: AnalyticsRange = 
     trend,
     metrics: [
       metric('activity', '学习活动', '18 次', '对话、概念、笔记与资料阅读的有效记录', 18, 'ready', 'LearningEvent · learning actions', '#activity-ledger'),
-      metric('assessment', '评测通过', '72%', '练习与面试合并计算 · 11 次样本', 11, 'ready', 'PracticeAttempt + InterviewAttempt', '/practice'),
+      metric('assessment', '评测通过', '72%', '练习与面试合并计算 · 11 次样本', 11, 'ready', 'PracticeAttempt + InterviewAttempt', '/interview'),
       metric('retention', '复习保留', '83%', 'Hard / Good / Easy 计为取回 · 12 次样本', 12, 'ready', 'ReviewLog.rating', '/review'),
-      metric('hints', '提示依赖', '29%', '至少使用一次提示的练习占比 · 7 次样本', 7, 'ready', 'PracticeAttempt.hintCount', '/practice'),
+      metric('hints', '提示依赖', '29%', '至少使用一次提示的练习占比 · 7 次样本', 7, 'ready', 'PracticeAttempt.hintCount', '#activity-ledger'),
     ],
     weakSkills: [
-      { conceptId: 'group-by', name: 'SQL 分组聚合', state: 'relearning', priority: 86, evidence: ['当前处于重学状态', '2 次练习未通过', '1 次练习使用提示'], sampleSize: 6, href: '/?concept=group-by', actionHref: '/practice?concept=group-by', actionLabel: '针对练习' },
-      { conceptId: 'transaction', name: '数据库事务边界', state: 'learning', priority: 62, evidence: ['1 次面试判断未通过', '复习已经到期'], sampleSize: 4, href: '/?concept=transaction', actionHref: '/practice?concept=transaction', actionLabel: '针对练习' },
+      { conceptId: 'group-by', name: 'SQL 分组聚合', state: 'relearning', priority: 86, evidence: ['当前处于重学状态', '2 次练习未通过', '1 次练习使用提示'], sampleSize: 6, href: '/?concept=group-by', actionHref: '/interview?concept=group-by', actionLabel: '模拟测验' },
+      { conceptId: 'transaction', name: '数据库事务边界', state: 'learning', priority: 62, evidence: ['1 次面试判断未通过', '复习已经到期'], sampleSize: 4, href: '/?concept=transaction', actionHref: '/interview?concept=transaction', actionLabel: '模拟测验' },
       { conceptId: 'index', name: '复合索引', state: 'reviewing', priority: 48, evidence: ['1 次主动回忆失败', 'FSRS 难度偏高'], sampleSize: 5, href: '/?concept=index', actionHref: '/review?concept=index', actionLabel: '开始复习' },
     ],
     progress: [
-      { id: 'progress-1', title: '筛出高分学员', detail: 'SQL 评测 · 任务通过', createdAt: '2026-08-15T08:40:00.000Z', href: '/practice?attempt=practice%3Apractice-1' },
+      { id: 'progress-1', title: '筛出高分学员', detail: 'SQL 评测 · 任务通过', createdAt: '2026-08-15T08:40:00.000Z', href: '/analytics#activity-ledger' },
       { id: 'progress-2', title: '事务隔离与并发控制', detail: '面试作答 · 84 分 · 进阶', createdAt: '2026-08-14T11:20:00.000Z', href: '/interview?attempt=interview%3Ainterview-1' },
       { id: 'progress-3', title: 'B+ 树索引', detail: '主动复习 · 成功取回 · good', createdAt: '2026-08-13T09:10:00.000Z', href: '/review?attempt=review%3Areview-1' },
     ],
@@ -137,14 +137,14 @@ function metric(
 
 function normalActivities(): AnalyticsActivity[] {
   return [
-    activity('a1', 'assessment', 'SQL 评测', '筛出高分学员', '任务通过', '2026-08-15T08:40:00.000Z', '/practice?attempt=practice%3Apractice-1'),
+    activity('a1', 'assessment', 'SQL 评测', '筛出高分学员', '任务通过', '2026-08-15T08:40:00.000Z', '/analytics#activity-ledger'),
     activity('a2', 'review', '主动复习', 'B+ 树索引', '成功取回 · good', '2026-08-15T07:10:00.000Z', '/review?attempt=review%3Areview-1&concept=index'),
     activity('a3', 'learning', '完成对话', '事务隔离级别如何选择', '回答已完成', '2026-08-15T06:50:00.000Z', '/?session=session-1&message=message-1&source=message%3Asession-1%3Amessage-1'),
     activity('a4', 'learning', '发现概念', '可重复读', '进入概念库', '2026-08-15T06:49:00.000Z', '/?concept=repeatable-read'),
     activity('a5', 'assessment', '面试作答', '事务隔离与并发控制', '84 分 · 进阶', '2026-08-14T11:20:00.000Z', '/interview?attempt=interview%3Ainterview-1'),
     activity('a6', 'review', '主动复习', 'MVCC', '未取回 · Again', '2026-08-14T08:00:00.000Z', '/review?attempt=review%3Areview-2&concept=mvcc'),
     activity('a7', 'learning', '更新笔记', '数据库并发控制笔记', '知识已沉淀', '2026-08-13T12:00:00.000Z', '/notes?note=note-1'),
-    activity('a8', 'assessment', 'SQL 评测', '统计部门均分', '未通过 · validation', '2026-08-13T09:30:00.000Z', '/practice?attempt=practice%3Apractice-2'),
+    activity('a8', 'assessment', 'SQL 评测', '统计部门均分', '未通过 · validation', '2026-08-13T09:30:00.000Z', '/analytics#activity-ledger'),
     activity('a9', 'learning', '保存摘录', 'PostgreSQL 事务文档', '摘录已保存', '2026-08-12T14:20:00.000Z', '/resources?resource=resource-1'),
     activity('a10', 'review', '主动复习', 'GROUP BY', '成功取回 · hard', '2026-08-11T07:30:00.000Z', '/review?attempt=review%3Areview-3&concept=group-by'),
   ];

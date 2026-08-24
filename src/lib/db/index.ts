@@ -118,7 +118,7 @@ export type ConceptDetail = {
 
 export type TodayLearningAction = {
   id: string;
-  kind: 'continue' | 'review' | 'practice' | 'resource' | 'note';
+  kind: 'continue' | 'review' | 'interview' | 'resource' | 'note';
   title: string;
   description: string;
   source: string;
@@ -2196,7 +2196,7 @@ function activityHref(input: {
   review?: ReviewLog;
 }) {
   const { event, termId, practice, interview, review } = input;
-  if (practice) return `/practice?attempt=practice%3A${practice.id}${termId ? `&concept=${termId}` : ''}`;
+  if (practice) return `/analytics${termId ? `?concept=${termId}` : ''}#activity-ledger`;
   if (interview) return `/interview?attempt=interview%3A${interview.id}${termId ? `&concept=${termId}` : ''}`;
   if (review) return `/review?attempt=review%3A${review.id}&concept=${review.termId}`;
   if (event.objectType === 'note' && event.objectId) return `/notes?note=${event.objectId}&source=note%3A${event.objectId}`;
@@ -2313,14 +2313,14 @@ export function getTodayLearningActions(): TodayLearningAction[] {
     .sort((left, right) => (right.difficulty ?? 0) - (left.difficulty ?? 0))[0];
   if (weakConcept) {
     actions.push({
-      id: `practice:${weakConcept.id}`,
-      kind: 'practice',
-      title: `练习：${weakConcept.name}`,
-      description: '用一个可运行任务检查是否能把概念应用到具体问题。',
+      id: `interview:${weakConcept.id}`,
+      kind: 'interview',
+      title: `测验：${weakConcept.name}`,
+      description: '用一次结构化问答检查是否真正理解这个概念。',
       source: `来自掌握状态 ${weakConcept.state} 与难度记录`,
       effort: '约 10–20 分钟',
-      href: `/practice?concept=${weakConcept.id}`,
-      actionLabel: '进入练习',
+      href: `/interview?concept=${weakConcept.id}`,
+      actionLabel: '开始测验',
     });
   }
 
