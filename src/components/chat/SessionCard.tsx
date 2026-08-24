@@ -235,7 +235,7 @@ export function SessionCard({
             ) : null}
           </div>
         )}
-        {messages.map((m) => {
+        {messages.map((m, messageIndex) => {
           // 最后一条完整回答才允许原位重写，更早的回答只能经分支派生
           let lastAssistantId: string | null = null;
           for (let i = messages.length - 1; i >= 0; i--) {
@@ -245,6 +245,8 @@ export function SessionCard({
             }
           }
           const showActions = m.role === 'assistant' && m.status === 'complete' && !isStreaming && !!m.content;
+          // AI 组紧跟提问上移 ~30px（头像与提问行大致齐平）；仅在上一条是用户消息时生效
+          const hugQuestion = m.role === 'assistant' && messageIndex > 0 && messages[messageIndex - 1].role === 'user';
           return (
             <div
               key={m.id}
@@ -255,10 +257,10 @@ export function SessionCard({
             >
               <div
                 className={`flex min-w-0 max-w-[85%] flex-col ${
-                  m.role === 'user' ? 'items-end' : 'items-start -mt-2.5'
+                  m.role === 'user' ? 'items-end' : `items-start${hugQuestion ? ' -mt-[30px]' : ''}`
                 }`}
               >
-                {/* AI 老师头像：气泡正上方靠左，气泡折角尾巴指向它；上移收紧与提问的间距 */}
+                {/* AI 老师头像：气泡正上方靠左，气泡折角尾巴指向它；上移后与提问行大致齐平 */}
                 {m.role === 'assistant' ? (
                   <MentorAvatar className="mb-0.5 ml-1 size-8" />
                 ) : null}
@@ -366,38 +368,46 @@ export function SessionCard({
             ))}
           </div>
         ) : null}
-        {/* 输入行：输入框 | 三个功能图标（风格/模型/引用资源）| 发送；输入框与按钮同高 */}
-        <div className="flex items-end gap-1.5">
-          <textarea
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-            rows={1}
-            placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
-            className="paper-subtle field-sizing-content min-h-11 max-h-40 flex-1 resize-none overflow-y-auto rounded-[2px] border-2 border-dashed border-border bg-card-soft px-3.5 py-2 text-sm leading-5 text-card-foreground outline-none placeholder:text-card-foreground/50 transition-[transform,border-color,box-shadow] focus:-translate-x-px focus:-translate-y-px focus:border-accent focus:shadow-[4px_4px_0_rgba(78,205,196,0.36)]"
-          />
-          {/* 功能图标组：贴输入框右侧，与发送钮同行 */}
-          <div className="flex h-11 shrink-0 items-center gap-0.5 self-end">
-            <StyleSwitch value={styleOverride} fallback={fallbackStyle} onChange={onStyleChange} />
-            <ModelToggle value={model} onChange={onModelChange} />
-            <ResourceSelector
-              resources={resourceOptions}
-              selectedIds={selectedResourceIds}
-              onToggle={onToggleResource}
+        {/* 输入框（外框承载边框/焦点态）：三个功能图标（风格/模型/引用资源）内嵌框内右侧；发送钮在框外 */}
+        <div className="flex items-end gap-2">
+          <div className="paper-subtle flex min-h-11 w-full min-w-0 flex-1 items-end gap-1 rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-3.5 pr-1 transition-[transform,border-color,box-shadow] focus-within:-translate-x-px focus-within:-translate-y-px focus-within:border-accent focus-within:shadow-[4px_4px_0_rgba(78,205,196,0.36)]">
+            <textarea
+              value={input}
+              onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  onSend();
+                }
+              }}
+              rows={1}
+              placeholder="输入问题，Enter 发送 / Shift+Enter 换行"
+              className="field-sizing-content max-h-40 min-h-11 flex-1 resize-none self-stretch overflow-y-auto bg-transparent py-2 text-sm leading-5 text-card-foreground outline-none placeholder:text-card-foreground/50"
             />
+            {/* 功能图标组：内嵌输入框右内侧 */}
+            <div className="flex h-11 shrink-0 items-center gap-0.5 self-end">
+              <StyleSwitch value={styleOverride} fallback={fallbackStyle} onChange={onStyleChange} />
+              <ModelToggle value={model} onChange={onModelChange} />
+              <ResourceSelector
+                resources={resourceOptions}
+                selectedIds={selectedResourceIds}
+                onToggle={onToggleResource}
+              />
+            </div>
           </div>
-          {/* 发送 / 停止：图标即可表意，悬停 Tooltip 显示功能 */}
+          {/* 发送 / 停止：图标即可表意，悬停 Tooltip 显示功能；发送加粗边框更醒目 */}
           {isStreaming ? (
             <IconButton className="size-11" label="停止生成" onClick={onStop}>
               <Square aria-hidden="true" className="size-4 fill-current" />
             </IconButton>
           ) : (
-            <IconButton tone="primary" className="size-11" label="发送（Enter）" onClick={onSend}>
+            <IconButton
+              tone="primary"
+              className="size-11"
+              style={{ borderWidth: 3 }}
+              label="发送（Enter）"
+              onClick={onSend}
+            >
               <SendHorizontal aria-hidden="true" className="size-4" />
             </IconButton>
           )}
