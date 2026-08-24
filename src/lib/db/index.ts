@@ -39,7 +39,6 @@ import type {
   KnowledgeGraphNode,
   KnowledgeRelation,
 } from '../knowledge/types';
-import { SQL_CHALLENGES } from '../practice/challenges';
 import {
   analyticsCategory,
   buildActivityTrend,
@@ -258,11 +257,6 @@ export function getTerm(id: string): Term | undefined {
 /** 按 id 查询资源。 */
 export function getResource(id: string): Resource | undefined {
   return getDb().select().from(schema.resources).where(eq(schema.resources.id, id)).limit(1).get();
-}
-
-export function getPracticeAttempt(id: string): PracticeAttempt | undefined {
-  return getDb().select().from(schema.practiceAttempts)
-    .where(eq(schema.practiceAttempts.id, id)).limit(1).get();
 }
 
 export function getReviewLog(id: string): ReviewLog | undefined {
@@ -663,75 +657,6 @@ export function recordEvent(input: {
   const values = eventValues({ workspaceId: ws.id, ...input });
   getDb().insert(schema.learningEvents).values(values).run();
   return values;
-}
-
-/** 实践运行与事件同事务写入，结果正确与否都形成技能证据。 */
-export function createPracticeAttempt(input: {
-  conceptId?: string | null;
-  challengeId: string;
-  status: PracticeAttempt['status'];
-  errorType?: PracticeAttempt['errorType'];
-  runCount: number;
-  hintCount: number;
-  durationMs: number;
-  sql: string;
-  result: Record<string, unknown>;
-  skills: string[];
-  idempotencyKey: string;
-}): PracticeAttempt {
-  const db = getDb();
-  const existing = db.select().from(schema.practiceAttempts)
-    .where(eq(schema.practiceAttempts.idempotencyKey, input.idempotencyKey))
-    .limit(1).get();
-  if (existing) return existing;
-  const ws = ensureWorkspace();
-  const attempt = {
-    id: randomUUID(),
-    workspaceId: ws.id,
-    conceptId: input.conceptId ?? null,
-    challengeId: input.challengeId,
-    status: input.status,
-    errorType: input.errorType ?? null,
-    runCount: input.runCount,
-    hintCount: input.hintCount,
-    durationMs: input.durationMs,
-    sql: input.sql,
-    result: input.result,
-    skills: input.skills,
-    idempotencyKey: input.idempotencyKey,
-    createdAt: new Date(),
-  } satisfies PracticeAttempt;
-  db.transaction((tx) => {
-    tx.insert(schema.practiceAttempts).values(attempt).run();
-    tx.insert(schema.learningEvents).values(eventValues({
-      workspaceId: ws.id,
-      action: 'practice_attempted',
-      objectType: 'practice_attempt',
-      objectId: attempt.id,
-      result: {
-        status: attempt.status,
-        errorType: attempt.errorType,
-        challengeId: attempt.challengeId,
-      },
-      context: {
-        conceptId: attempt.conceptId,
-        runCount: attempt.runCount,
-        hintCount: attempt.hintCount,
-        durationMs: attempt.durationMs,
-        skills: attempt.skills,
-      },
-      idempotencyKey: input.idempotencyKey,
-    })).run();
-  });
-  return attempt;
-}
-
-export function listPracticeAttempts(challengeId?: string): PracticeAttempt[] {
-  const query = getDb().select().from(schema.practiceAttempts);
-  return challengeId
-    ? query.where(eq(schema.practiceAttempts.challengeId, challengeId))
-      .orderBy(desc(schema.practiceAttempts.createdAt)).all()
-    : query.orderBy(desc(schema.practiceAttempts.createdAt)).all();
 }
 
 /** Concept 不存在则插入，存在则合并更可信的解释与别名。 */
@@ -2133,7 +2058,6 @@ function enrichAnalyticsActivities(input: {
   const practices = new Map(input.practiceAttempts.map((attempt) => [attempt.id, attempt]));
   const interviews = new Map(input.interviewAttempts.map((attempt) => [attempt.id, attempt]));
   const reviews = new Map(input.reviewLogs.map((log) => [log.id, log]));
-  const challengeTitles = new Map(SQL_CHALLENGES.map((challenge) => [challenge.id, challenge.title]));
 
   return input.events.flatMap((event) => {
     const category = analyticsCategory(event.action);
@@ -2153,7 +2077,6 @@ function enrichAnalyticsActivities(input: {
     const objectTitle = term?.canonicalName
       || note?.title
       || resource?.title
-      || (practice ? challengeTitles.get(practice.challengeId) : null)
       || interview?.skill
       || session?.title
       || message?.content.slice(0, 72)

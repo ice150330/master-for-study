@@ -29,10 +29,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ```
 src/
 ├── app/              # 路由 + API route handlers
-│   └── api/          # chat / sessions / terms / notes / interview / practice / review / resources / events
+│   └── api/          # chat / sessions / terms / concepts / notes / interview / review / resources / events / knowledge-graph
 ├── components/       # 组件（today / chat / notes / interview / review / analytics / whiteboard / resources）
 └── lib/              # ai（provider/两段式标注/note/interview）、db（schema + 仓库层）、
-                     # fsrs、session-tree、term-parse、tree-layout、skill-tree
+                     # fsrs（ts-fsrs 适配）、session-tree、term-parse、tree-layout、knowledge、learning-context
 tests/                # Vitest 单元/集成/合同测试 + Playwright E2E
 config/               # Playwright 等项目配置
 data/                 # SQLite、截图与测试产物（gitignore，首次查询自动建库迁移）

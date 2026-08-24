@@ -2,6 +2,12 @@
 
 > 倒序记录，每次修改后追加一条。
 
+## 2026-08-24
+
+- 依评估决策方案 A 正式除名实践区：删除 `/api/practice` 路由、`lib/practice/`（挑战库 / 校验器 / 类型）、`tests/practice-validator.test.ts`、db 层 practice 写入函数与对应合同 / 集成用例；`practice_attempts` 表、历史事件与分析聚合保留（活动账本中历史练习标题改用静态标签兜底）
+- 同步文档基准：产品设计蓝图与 08-14 计划补记实践区除名及手绘色板推翻（含阶段 13–18 复选框补勾），CLAUDE.md 修正 FSRS（ts-fsrs 6 适配层）与知识图（`lib/knowledge/` + 数据库表）描述并补全测试范围说明，AGENTS.md / README 项目结构更新，移除已完成使命的根目录 `todo.md`
+- 完成模块对照蓝图评估（`docs/reports/2026-08-24-模块对照蓝图评估.md`）：对照三份计划文档盘点各模块达标度，给出修改（实践区遗留资产、文档漂移、dev 页守卫）、补充（P1 老师风格系统与可配置项、P2 导出备份与多工作区、P3 遗忘预警与资源推荐）、移除（悬空 practice 代码、todo.md 归档）清单与实践区去留决策项
+
 ## 2026-08-15
 
 - 下线实践区页面与客户端 SQL 沙盒：删除 `/practice` 页面、导航入口、sql.js worker 与 wasm 资产并卸载 sql.js 依赖，练习类引导统一改指模拟面试或成长分析活动账本；保留 `/api/practice`、SQL 任务数据与校验纯函数，并同步 CLAUDE.md / AGENTS.md / README 的模块说明

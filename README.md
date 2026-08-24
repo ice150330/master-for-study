@@ -52,7 +52,7 @@ src/
 ├── app/              # 路由 + API route handlers
 │   └── api/          # chat / sessions / terms / notes / interview / review / resources / events
 ├── components/       # 组件（today / chat / notes / interview / review / analytics / whiteboard / resources）
-└── lib/              # AI、DB、FSRS、学习上下文、知识图、分析与实践领域逻辑
+└── lib/              # AI、DB、FSRS、学习上下文、知识图与分析领域逻辑
 tests/
 ├── api/ / db/        # Route 合同与临时 SQLite 集成测试
 └── e2e/              # Playwright 交互、截图、无障碍和闭环测试
