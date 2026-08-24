@@ -44,7 +44,7 @@ import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types
 
 /**
  * 当前会话主卡：纸张深度与血缘标题栏 + 消息流 + 输入区。
- * 派生会话后，本卡会成为上游路径中的实体背卡（见 AncestorStack）。
+ * 派生会话后，本卡经血缘标题栏与边缘纸签（见 SessionTabs）保持可回溯。
  */
 export function SessionCard({
   session,

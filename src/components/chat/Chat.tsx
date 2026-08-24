@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, ChevronDown, GraduationCap } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,13 +26,13 @@ import { createIdempotencyKey } from '@/lib/http/idempotency';
 import { starterPrompts } from '@/lib/chat-starters';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
 import { SessionDeck } from './SessionDeck';
-import { SessionPicker } from './SessionPicker';
+import { SessionTreeDrawer, SessionTreeTrigger } from './SessionTreeDrawer';
 import type { TermAction } from './Term';
 import type { ChatModel, ChatMsg, ChatResource, ChatSession, HistoricalTerm } from './chat-types';
 
 /**
  * 聊天页状态容器：持有会话 / 消息 / 流式 / 术语 / 模型等全部状态与请求逻辑，
- * 布局委托 SessionDeck（祖先堆 + 当前大卡片 + 分支扇）与 SessionPicker。
+ * 布局委托 SessionDeck（主卡 + 边缘纸签）与会话树抽屉。
  * 流式两段式不变：① /api/chat 纯文本流 ② 完成后 /api/terms 提取术语定义。
  */
 
@@ -133,6 +135,8 @@ export function Chat() {
   );
   const [globalStyle, setGlobalStyle] = useState<TeacherStyle>(DEFAULT_TEACHER_STYLE);
   const [growthGoal, setGrowthGoal] = useState<string | null>(null);
+  // 会话树抽屉：全局会话导航（纸签溢出 / 工具行触发）
+  const [treeOpen, setTreeOpen] = useState(false);
 
   // 拉取全局默认风格与成长目标（风格用于展示与缺省值；目标定制冷启动引导问题）
   useEffect(() => {
@@ -717,16 +721,13 @@ export function Chat() {
       }`}
     >
       <div className="flex min-h-0 min-w-0 flex-col gap-3 px-4 py-4">
-      {/* 工具行：全部会话 + 新话题 + 老师风格 */}
+      {/* 工具行：会话树 + 新话题 + 老师风格 */}
       <div className="flex shrink-0 items-center gap-2">
-        <SessionPicker
-          sessions={sessions}
-          archivedSessions={archivedSessions}
-          currentId={currentSessionId}
-          onSelect={openSession}
-          onNew={newSession}
-          onRestore={restoreSession}
-        />
+        <SessionTreeTrigger count={sessions.length} onOpen={() => setTreeOpen(true)} />
+        <Button size="sm" onClick={newSession}>
+          <Plus aria-hidden="true" className="size-4" />
+          新话题
+        </Button>
         <StyleSwitch
           value={styleOverride}
           fallback={globalStyle}
@@ -774,8 +775,30 @@ export function Chat() {
         onArchive={() => updateCurrentSession({ action: 'archive', archived: true })}
         onDelete={deleteCurrentSession}
         onBranchFromMessage={branchFromMessage}
+        onOpenTree={() => setTreeOpen(true)}
       />
       </div>
+
+      {/* 会话树抽屉：全局会话导航（纸签溢出入口共用） */}
+      <SessionTreeDrawer
+        open={treeOpen}
+        onOpenChange={setTreeOpen}
+        sessions={sessions}
+        archivedSessions={archivedSessions}
+        currentId={currentSessionId}
+        onSelect={(id) => {
+          setTreeOpen(false);
+          void openSession(id);
+        }}
+        onNew={() => {
+          setTreeOpen(false);
+          void newSession();
+        }}
+        onRestore={(id) => {
+          setTreeOpen(false);
+          restoreSession(id);
+        }}
+      />
       {conceptPanel ? (
         <aside aria-label="概念详情" className="paper-popover z-40 min-h-0 overflow-hidden border-l max-[1179px]:fixed max-[1179px]:inset-x-0 max-[1179px]:bottom-0 max-[1179px]:h-[68vh] max-[1179px]:rounded-t-lg max-[1179px]:border">
           <ConceptRail

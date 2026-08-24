@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import type { TermAction } from './Term';
-import { AncestorStack } from './AncestorStack';
-import { BranchFan } from './BranchFan';
 import { SessionCard } from './SessionCard';
+import { SessionTabs } from './SessionTabs';
 import type { ChatMsg, ChatModel, ChatResource, ChatSession } from './chat-types';
 
 /**
- * 会话卡片堆舞台：父会话、当前会话与后续分支共享同尺寸卡体并沿路径直接叠放。
+ * 会话卡片舞台：主卡占满可用空间，父级 / 分支以「纸签」贴在卡片左右边缘
+ * （不再为堆叠预留尺寸）；完整树形导航由会话树抽屉承担。
  * 祖先链与分支都从扁平 sessions 派生，不在前端复制会话树状态。
  */
 export function SessionDeck({
@@ -38,6 +38,7 @@ export function SessionDeck({
   onArchive,
   onDelete,
   onBranchFromMessage,
+  onOpenTree,
 }: {
   sessions: ChatSession[];
   currentSessionId: string | null;
@@ -64,13 +65,15 @@ export function SessionDeck({
   } | null;
   model: ChatModel;
   onModelChange: (m: ChatModel) => void;
-  /** 点击露出的父级 / 后续分支卡沿时切换会话 */
+  /** 点击纸签切换会话 */
   onSelect: (id: string) => void;
   onRename: (title: string) => void;
   onPin: (pinned: boolean) => void;
   onArchive: () => void;
   onDelete: () => void;
   onBranchFromMessage: (messageId: string) => void;
+  /** 纸签溢出时打开会话树抽屉 */
+  onOpenTree: () => void;
 }) {
   const [motionDirection, setMotionDirection] = useState<'neutral' | 'back' | 'forward'>('neutral');
   const nodeById = useMemo(() => {
@@ -101,9 +104,6 @@ export function SessionDeck({
   const current = currentSessionId ? nodeById.get(currentSessionId) : undefined;
   const lineage = ancestors.length > 0 ? `承自 ${ancestors[0].title}` : null;
 
-  const path = [...ancestors].reverse();
-  const hasStack = ancestors.length > 0 || branches.length > 0;
-
   const selectAncestor = (id: string) => {
     setMotionDirection('back');
     onSelect(id);
@@ -116,58 +116,16 @@ export function SessionDeck({
 
   return (
     <div className="@container/session-stack flex min-h-0 flex-1 flex-col">
-      <nav
-        aria-label="会话分支路径"
-        className="paper-control mb-2 hidden h-10 shrink-0 items-center gap-1 overflow-x-auto rounded-[2px] border border-dashed border-border bg-card px-2 @max-[719px]/session-stack:flex"
-      >
-        {path.map((session) => (
-          <button
-            key={session.id}
-            type="button"
-            onClick={() => selectAncestor(session.id)}
-            className="flex min-h-7 shrink-0 items-center rounded-[2px] border border-dashed border-transparent px-1.5 text-xs text-muted transition-colors hover:border-accent/60 hover:bg-highlight/15 hover:text-foreground"
-          >
-            {session.title}
-            <span aria-hidden="true" className="ml-1.5 text-border">/</span>
-          </button>
-        ))}
-        <span className="shrink-0 text-xs font-medium text-foreground">
-          {current?.title ?? '新对话'}
-        </span>
-        {branches.length > 0 ? (
-          <select
-            aria-label="选择子分支"
-            defaultValue=""
-            onChange={(event) => {
-              if (event.target.value) selectBranch(event.target.value);
-            }}
-            className="ml-auto h-7 max-w-48 shrink-0 rounded-[2px] border border-dashed border-border bg-card-soft px-2 text-xs text-foreground"
-          >
-            <option value="">子分支 ({branches.length})</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>{branch.title}</option>
-            ))}
-          </select>
-        ) : null}
-      </nav>
-      <div
-        className={`relative min-h-0 flex-1 ${
-          hasStack ? '@min-[720px]/session-stack:px-12' : ''
-        } ${
-          ancestors.length > 0 ? '@min-[720px]/session-stack:pt-28' : ''
-        } ${
-          branches.length > 0 ? '@min-[720px]/session-stack:pb-28' : ''
-        }`}
-      >
-        <AncestorStack
+      <div className="relative min-h-0 flex-1">
+        <SessionTabs
           ancestors={ancestors}
-          hasBranches={branches.length > 0}
-          onSelect={selectAncestor}
-        />
-        <BranchFan
           branches={branches}
-          hasAncestors={ancestors.length > 0}
-          onSelect={selectBranch}
+          onSelect={(id) => {
+            const isAncestor = ancestors.some((session) => session.id === id);
+            if (isAncestor) selectAncestor(id);
+            else selectBranch(id);
+          }}
+          onOpenTree={onOpenTree}
         />
 
         <div className="relative z-30 h-full min-h-0 min-w-0">
