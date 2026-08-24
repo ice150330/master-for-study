@@ -1032,6 +1032,15 @@ export function recordConceptMention(input: {
 }
 
 /** 读取跨模块共享的 Concept 详情和来源关系。 */
+/** B2 概念定义修正：更新单源术语定义，复习卡 / 知识图经动态 join 自动联动；非学习行为不写事件流。 */
+export function updateTermDefinition(termId: string, definition: string): Term | undefined {
+  const db = getDb();
+  const existing = db.select().from(schema.terms).where(eq(schema.terms.id, termId)).limit(1).get();
+  if (!existing) return undefined;
+  db.update(schema.terms).set({ definition }).where(eq(schema.terms.id, termId)).run();
+  return db.select().from(schema.terms).where(eq(schema.terms.id, termId)).limit(1).get();
+}
+
 export function getConceptDetail(input: { id?: string; name?: string }): ConceptDetail | undefined {
   const db = getDb();
   const normalized = input.name?.trim().toLocaleLowerCase();

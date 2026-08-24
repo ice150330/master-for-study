@@ -26,6 +26,7 @@ let workspacesGet: GetHandler;
 let workspacesPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let reviewGet: GetHandler;
 let importPost: PostHandler;
+let conceptsPatch: (request: Request, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 let handlers: Record<string, PostHandler>;
 
 function jsonRequest(pathname: string, body: unknown) {
@@ -58,6 +59,7 @@ beforeAll(async () => {
   workspacesPatch = (await import('../../src/app/api/workspaces/[id]/route')).PATCH;
   reviewGet = (await import('../../src/app/api/review/route')).GET;
   importPost = (await import('../../src/app/api/import/route')).POST;
+  conceptsPatch = (await import('../../src/app/api/concepts/[id]/route')).PATCH;
   handlers = {
     resources: resourcesPost,
     review: reviewPost,
@@ -181,6 +183,37 @@ describe('Route Handler zod 合同', () => {
     }));
     expect(unknownTable.status).toBe(400);
     expect(await unknownTable.json()).toMatchObject({ error: { code: 'IMPORT_INVALID' } });
+  });
+
+  it('概念定义修正：非法长度 400，合法修正后读取生效（B2）', async () => {
+    // 合同库没有术语，直接经仓库层造一个（绕开需要真实 AI 调用的 /api/terms）
+    const term = repository.upsertTerm({
+      name: 'B2 合同概念',
+      definition: '原始定义。',
+      idempotencyKey: 'term:contract:b2',
+    });
+    const termId = term.id;
+
+    const invalid = await conceptsPatch(
+      jsonRequest(`/api/concepts/${termId}`, { definition: '短' }),
+      { params: Promise.resolve({ id: termId }) },
+    );
+    expect(invalid.status).toBe(400);
+
+    const valid = await conceptsPatch(
+      jsonRequest(`/api/concepts/${termId}`, { definition: '合同测试修正后的定义，长度足够。' }),
+      { params: Promise.resolve({ id: termId }) },
+    );
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toMatchObject({
+      concept: { id: termId, definition: '合同测试修正后的定义，长度足够。' },
+    });
+
+    const missing = await conceptsPatch(
+      jsonRequest(`/api/concepts/${crypto.randomUUID()}`, { definition: '不存在的概念定义修正。' }),
+      { params: Promise.resolve({ id: crypto.randomUUID() }) },
+    );
+    expect(missing.status).toBe(404);
   });
 
   it('导出接口返回带附件头的完整 JSON', async () => {

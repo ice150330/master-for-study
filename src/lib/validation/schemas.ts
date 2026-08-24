@@ -54,6 +54,13 @@ export const workspaceCreateSchema = z
 
 export const workspaceIdSchema = z.string().uuid('必须是有效 UUID');
 
+/** B2 概念定义修正：单字段编辑，复习卡与知识图经动态 join 自动联动。 */
+export const conceptUpdateSchema = z
+  .object({
+    definition: z.string().trim().min(4).max(2_000),
+  })
+  .strict();
+
 /** 工作区编辑：标题 / 目标 / 激活（切换）可任意组合，全缺省为无操作。 */
 export const workspaceUpdateSchema = z
   .object({

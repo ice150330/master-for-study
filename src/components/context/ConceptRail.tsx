@@ -9,6 +9,7 @@ import {
   MapPin,
   MessageCircleMore,
   NotebookPen,
+  Pencil,
   RotateCcw,
   Trash2,
   X,
@@ -79,8 +80,35 @@ export function ConceptRail({
 }) {
   const toast = useToast();
   const [queueBusy, setQueueBusy] = useState(false);
+  const [definitionDraft, setDefinitionDraft] = useState<string | null>(null);
+  const [definitionBusy, setDefinitionBusy] = useState(false);
   const concept = detail?.concept;
   const queueStatus = detail?.mastery?.queueStatus ?? (detail?.mastery ? 'active' : 'pending');
+
+  /** B2 定义修正：保存后经 onRefresh 重载详情，复习卡 / 知识图动态联动。 */
+  async function saveDefinition() {
+    if (!concept || definitionDraft === null || definitionBusy) return;
+    const next = definitionDraft.trim();
+    if (next.length < 4) {
+      toast({ title: '定义太短', description: '至少 4 个字符', tone: 'error' });
+      return;
+    }
+    setDefinitionBusy(true);
+    try {
+      await requestJson(`/api/concepts/${concept.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ definition: next }),
+      });
+      setDefinitionDraft(null);
+      toast({ title: '定义已修正', tone: 'success' });
+      onRefresh?.();
+    } catch {
+      toast({ title: '定义保存失败', description: '请稍后重试', tone: 'error' });
+    } finally {
+      setDefinitionBusy(false);
+    }
+  }
 
   /** A2 队列治理：确认入队 / 移出 / 恢复。 */
   async function setQueueStatus(next: 'active' | 'dismissed') {
@@ -156,7 +184,38 @@ export function ConceptRail({
                   置信度 {Math.round(concept.confidence * 100)}%
                 </span>
               </div>
-              <p className="text-sm leading-6 text-card-foreground">{concept.definition}</p>
+              {definitionDraft === null ? (
+                <p className="text-sm leading-6 text-card-foreground">{concept.definition}</p>
+              ) : (
+                <div className="space-y-2">
+                  <textarea
+                    aria-label="修正概念定义"
+                    value={definitionDraft}
+                    onChange={(event) => setDefinitionDraft(event.target.value)}
+                    rows={4}
+                    className="paper-subtle w-full resize-none rounded-[2px] border-2 border-dashed border-border bg-background p-2.5 text-sm leading-6 text-card-foreground outline-none focus:border-accent"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setDefinitionDraft(null)} disabled={definitionBusy}>
+                      取消
+                    </Button>
+                    <Button size="sm" onClick={() => void saveDefinition()} loading={definitionBusy}>
+                      保存定义
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {definitionDraft === null ? (
+                <button
+                  type="button"
+                  onClick={() => setDefinitionDraft(concept.definition)}
+                  className="doodle-link mt-1 inline-flex items-center gap-1 text-[11px] text-muted"
+                >
+                  <Pencil aria-hidden="true" className="size-3" />
+                  修正定义
+                </button>
+              ) : null}
               {concept.example ? (
                 <p className="mt-2 border-l-2 border-dashed border-accent/60 pl-3 text-xs leading-5 text-muted">
                   {concept.example}
