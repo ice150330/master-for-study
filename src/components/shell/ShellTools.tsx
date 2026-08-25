@@ -56,12 +56,21 @@ function hitHref(hit: ContentHit): string {
  * 搜索 / 设置 / 主题。设置为大弹窗（SettingsDialog）；
  * 工作区切换器是 AI 会话界面独有的（放在会话卡头部）。
  */
-export function SidebarTools({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function SidebarTools({
+  onOpenSettings,
+  vertical = false,
+}: {
+  onOpenSettings: () => void;
+  /** 左缘纸签轨工具段用竖排（原侧栏底部为横排） */
+  vertical?: boolean;
+}) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <>
-      <div className="flex items-center justify-center gap-0.5 min-[1180px]:justify-start">
+      <div
+        className={`flex items-center gap-0.5 ${vertical ? 'flex-col' : 'justify-center min-[1180px]:justify-start'}`}
+      >
         <IconButton label="搜索页面与内容" onClick={() => setSearchOpen(true)}>
           <Search />
         </IconButton>

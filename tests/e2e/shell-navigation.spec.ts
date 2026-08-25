@@ -41,8 +41,11 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
     }
 
     if (route.path === '/today' && isDesktop) {
-      const sidebar = page.getByRole('navigation', { name: '主导航' }).locator('..');
-      expect(await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(196);
+      // 左缘胶带纸签轨：窄轨（纯图标收起 + 当前签全名），远窄于原 196px 文字侧栏
+      const rail = page.getByRole('navigation', { name: '主导航' });
+      const railWidth = await rail.evaluate((element) => Math.round(element.getBoundingClientRect().width));
+      expect(railWidth).toBeGreaterThan(60);
+      expect(railWidth).toBeLessThan(160);
     }
 
     await page.screenshot({
@@ -77,8 +80,9 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
   }
 
   if (testInfo.project.name.startsWith('tablet-')) {
-    const todayLink = page.getByRole('link', { name: '今日学习' });
+    // 键盘聚焦纸签轨任一签：整轨扇出页名（focus-within，替代原侧栏 Tooltip 断言）
+    const todayLink = page.getByRole('link', { name: '今日学习', exact: true });
     await todayLink.focus();
-    await expect(page.getByRole('tooltip', { name: '今日学习' })).toBeVisible();
+    await expect(todayLink.locator('.rail-tape-label')).toBeVisible();
   }
 });

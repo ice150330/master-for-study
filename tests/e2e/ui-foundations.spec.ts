@@ -64,6 +64,8 @@ test('基础组件具备完整视觉状态和键盘行为', async ({ page }, tes
     animations: 'disabled',
   });
   await page.keyboard.press('ArrowDown');
+  // 等高亮确实落到第二项再回车（弹层入场动画期间方向键可能被吞）
+  await expect(page.getByRole('menuitem', { name: '数据库进阶' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(selectTrigger).toHaveText(/数据库进阶/);
   await page.keyboard.press('Escape');

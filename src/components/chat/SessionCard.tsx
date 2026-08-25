@@ -42,7 +42,6 @@ import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
-import { WorkspaceSwitcher } from '@/components/shell/WorkspaceSwitcher';
 import {
   TEACHER_STYLES,
   teacherStyleLabel,
@@ -168,7 +167,7 @@ export function SessionCard({
           ) : null}
         </p>
         <div className="flex shrink-0 items-center gap-1">
-          <WorkspaceSwitcher />
+          {/* 工作区切换已收进左缘纸签轨工具段（全局唯一入口） */}
           {treeMenu}
           {session ? (
             <SessionOpsMenu

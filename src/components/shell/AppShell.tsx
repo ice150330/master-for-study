@@ -1,22 +1,15 @@
 'use client';
 
-import { GraduationCap, Settings2 } from 'lucide-react';
-import Link from 'next/link';
+import { Settings2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Suspense } from 'react';
-import {
-  NAV_SECTIONS,
-  findActiveSection,
-  isNavActive,
-  type AppRoute,
-  type NavSection,
-} from '@/lib/nav';
+import { NAV_SECTIONS, findActiveSection, type AppRoute, type NavSection } from '@/lib/nav';
 import { cn } from '@/lib/cn';
 import { parseLearningContext, withLearningContext } from '@/lib/learning-context';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip';
 import { ReviewReminder } from './ReviewReminder';
-import { SettingsDialog, SidebarTools } from './ShellTools';
+import { SettingsDialog } from './ShellTools';
+import { TapeRail } from './TapeRail';
 import { LearningContextBar } from '@/components/context/LearningContextBar';
 import { RouteScrollRegion, saveCurrentRouteScrollPosition } from '@/components/context/RouteScrollRegion';
 import { NAV_ICONS } from './nav-icons';
@@ -29,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const activeSection = findActiveSection(pathname);
-  // 设置大弹窗：侧边栏工具与移动端工具格共用一个实例
+  // 设置大弹窗：纸签轨工具段与移动端工具格共用一个实例
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -69,74 +62,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         跳到主要内容
       </a>
-      <aside className="paper-control relative z-20 hidden w-14 shrink-0 flex-col border-r border-dashed md:flex min-[1180px]:w-[196px]">
-        <div className="flex h-[52px] shrink-0 items-center border-b border-dashed border-border px-2.5 min-[1180px]:px-3">
-          <div className="doodle-action flex size-8 shrink-0 rotate-[-1deg] items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-card text-foreground">
-            <GraduationCap aria-hidden="true" className="size-[17px]" />
-          </div>
-          <div className="ml-2.5 hidden min-w-0 min-[1180px]:block">
-            <p className="marker-highlight inline text-[13px] font-extrabold text-foreground">Mentor</p>
-            <p className="truncate text-[10px] text-muted">本地学习工作台</p>
-          </div>
-        </div>
 
-        <nav aria-label="主导航" className="min-h-0 flex-1 overflow-y-auto px-2 py-2.5">
-          {NAV_SECTIONS.map((section, sectionIndex) => (
-            <div
-              key={section.key}
-              className={cn(sectionIndex > 0 && 'mt-2.5 border-t border-dashed border-border pt-2.5')}
-            >
-              <p className="mb-1 hidden px-2 text-[10px] font-medium text-muted min-[1180px]:block">
-                {section.label}
-              </p>
-              <div className="space-y-0.5">
-                {section.items.map((item) => {
-                  const active = isNavActive(pathname, item.href);
-                  const Icon = NAV_ICONS[item.icon];
-                  const link = (
-                    <Link
-                      href={item.href}
-                      onClick={(event) => {
-                        saveCurrentRouteScrollPosition();
-                        const target = contextualHref(item.href);
-                        if (target === item.href) return;
-                        event.preventDefault();
-                        router.push(target);
-                      }}
-                      aria-label={item.label}
-                      aria-current={active ? 'page' : undefined}
-                      className={cn(
-                        'relative flex h-8 items-center justify-center overflow-visible rounded-[2px] border border-dashed border-transparent transition-[transform,box-shadow,background-color,color,border-color] duration-150 hover:-translate-x-px hover:-translate-y-px min-[1180px]:justify-start min-[1180px]:gap-2.5 min-[1180px]:px-2.5',
-                        active
-                          ? 'rotate-[-0.35deg] border-foreground bg-foreground text-background shadow-[3px_3px_0_var(--marker-yellow)] hover:bg-foreground hover:text-background'
-                          : 'text-muted hover:border-accent/65 hover:bg-accent/10 hover:text-foreground',
-                      )}
-                    >
-                      <Icon aria-hidden="true" className="size-4 shrink-0" />
-                      <span className="hidden truncate text-[13px] font-medium min-[1180px]:block">
-                        {item.label}
-                      </span>
-                    </Link>
-                  );
-                  return (
-                    <Tooltip key={item.href}>
-                      <TooltipTrigger asChild>{link}</TooltipTrigger>
-                      <TooltipContent side="right" className="min-[1180px]:hidden">
-                        {item.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        {/* 工具下沉：工作区切换 + 搜索 / 设置 / 主题（顶栏移除后的唯一全局工具位） */}
-        <div className="shrink-0 space-y-1 border-t border-dashed border-border px-2 py-2.5">
-          <SidebarTools onOpenSettings={() => setSettingsOpen(true)} />
-        </div>
-      </aside>
+      {/* 左缘胶带纸签轨：模块导航（八页常显）+ 轨底工具段，替代原左侧导航栏 */}
+      <TapeRail onOpenSettings={() => setSettingsOpen(true)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 到期提醒：标题徽标 + 浏览器通知（A4），无界面输出 */}
