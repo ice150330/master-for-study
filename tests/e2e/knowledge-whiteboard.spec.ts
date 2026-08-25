@@ -48,7 +48,8 @@ test('局部知识图支持中心搜索、深度、关系筛选、节点轨道�
   await page.getByRole('button', { name: '属于', exact: true }).click();
   await expect(page.getByRole('button', { name: '关系 3' })).toBeVisible();
 
-  await page.getByRole('tab', { name: '会话分支' }).click();
+  // 视图切换已统一为 SegmentedControl（aria-pressed 按钮，非 tablist）
+  await page.getByRole('button', { name: '会话分支' }).click();
   await expect(page.getByText(/个节点 · .*条关系/).first()).toBeVisible();
   await expect(canvas.locator('.react-flow__node').first()).toBeVisible();
   await page.screenshot({ path: path.join(captureRoot, `${phase}-session-branches-${testInfo.project.name}.png`), animations: 'disabled' });
