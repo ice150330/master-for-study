@@ -1,10 +1,11 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { ClipboardCheck, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
 import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { MetaChip } from '@/components/ui/MetaChip';
 import { useToast } from '@/components/ui/Toast';
 import { interviewStyleFromTeacher } from '@/lib/ai/teacher-style';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
@@ -244,6 +245,9 @@ export function InterviewView({
     <PageShell
       pageKey="interview"
       width="xl"
+      meta={history.length > 0 ? (
+        <MetaChip icon={<ClipboardCheck aria-hidden="true" />}>{history.length} 场最近面试</MetaChip>
+      ) : undefined}
       actions={mode !== 'setup' ? (
         <Button variant="outline" size="sm" onClick={restart}>
           <Plus aria-hidden="true" className="size-4" />
