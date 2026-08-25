@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative isolate flex h-dvh min-w-0 overflow-hidden bg-transparent">
+    <div className="notebook-root relative isolate flex h-dvh min-w-0 overflow-hidden">
       <a
         href="#mentor-main"
         className="fixed left-3 top-3 z-[120] -translate-y-20 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-[4px_4px_0_var(--marker-teal)] transition-transform focus:translate-y-0"

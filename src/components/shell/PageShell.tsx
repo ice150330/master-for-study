@@ -51,8 +51,9 @@ export function PageShell({
         flush ? 'px-0 py-0' : 'px-4 py-4 md:px-6 md:py-5'
       }`}
     >
-      <header className="sticky top-0 z-30 shrink-0 bg-[var(--background)] pb-3">
-        <div className="paper-panel flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 rounded-[2px] border-2 border-dashed px-3.5 py-2">
+      <header className="sticky top-0 z-30 shrink-0 pb-3">
+        {/* 整窗即本子：页头条是贴在本子上的一条不透明纸带（吸顶时遮住滚过的横线） */}
+        <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 border-b-2 border-dashed border-[color-mix(in_srgb,var(--foreground)_38%,transparent)] bg-card px-3.5 py-2 shadow-[0_3px_0_rgba(44,44,44,0.07)]">
           <span
             aria-hidden="true"
             className="h-5 w-1 shrink-0 rotate-1 bg-primary shadow-[2px_0_0_var(--marker-yellow)]"

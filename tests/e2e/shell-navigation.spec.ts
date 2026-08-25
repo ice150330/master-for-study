@@ -41,11 +41,11 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
     }
 
     if (route.path === '/today' && isDesktop) {
-      // 左缘胶带纸签轨：窄轨（纯图标收起 + 当前签全名），远窄于原 196px 文字侧栏
+      // 左缘胶带纸签：窄轨（纯图标收起 + 当前签全名并向外抽出），远窄于原 196px 文字侧栏
       const rail = page.getByRole('navigation', { name: '主导航' });
       const railWidth = await rail.evaluate((element) => Math.round(element.getBoundingClientRect().width));
-      expect(railWidth).toBeGreaterThan(60);
-      expect(railWidth).toBeLessThan(160);
+      expect(railWidth).toBeGreaterThan(40);
+      expect(railWidth).toBeLessThan(180);
     }
 
     await page.screenshot({

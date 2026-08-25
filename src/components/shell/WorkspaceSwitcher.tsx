@@ -28,7 +28,7 @@ type WorkspaceItem = {
  * 列表 / 切换 / 新建 / 重命名；管理工作区对话框提供归档与删除（C4）。
  * 切换后整页刷新，让服务端直调页面与客户端数据全部重载。
  */
-export function WorkspaceSwitcher() {
+export function WorkspaceSwitcher({ tape = false }: { /** 左缘纸签轨工具段用胶带样式 */ tape?: boolean }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -149,9 +149,9 @@ export function WorkspaceSwitcher() {
         <DropdownMenuTrigger asChild>
           <IconButton
             label={`学习工作区：${active?.title ?? '本地工作区'}，点按切换`}
-            className="size-8 shrink-0"
+            className={tape ? 'rail-tape rail-tape--tool' : 'size-8 shrink-0'}
           >
-            <Database aria-hidden="true" className="text-accent" />
+            <Database aria-hidden="true" className={tape ? 'text-foreground' : 'text-accent'} />
           </IconButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

@@ -12,10 +12,11 @@ import { SidebarTools } from './ShellTools';
 import { NAV_ICONS } from './nav-icons';
 
 /**
- * 左缘胶带纸签轨：替代原左侧导航栏的模块导航。八张撕裂胶带签沿内容
- * 左缘竖向堆叠（渲染区外独立轨列），收起只露图标、悬停 / 聚焦整轨扇出
- * 页名；当前页签墨底 + 黄错位影 + 常显全名。四区降为虚线小刻度。
- * 轨底工具段：工作区切换 / 搜索 / 设置 / 主题（与导航签隔开）。
+ * 左缘胶带纸签轨：模块导航以八张撕裂胶带签**直接贴在笔记本纸的左缘**
+ * （整窗即本子，见 .notebook-root；无独立轨面板）。收起只露图标、
+ * 悬停 / 聚焦整轨扇出页名；当前页签墨底 + 黄影 + 常显全名，且**向外
+ * 抽出更长一截**（跨过缝线装订线，像从本子里抽出的书签带）。
+ * 轨底工具段：工作区 / 搜索 / 设置 / 主题四条青色小胶带。
  */
 export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
   const pathname = usePathname();
@@ -35,9 +36,9 @@ export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <nav
       aria-label="主导航"
-      className="paper-control tape-rail relative z-20 hidden shrink-0 flex-col items-start border-r border-dashed pb-3 pl-2 pr-3 pt-3 md:flex"
+      className="tape-rail relative z-20 hidden shrink-0 flex-col items-start gap-[3px] pb-3 pl-[22px] pr-1 pt-3 md:flex"
     >
-      {/* 品牌小标：原侧栏徽标收成轨顶一枚手绘章 */}
+      {/* 品牌小标：本子左上角一枚手绘章 */}
       <span
         aria-hidden="true"
         className="doodle-action mb-2 flex size-8 rotate-[-1deg] items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-card text-foreground"
@@ -66,9 +67,9 @@ export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
         </RailGroup>
       ))}
 
-      {/* 工具段：沉底，与导航签隔虚线 */}
-      <div className="mt-auto flex w-full flex-col items-center gap-0.5 border-t border-dashed pt-3">
-        <WorkspaceSwitcher />
+      {/* 工具段：沉底，四条青色小胶带 */}
+      <div className="mt-auto flex flex-col items-start gap-[3px] pt-4">
+        <WorkspaceSwitcher tape />
         <SidebarTools onOpenSettings={onOpenSettings} vertical />
       </div>
     </nav>

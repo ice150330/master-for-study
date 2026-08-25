@@ -69,15 +69,23 @@ export function SidebarTools({
   return (
     <>
       <div
-        className={`flex items-center gap-0.5 ${vertical ? 'flex-col' : 'justify-center min-[1180px]:justify-start'}`}
+        className={`flex items-center gap-[3px] ${vertical ? 'flex-col items-start' : 'gap-0.5 justify-center min-[1180px]:justify-start'}`}
       >
-        <IconButton label="搜索页面与内容" onClick={() => setSearchOpen(true)}>
+        <IconButton
+          label="搜索页面与内容"
+          className={vertical ? 'rail-tape rail-tape--tool' : undefined}
+          onClick={() => setSearchOpen(true)}
+        >
           <Search />
         </IconButton>
-        <IconButton label="工作台设置" onClick={onOpenSettings}>
+        <IconButton
+          label="工作台设置"
+          className={vertical ? 'rail-tape rail-tape--tool' : undefined}
+          onClick={onOpenSettings}
+        >
           <Settings2 />
         </IconButton>
-        <ThemeToggle />
+        <ThemeToggle tape={vertical} />
       </div>
 
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />

@@ -13,7 +13,7 @@ import {
  * 全局主题选择器：四种内置纸张主题（纸白 / 暖纸 / 青蓝 / 夜墨）。
  * 真相源是 <html> 上的 data-theme 属性（首帧由 layout 防闪脚本写入）。
  */
-export function ThemeToggle() {
+export function ThemeToggle({ tape = false }: { /** 左缘纸签轨工具段用胶带样式 */ tape?: boolean }) {
   const mode = useThemeMode();
 
   return (
@@ -22,7 +22,11 @@ export function ThemeToggle() {
         <button
           type="button"
           aria-label={`全局主题：${labelOf(mode)}，点按更换纸张`}
-          className="inline-flex size-8 shrink-0 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted transition-[transform,background-color,color,border-color] hover:-translate-x-px hover:-translate-y-px hover:border-foreground/45 hover:bg-highlight/20 hover:text-foreground active:translate-x-0.5 active:translate-y-0.5"
+          className={
+            tape
+              ? 'rail-tape rail-tape--tool'
+              : 'inline-flex size-8 shrink-0 items-center justify-center rounded-[2px] border border-dashed border-transparent text-muted transition-[transform,background-color,color,border-color] hover:-translate-x-px hover:-translate-y-px hover:border-foreground/45 hover:bg-highlight/20 hover:text-foreground active:translate-x-0.5 active:translate-y-0.5'
+          }
         >
           <Palette aria-hidden="true" className="size-4" />
         </button>

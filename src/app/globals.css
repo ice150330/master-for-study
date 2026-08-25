@@ -337,10 +337,10 @@ a {
 }
 
 .paper-panel {
-  border-color: color-mix(in srgb, var(--foreground) 48%, transparent);
-  background-color: var(--card);
-  background-image: repeating-linear-gradient(180deg, transparent 0 31px, rgba(78, 205, 196, 0.095) 31px 32px);
-  box-shadow: var(--shadow-md);
+  border-color: transparent;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
 }
 
 .paper-subtle {
@@ -612,11 +612,31 @@ a {
   opacity: 1;
 }
 
-/* ── 左缘胶带纸签轨：替代左侧导航栏的模块导航 ──────────────────────
-   八张横条胶带沿内容左缘竖向堆叠（贴在渲染区外的轨列里，不与内容重叠），
+/* ── 整窗笔记本纸：窗口背景即一张横线笔记本纸，一切元素贴/写在这张纸上 ──
+   根容器铺横线纸（与原 paper-panel 同款 32px 行距青线）；左缘一条缝线
+   装订线，胶带纸签贴在装订线内侧的本子边上，当前页签向外抽出跨过缝线。 */
+.notebook-root {
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(180deg, transparent 0 31px, rgba(78, 205, 196, 0.095) 31px 32px);
+}
+
+/* 缝线装订线：本子左缘的竖向虚线缝线 */
+.notebook-root::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 0;
+  bottom: 0;
+  z-index: 21;
+  width: 0;
+  border-left: 2px dashed color-mix(in srgb, var(--foreground) 32%, transparent);
+  pointer-events: none;
+}
+
+/* ── 左缘胶带纸签轨：贴在笔记本左缘纸面上的模块导航 ──────────────────
+   八张横条胶带沿装订线内侧竖向堆叠（直接贴在本子纸上，无独立轨面板），
    两端撕裂（共享 --tape-torn）。收起态只露图标；悬停 / 聚焦整轨扇出
-   展开页名（max-width 过渡）；当前页签墨底 + 黄错位影 + 常显全名。
-   轨的布局类（flex 方向 / 显隐）由组件 Tailwind 类承担，这里只管签。 */
+   展开页名（max-width 过渡）；当前页签向外抽出更长一截（跨过缝线）。 */
 .tape-rail {
   gap: 3px;
 }
@@ -679,10 +699,12 @@ a {
   visibility: visible;
 }
 
-/* 当前页签：墨底反色 + 黄错位影，页名常显（不用悬停也知道在哪） */
+/* 当前页签：墨底反色 + 黄错位影，页名常显（不用悬停也知道在哪）；
+   向外抽出——左移跨过缝线装订线，像从本子里抽出的书签带 */
 .rail-tape--current,
 .rail-tape--current:hover,
 .rail-tape--current:focus-visible {
+  margin-left: -14px;
   background: var(--foreground);
   color: var(--background);
   box-shadow: 3px 3px 0 var(--marker-yellow);
@@ -692,6 +714,17 @@ a {
   max-width: 7rem;
   opacity: 1;
   visibility: visible;
+}
+
+/* 工具胶带（工作区 / 搜索 / 设置 / 主题）：青色调与页面签区分，无当前态 */
+.rail-tape--tool,
+.rail-tape--tool.rail-tape {
+  background: rgba(78, 205, 196, 0.4);
+}
+
+.rail-tape--tool:hover,
+.rail-tape--tool:focus-visible {
+  background: rgba(78, 205, 196, 0.58);
 }
 
 /* 四区分隔：小段虚线刻度，分组信息退为视觉间隔 */
