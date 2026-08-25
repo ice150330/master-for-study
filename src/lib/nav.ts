@@ -91,3 +91,12 @@ export function findActiveItem(pathname: string): NavItem | null {
   }
   return null;
 }
+
+/** 索引标签页头用：按图标键反查条目与其所属分组（iconKey 与路由一一对应）。 */
+export function findItemByKey(iconKey: NavIconKey): { section: NavSection; item: NavItem } | null {
+  for (const section of NAV_SECTIONS) {
+    const item = section.items.find((candidate) => candidate.icon === iconKey);
+    if (item) return { section, item };
+  }
+  return null;
+}

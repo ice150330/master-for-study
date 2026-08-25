@@ -29,19 +29,19 @@ test('今日到分析的核心学习闭环保留同一概念与来源', async ({
   await capture(page, `02-chat-${testInfo.project.name}`);
 
   await page.getByRole('button', { name: '打开概念：Cache-Control' }).click();
-  await expect(page.getByRole('complementary', { name: '概念详情' })).toContainText('缓存复用与重新验证');
+  await expect(page.getByRole('dialog', { name: '概念详情' })).toContainText('缓存复用与重新验证');
   await expect(page).toHaveURL(new RegExp(`concept=${conceptId}`));
   await capture(page, `03-concept-${testInfo.project.name}`);
 
   await page.getByRole('button', { name: '继续追问' }).click();
   await expect(page.getByRole('heading', { name: '概念：Cache-Control' })).toBeVisible();
   await expect(page.getByText('共享前缀已经继承')).toBeVisible();
-  await expect(page.getByRole('complementary', { name: '概念详情' })).toBeHidden();
+  await expect(page.getByRole('dialog', { name: '概念详情' })).toBeHidden();
   expect(state.branchRequest).toMatchObject({ forkedFromMessageId: anchorId });
   await capture(page, `04-semantic-branch-${testInfo.project.name}`);
 
   await page.getByRole('button', { name: '打开概念：Cache-Control' }).click();
-  await expect(page.getByRole('complementary', { name: '概念详情' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '概念详情' })).toBeVisible();
   await expect(page).toHaveURL(/source=message%3A/);
   const interviewHref = await page.getByRole('link', { name: '模拟测验' }).getAttribute('href');
   expect(interviewHref).toBeTruthy();
@@ -49,7 +49,7 @@ test('今日到分析的核心学习闭环保留同一概念与来源', async ({
   expect(interviewUrl.pathname).toBe('/interview');
   expect(interviewUrl.searchParams.get('concept')).toBe(conceptId);
   expect(interviewUrl.searchParams.get('source')).toMatch(/^message:/);
-  const reviewHref = await page.getByRole('link', { name: '加入复习' }).getAttribute('href');
+  const reviewHref = await page.getByRole('link', { name: '去复习' }).getAttribute('href');
   expect(reviewHref).toBeTruthy();
   const contextQuery = new URL(reviewHref!, page.url()).searchParams.toString();
   await page.goto(`/dev/review?${contextQuery}`, { waitUntil: 'networkidle' });

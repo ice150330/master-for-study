@@ -28,7 +28,7 @@ test('键盘可跳到主内容，弹层支持 Escape 并恢复焦点', async ({ 
   await expect(page.getByTestId('route-scroll-region')).toBeFocused();
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  const sessionTrigger = page.getByRole('button', { name: /会话列表/ });
+  const sessionTrigger = page.getByRole('button', { name: /^打开会话树/ });
   await sessionTrigger.click();
   await expect(page.getByRole('textbox', { name: '搜索会话' })).toBeFocused();
   await page.screenshot({
@@ -42,7 +42,8 @@ test('键盘可跳到主内容，弹层支持 Escape 并恢复焦点', async ({ 
 
   await page.route('**/api/concepts?*', async (route) => route.fulfill({ json: conceptFixture() }));
   await page.goto(`/?concept=${conceptId}`, { waitUntil: 'networkidle' });
-  const conceptRail = page.getByRole('complementary', { name: '概念详情' });
+  // 概念便利贴现为 modal 对话框（sr-only 标题「概念详情」）
+  const conceptRail = page.getByRole('dialog', { name: '概念详情' });
   await expect(conceptRail).toBeVisible();
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-concept-rail-keyboard-1440x900.png`),
@@ -81,8 +82,10 @@ test('关键工作区通过严重级无障碍扫描和目标尺寸检查', async
   }
 
   await page.goto('/dev/ui', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '切换为暖纸' }).click();
-  await expect(page.locator('html')).toHaveClass(/dark/);
+  // 主题选择器：Palette 触发钮弹出纸张主题气泡
+  await page.getByRole('button', { name: /全局主题/ }).click();
+  await page.getByRole('button', { name: '暖纸', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm');
   const darkResult = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
     .analyze();
@@ -125,8 +128,9 @@ test('桌面工作台在 1024 到 1600 与暖纸主题下不产生页面级横�
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/dev/analytics', { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '切换为暖纸' }).click();
-  await expect(page.locator('html')).toHaveClass(/dark/);
+  await page.getByRole('button', { name: /全局主题/ }).click();
+  await page.getByRole('button', { name: '暖纸', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm');
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-analytics-dark-1440x900.png`),
     animations: 'disabled',

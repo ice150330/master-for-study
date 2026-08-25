@@ -31,6 +31,7 @@ import {
 import { Field, Input, Textarea } from './Field';
 import { IconButton } from './IconButton';
 import { LinkButton } from './LinkButton';
+import { MetaChip } from './MetaChip';
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
 import { Select, type SelectItem } from './Select';
 import { SegmentedControl } from './SegmentedControl';
@@ -58,6 +59,7 @@ export function UIShowcase() {
     <PageShell
       title="交互基础件"
       width="lg"
+      meta={<MetaChip>示例统计</MetaChip>}
     >
       <div className="space-y-8 pb-12">
         <ShowcaseSection title="动作层级" description="主要动作保持克制，危险动作独立表达。">

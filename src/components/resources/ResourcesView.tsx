@@ -224,7 +224,7 @@ export function ResourcesView({
 
   return (
     <PageShell
-      title="资源库"
+      pageKey="resources"
       width="xl"
       actions={<Button onClick={() => setFormMode('add')}><Plus aria-hidden="true" className="size-4" />添加资源</Button>}
     >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -17,6 +17,7 @@ import { KNOWLEDGE_RELATION_LABELS, type KnowledgeGraph, type KnowledgeGraphEdge
 import { KnowledgeNodeCard, type KnowledgeFlowNode } from './KnowledgeNodeCard';
 
 const nodeTypes = { knowledge: KnowledgeNodeCard };
+const noopSubscribe = () => () => {};
 const relationColor: Record<KnowledgeGraphEdge['relation'], string> = {
   part_of: 'var(--muted)',
   prerequisite: 'var(--warning)',
@@ -38,6 +39,9 @@ export function KnowledgeCanvas({
   onRecenter(id: string): void;
   onSavePosition(id: string, x: number, y: number): void;
 }) {
+  // MiniMap 的 rect shapeRendering 在 SSR 与客户端渲染不一致（React Flow 上游已知差异），
+  // 挂载后再渲染（SSR 快照 false / 客户端 true），避免 hydration 属性不匹配触发 dev 错误角标遮挡界面
+  const minimapReady = useSyncExternalStore(noopSubscribe, () => true, () => false);
   const positions = useMemo(() => layoutLocalGraph(graph.nodes, graph.edges, graph.centerId), [graph]);
   const nodes = useMemo<KnowledgeFlowNode[]>(() => graph.nodes.map((node) => ({
     id: node.id,
@@ -95,7 +99,7 @@ export function KnowledgeCanvas({
           aria-label="画布缩放与适配控制"
           fitViewOptions={{ padding: '10%', minZoom: 0.8, maxZoom: 1.1, duration: 220 }}
         />
-        {graph.nodes.length > 7 ? (
+        {minimapReady && graph.nodes.length > 7 ? (
           <MiniMap
             position="bottom-right"
             pannable

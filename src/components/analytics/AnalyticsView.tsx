@@ -68,7 +68,7 @@ export function AnalyticsView({ initialData }: { initialData: LearningAnalytics 
 
   return (
     <PageShell
-      title="成长分析"
+      pageKey="analytics"
       width="xl"
       actions={(
         <SegmentedControl

@@ -210,7 +210,7 @@ export function NotesView({
   }
 
   return (
-    <PageShell title="学习笔记" width="xl">
+    <PageShell pageKey="notes" width="xl">
       <div className="paper-panel grid min-h-[680px] grid-cols-1 overflow-hidden rounded-[2px] border-2 border-dashed min-[760px]:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="flex min-h-0 flex-col border-r border-dashed border-border">
           <div className="space-y-2 border-b border-dashed border-border p-3">

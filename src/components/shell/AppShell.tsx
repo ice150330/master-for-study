@@ -1,18 +1,6 @@
 'use client';
 
-import {
-  BarChart3,
-  BookOpenText,
-  CalendarDays,
-  ClipboardCheck,
-  GraduationCap,
-  Library,
-  MessageCircle,
-  Network,
-  NotebookText,
-  Settings2,
-  type LucideIcon,
-} from 'lucide-react';
+import { GraduationCap, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -22,7 +10,6 @@ import {
   findActiveSection,
   isNavActive,
   type AppRoute,
-  type NavIconKey,
   type NavSection,
 } from '@/lib/nav';
 import { cn } from '@/lib/cn';
@@ -32,17 +19,7 @@ import { ReviewReminder } from './ReviewReminder';
 import { SettingsDialog, SidebarTools } from './ShellTools';
 import { LearningContextBar } from '@/components/context/LearningContextBar';
 import { RouteScrollRegion, saveCurrentRouteScrollPosition } from '@/components/context/RouteScrollRegion';
-
-const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
-  today: CalendarDays,
-  chat: MessageCircle,
-  notes: NotebookText,
-  resources: Library,
-  interview: ClipboardCheck,
-  review: BookOpenText,
-  analytics: BarChart3,
-  whiteboard: Network,
-};
+import { NAV_ICONS } from './nav-icons';
 
 function lastPageKey(section: NavSection): string {
   return `mentor-nav:last:${section.key}`;

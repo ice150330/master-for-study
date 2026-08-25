@@ -81,7 +81,7 @@ test('切换会话会中止旧流且旧响应不能覆盖新会话', async ({ pa
   await page.getByPlaceholder('输入问题，Enter 发送 / Shift+Enter 换行').fill('开始一个慢请求');
   await page.getByRole('button', { name: '发送' }).click();
   await expect(page.getByRole('button', { name: '停止' })).toBeVisible();
-  await page.getByRole('button', { name: /会话列表/ }).click();
+  await page.getByRole('button', { name: /^打开会话树/ }).click();
   await page.getByRole('button', { name: '会话 B', exact: true }).click();
 
   await expect(page.getByText('B 的历史消息')).toBeVisible();

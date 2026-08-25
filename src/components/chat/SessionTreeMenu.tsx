@@ -91,6 +91,8 @@ export function SessionTreeMenu({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              // 打开即聚焦：悬停开的场景下直接打字过滤，无需再点一次搜索框
+              autoFocus
               aria-label="搜索会话"
               placeholder="搜索标题"
               className="h-9 w-full rounded-[2px] border-2 border-dashed border-border bg-card-soft pl-8 pr-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[3px_3px_0_rgba(78,205,196,0.34)]"

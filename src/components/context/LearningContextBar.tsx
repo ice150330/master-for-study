@@ -88,9 +88,9 @@ export function LearningContextBar() {
                   disabled={isCurrent}
                   aria-current={isCurrent ? 'true' : undefined}
                   title={`D${item.depth} · ${item.title}${isCurrent ? '（当前会话）' : '，点击切换'}`}
-                  className={`min-w-0 truncate transition-colors ${
-                    hiddenOnNarrow ? 'hidden md:inline-block max-w-32' : 'max-w-40'
-                  } ${isParent && !isCurrent ? 'inline-block' : ''} ${
+                  className={`inline-flex min-h-6 min-w-0 items-center truncate transition-colors ${
+                    hiddenOnNarrow ? 'hidden md:inline-flex md:max-w-32' : 'max-w-40'
+                  } ${isParent && !isCurrent ? 'inline-flex' : ''} ${
                     isCurrent
                       ? 'marker-highlight font-bold text-foreground'
                       : 'text-muted hover:text-foreground underline decoration-dotted decoration-border underline-offset-4 hover:decoration-accent'

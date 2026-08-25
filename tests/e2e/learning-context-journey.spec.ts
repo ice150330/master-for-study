@@ -52,7 +52,9 @@ test('同一 Concept 跨模块保留来源、聚焦对象与浏览器历史', as
 
   await page.goto(`/?${query}`, { waitUntil: 'networkidle' });
   await expect(page.getByRole('heading', { name: 'Cache-Control' })).toBeVisible();
-  await expect(page.getByTestId('learning-context-bar')).toContainText('对话学习');
+  // 概念弹层为 modal（背景被 aria-hidden）：先关掉再断言底条的目录式会话路径
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('navigation', { name: '会话树路径' })).toBeVisible();
   await page.screenshot({ path: path.join(captureRoot, `${phase}-06-chat-${testInfo.project.name}.png`), animations: 'disabled' });
 });
 

@@ -74,7 +74,7 @@ export function TodayView({
   }
 
   return (
-    <PageShell title="今日学习" width="lg">
+    <PageShell pageKey="today" width="lg">
       {goal ? (
         <p className="paper-subtle mb-2 inline-flex rotate-[-0.3deg] items-center gap-1.5 rounded-[2px] border border-dashed px-2 py-1 text-[11px] text-muted">
           <Flag aria-hidden="true" className="size-3 text-accent" />

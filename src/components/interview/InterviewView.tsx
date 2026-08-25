@@ -242,7 +242,7 @@ export function InterviewView({
 
   return (
     <PageShell
-      title="模拟面试"
+      pageKey="interview"
       width="xl"
       actions={mode !== 'setup' ? (
         <Button variant="outline" size="sm" onClick={restart}>

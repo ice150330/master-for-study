@@ -91,7 +91,7 @@ export function WhiteboardView({
   }
 
   return (
-    <PageShell title="知识白板" width="xl">
+    <PageShell pageKey="whiteboard" width="xl">
       {error ? <InlineNotice className="mb-4" tone="error" title="白板操作未完成" description={error} actionLabel="重试" onAction={() => mode === 'knowledge' && void loadKnowledge({})} /> : null}
       <div className="paper-panel overflow-hidden rounded-[2px] border-2 border-dashed">
         <div className="flex min-h-11 items-center justify-between gap-4 border-b border-dashed border-border px-3">

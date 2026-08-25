@@ -390,7 +390,7 @@ export function ReviewView({
   });
 
   return (
-    <PageShell title="复习" width="lg">
+    <PageShell pageKey="review" width="lg">
       <section className="mb-4 grid grid-cols-[1fr_auto_auto_auto] items-center gap-5 border-y border-dashed border-border py-3 text-sm">
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center justify-between text-xs text-muted">

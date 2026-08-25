@@ -20,7 +20,12 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
   for (const route of routes) {
     const response = await page.goto(route.path, { waitUntil: 'networkidle' });
     expect(response?.ok(), `${route.path} 应成功响应`).toBeTruthy();
-    await expect(page.getByTestId('page-context-title')).toHaveText(route.title);
+    if (route.path === '/') {
+      // 会话页是特例：无 PageShell 书签页头（页头即会话卡头），以输入区确认就位
+      await expect(page.getByPlaceholder('输入问题，Enter 发送 / Shift+Enter 换行')).toBeVisible();
+    } else {
+      await expect(page.getByTestId('page-context-title')).toHaveText(route.title);
+    }
 
     const documentOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
@@ -64,9 +69,10 @@ test('应用壳在四个视口保持清晰导航和稳定布局', async ({ page 
       animations: 'disabled',
     });
     await page.getByRole('button', { name: '暖纸', exact: true }).click();
-    await expect(page.locator('html')).toHaveClass(/dark/);
+    // 主题真相源是 <html> 的 data-theme 属性（纸白无属性，暖纸 warm，夜墨 night）
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm');
     await page.getByRole('button', { name: '纸白', exact: true }).click();
-    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme');
     await page.keyboard.press('Escape');
   }
 
