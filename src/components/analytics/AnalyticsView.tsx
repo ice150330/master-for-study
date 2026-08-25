@@ -17,6 +17,7 @@ import { useMemo, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
 import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { LinkButton } from '@/components/ui/LinkButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import type {
@@ -70,7 +71,7 @@ export function AnalyticsView({ initialData }: { initialData: LearningAnalytics 
     <PageShell
       pageKey="analytics"
       width="xl"
-      actions={(
+      filters={(
         <SegmentedControl
           value={String(range)}
           onValueChange={changeRange}
@@ -140,13 +141,10 @@ function TodayBand({ data }: { data: LearningAnalytics }) {
         <p className="mt-5 text-[11px] font-semibold text-primary">{recommendation.eyebrow}</p>
         <h2 className="doodle-heading mt-1 max-w-2xl text-[25px] font-extrabold leading-tight">{recommendation.title}</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-foreground/80">{recommendation.description}</p>
-        <Link
-          href={recommendation.href}
-          className="doodle-action mt-6 inline-flex h-8 items-center gap-2 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3.5 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:-translate-x-px hover:-translate-y-px hover:bg-highlight/15 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-        >
+        <LinkButton href={recommendation.href} className="mt-6">
           {recommendation.actionLabel}
           <ArrowRight aria-hidden="true" className="size-3.5" />
-        </Link>
+        </LinkButton>
       </div>
       <div className="grid grid-cols-2 bg-card-soft/70 text-card-foreground">
         <LoadValue icon={Brain} label="今天到期" value={`${today.dueReviews} 个`} detail={`${today.overdueReviews} 个已逾期`} />
