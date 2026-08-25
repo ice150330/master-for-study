@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
 import { Field, Input, Textarea } from '@/components/ui/Field';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { Select } from '@/components/ui/Select';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { RESOURCE_TYPES } from '@/lib/resources/types';
 import type { ResourceDto, ResourceFormValue, ResourceMetadataDto } from './types';
@@ -117,9 +118,14 @@ export function ResourceFormDialog({
                 <Input id="resource-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
               </Field>
               <Field label="类型" htmlFor="resource-type">
-                <select id="resource-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as ResourceDto['type'] })} className="h-9 w-full rounded-[2px] border-2 border-dashed border-border bg-card px-3 text-sm">
-                  {RESOURCE_TYPES.map((type) => <option key={type}>{type}</option>)}
-                </select>
+                <Select
+                  id="resource-type"
+                  value={form.type}
+                  onValueChange={(value) => setForm({ ...form, type: value as ResourceDto['type'] })}
+                  ariaLabel="资源类型"
+                  items={RESOURCE_TYPES.map((type) => ({ value: type, label: type }))}
+                  className="w-full"
+                />
               </Field>
             </div>
 

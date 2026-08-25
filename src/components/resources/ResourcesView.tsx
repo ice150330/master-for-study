@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpenText, Filter, Inbox, Plus, Search } from 'lucide-react';
+import { BookOpenText, Inbox, Library, Plus, Search } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Field';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { MetaChip } from '@/components/ui/MetaChip';
+import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
@@ -226,32 +228,34 @@ export function ResourcesView({
     <PageShell
       pageKey="resources"
       width="xl"
+      meta={<MetaChip icon={<Library aria-hidden="true" />}>{resources.length} 个资源</MetaChip>}
+      filters={(
+        <>
+          <div className="relative">
+            <Search aria-hidden="true" className="absolute left-3 top-2 size-4 text-muted" />
+            <Input aria-label="搜索资源" className="w-52 pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、标签、Concept" />
+          </div>
+          <Select
+            value={type}
+            onValueChange={(value) => setType(value as '全部' | ResourceDto['type'])}
+            ariaLabel="资源类型"
+            size="sm"
+            items={[{ value: '全部', label: '全部类型' }, ...RESOURCE_TYPES.map((item) => ({ value: item, label: item }))]}
+          />
+        </>
+      )}
       actions={<Button onClick={() => setFormMode('add')}><Plus aria-hidden="true" className="size-4" />添加资源</Button>}
     >
       {error && !formMode ? <InlineNotice className="mb-4" tone="error" title="资源操作未完成" description={`${error.message}。当前输入和选择均已保留。`} actionLabel={error.retry ? '重试' : undefined} onAction={error.retry} /> : null}
 
       <div className="paper-panel overflow-hidden rounded-[2px] border-2 border-dashed">
-        <div className="flex min-h-11 items-center justify-between gap-4 border-b border-dashed border-border px-4">
-          <div className="flex h-full items-center gap-1" role="tablist" aria-label="资源队列">
-            {RESOURCE_STATUSES.map((item) => (
-              <button key={item} role="tab" aria-selected={status === item} type="button" onClick={() => { setStatus(item); setSelectedId(resources.find((resource) => resource.status === item)?.id ?? null); }} className={`relative h-11 px-3 text-xs font-semibold transition-[transform,background-color,color] ${status === item ? 'rotate-[-0.3deg] bg-highlight/15 text-foreground' : 'text-muted hover:bg-accent/10 hover:text-foreground'}`}>
-                {RESOURCE_STATUS_LABELS[item]} <span className="ml-1 text-xs">{counts[item]}</span>
-                {status === item ? <span className="absolute inset-x-2 bottom-0 h-1 bg-primary/65 [clip-path:polygon(0_42%,18%_10%,42%_52%,66%_18%,100%_42%,98%_84%,72%_58%,46%_92%,20%_62%,0_88%)]" /> : null}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search aria-hidden="true" className="absolute left-3 top-2 size-4 text-muted" />
-              <Input aria-label="搜索资源" className="w-64 pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、标签、Concept" />
-            </div>
-            <div className="paper-subtle flex items-center gap-1 rounded-[2px] border border-dashed px-2">
-              <Filter aria-hidden="true" className="size-4 text-muted" />
-              <select aria-label="资源类型" value={type} onChange={(event) => setType(event.target.value as typeof type)} className="h-8 bg-transparent text-xs outline-none">
-                <option>全部</option>{RESOURCE_TYPES.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </div>
-          </div>
+        <div className="flex min-h-11 items-center gap-1 border-b border-dashed border-border px-4" role="tablist" aria-label="资源队列">
+          {RESOURCE_STATUSES.map((item) => (
+            <button key={item} role="tab" aria-selected={status === item} type="button" onClick={() => { setStatus(item); setSelectedId(resources.find((resource) => resource.status === item)?.id ?? null); }} className={`relative h-11 px-3 text-xs font-semibold transition-[transform,background-color,color] ${status === item ? 'rotate-[-0.3deg] bg-highlight/15 text-foreground' : 'text-muted hover:bg-accent/10 hover:text-foreground'}`}>
+              {RESOURCE_STATUS_LABELS[item]} <span className="ml-1 text-xs">{counts[item]}</span>
+              {status === item ? <span className="absolute inset-x-2 bottom-0 h-1 bg-primary/65 [clip-path:polygon(0_42%,18%_10%,42%_52%,66%_18%,100%_42%,98%_84%,72%_58%,46%_92%,20%_62%,0_88%)]" /> : null}
+            </button>
+          ))}
         </div>
 
         {tags.length > 0 ? (
