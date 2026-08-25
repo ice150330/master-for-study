@@ -752,7 +752,7 @@ export function Chat() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-4 py-4">
+    <div className="flex h-full min-h-0 flex-col px-4 py-4 md:pl-[7.5rem]">
       {/* 卡片舞台：主卡占满高度，父级/分支胶带骑缝贴卡上下缘 */}
       <SessionDeck
         sessions={sessions}

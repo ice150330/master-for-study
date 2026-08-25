@@ -65,28 +65,32 @@ export function SidebarTools({
   vertical?: boolean;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const tapeClass = vertical ? 'rail-tape rail-tape--tool' : undefined;
 
   return (
     <>
-      <div
-        className={`flex items-center gap-[3px] ${vertical ? 'flex-col items-start' : 'gap-0.5 justify-center min-[1180px]:justify-start'}`}
-      >
-        <IconButton
-          label="搜索页面与内容"
-          className={vertical ? 'rail-tape rail-tape--tool' : undefined}
-          onClick={() => setSearchOpen(true)}
-        >
-          <Search />
-        </IconButton>
-        <IconButton
-          label="工作台设置"
-          className={vertical ? 'rail-tape rail-tape--tool' : undefined}
-          onClick={onOpenSettings}
-        >
-          <Settings2 />
-        </IconButton>
-        <ThemeToggle tape={vertical} />
-      </div>
+      {vertical ? (
+        /* 竖排（纸签轨工具段）：裸按钮交由外层 2×2 网格排布 */
+        <>
+          <IconButton label="搜索页面与内容" className={tapeClass} onClick={() => setSearchOpen(true)}>
+            <Search />
+          </IconButton>
+          <IconButton label="工作台设置" className={tapeClass} onClick={onOpenSettings}>
+            <Settings2 />
+          </IconButton>
+          <ThemeToggle tape />
+        </>
+      ) : (
+        <div className="flex items-center justify-center gap-0.5 min-[1180px]:justify-start">
+          <IconButton label="搜索页面与内容" onClick={() => setSearchOpen(true)}>
+            <Search />
+          </IconButton>
+          <IconButton label="工作台设置" onClick={onOpenSettings}>
+            <Settings2 />
+          </IconButton>
+          <ThemeToggle />
+        </div>
+      )}
 
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>

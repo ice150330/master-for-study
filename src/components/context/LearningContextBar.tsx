@@ -88,7 +88,7 @@ export function LearningContextBar() {
                   disabled={isCurrent}
                   aria-current={isCurrent ? 'true' : undefined}
                   title={`D${item.depth} · ${item.title}${isCurrent ? '（当前会话）' : '，点击切换'}`}
-                  className={`inline-flex min-h-6 min-w-0 items-center truncate transition-colors ${
+                  className={`inline-flex min-h-7 min-w-0 items-center truncate transition-colors ${
                     hiddenOnNarrow ? 'hidden md:inline-flex md:max-w-32' : 'max-w-40'
                   } ${isParent && !isCurrent ? 'inline-flex' : ''} ${
                     isCurrent

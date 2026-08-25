@@ -12,11 +12,12 @@ import { SidebarTools } from './ShellTools';
 import { NAV_ICONS } from './nav-icons';
 
 /**
- * 左缘胶带纸签轨：模块导航以八张撕裂胶带签**直接贴在笔记本纸的左缘**
- * （整窗即本子，见 .notebook-root；无独立轨面板）。收起只露图标、
- * 悬停 / 聚焦整轨扇出页名；当前页签墨底 + 黄影 + 常显全名，且**向外
- * 抽出更长一截**（跨过缝线装订线，像从本子里抽出的书签带）。
- * 轨底工具段：工作区 / 搜索 / 设置 / 主题四条青色小胶带。
+ * 左缘胶带纸签轨：模块导航以八张撕裂胶带签**贴在页面（内容区）左缘**
+ * （整窗即本子，见 .notebook-root；轨是悬浮在纸面上的覆盖列，不占内容流）。
+ * 图标签右缘贴住页面边（页面已左移消除空隙）；**当前页签左缘对齐本子外缘、
+ * 向右压在页面左留白带上悬浮**（页面留白让位，不盖主体内容），墨底 +
+ * 黄影 + 常显全名。收起只露图标、悬停 / 聚焦整轨扇出页名。
+ * 轨底工具段：工作区 / 搜索 / 设置 / 主题四条青色小胶带（2×2）。
  */
 export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
   const pathname = usePathname();
@@ -36,7 +37,7 @@ export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <nav
       aria-label="主导航"
-      className="tape-rail relative z-20 hidden shrink-0 flex-col items-start gap-[3px] pb-3 pl-[22px] pr-1 pt-3 md:flex"
+      className="tape-rail pointer-events-none absolute inset-y-0 left-0 z-30 hidden w-28 flex-col items-end gap-[3px] pb-[3.5rem] pt-3 md:flex"
     >
       {/* 品牌小标：本子左上角一枚手绘章 */}
       <span
@@ -57,7 +58,7 @@ export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
                 onClick={navTo(item)}
                 aria-current={active ? 'page' : undefined}
                 aria-label={item.label}
-                className={`rail-tape ${active ? 'rail-tape--current' : ''}`}
+                className={`rail-tape pointer-events-auto ${active ? 'rail-tape--current self-start' : ''}`}
               >
                 <Icon aria-hidden="true" className="size-4 shrink-0" />
                 <span className="rail-tape-label">{item.label}</span>
@@ -67,8 +68,8 @@ export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
         </RailGroup>
       ))}
 
-      {/* 工具段：沉底，四条青色小胶带 */}
-      <div className="mt-auto flex flex-col items-start gap-[3px] pt-4">
+      {/* 工具段：沉底，四条青色小胶带 2×2（贴本子左下角，不遮内容） */}
+      <div className="mt-auto grid grid-cols-2 gap-[3px] self-start pb-1">
         <WorkspaceSwitcher tape />
         <SidebarTools onOpenSettings={onOpenSettings} vertical />
       </div>
@@ -80,7 +81,7 @@ export function TapeRail({ onOpenSettings }: { onOpenSettings: () => void }) {
 function RailGroup({ mark, children }: { mark: boolean; children: ReactNode }) {
   return (
     <div className="contents">
-      {mark ? <span aria-hidden="true" className="rail-tape-group-mark" /> : null}
+      {mark ? <span aria-hidden="true" className="rail-tape-group-mark pointer-events-none" /> : null}
       {children}
     </div>
   );

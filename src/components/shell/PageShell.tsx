@@ -47,8 +47,8 @@ export function PageShell({
 
   return (
     <div
-      className={`animate-page-enter mx-auto flex min-h-full w-full ${maxWidth} flex-col ${
-        flush ? 'px-0 py-0' : 'px-4 py-4 md:px-6 md:py-5'
+      className={`animate-page-enter mr-auto flex min-h-full w-full ${maxWidth} flex-col ${
+        flush ? 'px-0 py-0' : 'px-4 py-4 md:py-5 md:pr-6 md:pl-[7.5rem]'
       }`}
     >
       <header className="sticky top-0 z-30 shrink-0 pb-3">

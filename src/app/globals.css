@@ -649,6 +649,8 @@ a {
   padding: 0 8px;
   border: none;
   border-radius: 0;
+  /* 轨容器 pointer-events:none 只放行签本体（含悬浮越过内容留白带的当前签） */
+  pointer-events: auto;
   color: color-mix(in srgb, var(--foreground) 88%, transparent);
   background: rgba(255, 217, 61, 0.42);
   box-shadow: 1px 2px 0 rgba(44, 44, 44, 0.12);
@@ -700,14 +702,15 @@ a {
 }
 
 /* 当前页签：墨底反色 + 黄错位影，页名常显（不用悬停也知道在哪）；
-   向外抽出——左移跨过缝线装订线，像从本子里抽出的书签带 */
+   悬浮在本子纸面上方——左缘对齐本子外缘、向右越过缝线压在页面左留白带上
+   （页面内容已左移让位，不盖住主体内容），像搭在本子上的书签带 */
 .rail-tape--current,
 .rail-tape--current:hover,
 .rail-tape--current:focus-visible {
-  margin-left: -14px;
   background: var(--foreground);
   color: var(--background);
   box-shadow: 3px 3px 0 var(--marker-yellow);
+  z-index: 2;
 }
 
 .rail-tape--current .rail-tape-label {

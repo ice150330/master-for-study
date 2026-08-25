@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         跳到主要内容
       </a>
 
-      {/* 左缘胶带纸签轨：模块导航（八页常显）+ 轨底工具段，替代原左侧导航栏 */}
+      {/* 左缘胶带纸签轨：悬浮覆盖列（不占内容流），页面左移贴签 */}
       <TapeRail onOpenSettings={() => setSettingsOpen(true)} />
 
       <div className="flex min-w-0 flex-1 flex-col">

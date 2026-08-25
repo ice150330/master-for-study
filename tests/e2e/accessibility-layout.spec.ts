@@ -70,6 +70,8 @@ test('关键工作区通过严重级无障碍扫描和目标尺寸检查', async
 
   for (const route of routes) {
     await page.goto(route, { waitUntil: 'networkidle' });
+    // 等入场动画结束再测：animate-ui-enter 中段的 scale(0.985) 会把 24px 目标瞬时压到 24 以下
+    await page.waitForTimeout(400);
     const result = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
       .analyze();
