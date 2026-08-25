@@ -16,6 +16,8 @@ import { useEffect, useRef, useState } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
 import { Button } from '@/components/ui/Button';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { MetaChip } from '@/components/ui/MetaChip';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
@@ -390,24 +392,35 @@ export function ReviewView({
   });
 
   return (
-    <PageShell pageKey="review" width="lg">
-      <section className="mb-4 grid grid-cols-[1fr_auto_auto_auto] items-center gap-5 border-y border-dashed border-border py-3 text-sm">
-        <div className="min-w-0">
-          <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
-            <span>今日进度</span>
-            <span>{completed} / {totalInSession}</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-[1px] border border-dashed border-border bg-surface">
-            <div
-              className="h-full bg-primary transition-[width] duration-200"
-              style={{ width: `${totalInSession === 0 ? 100 : (completed / totalInSession) * 100}%` }}
-            />
-          </div>
-        </div>
-        <Metric icon={<Brain />} label="待复习" value={`${summary.due} 张`} />
-        <Metric icon={<CircleAlert />} label="已逾期" value={`${summary.overdue} 张`} tone={summary.overdue > 0 ? 'warning' : undefined} />
-        <Metric icon={<Clock3 />} label="预计" value={`${summary.estimatedMinutes} 分钟`} />
-      </section>
+    <PageShell
+      pageKey="review"
+      width="lg"
+      meta={(
+        <>
+          {/* 今日进度：紧凑横条随完成度推进 */}
+          <span
+            className="flex shrink-0 items-center gap-1.5"
+            aria-label={`今日进度 ${completed} / ${totalInSession}`}
+          >
+            <span className="h-1.5 w-24 overflow-hidden rounded-[1px] border border-dashed border-border bg-surface">
+              <span
+                className="block h-full bg-primary transition-[width] duration-200"
+                style={{ width: `${totalInSession === 0 ? 100 : (completed / totalInSession) * 100}%` }}
+              />
+            </span>
+            <span className="text-[10px] font-semibold text-muted">{completed} / {totalInSession}</span>
+          </span>
+          <MetaChip icon={<Brain aria-hidden="true" />}>待复习 {summary.due} 张</MetaChip>
+          <MetaChip
+            icon={<CircleAlert aria-hidden="true" />}
+            tone={summary.overdue > 0 ? 'danger' : 'default'}
+          >
+            已逾期 {summary.overdue} 张
+          </MetaChip>
+          <MetaChip icon={<Clock3 aria-hidden="true" />}>预计 {summary.estimatedMinutes} 分钟</MetaChip>
+        </>
+      )}
+    >
 
       {summary.overdue > 0 ? (
         <p className="mb-3 rotate-[-0.1deg] border-l-2 border-dashed border-yellow/70 bg-yellow/8 px-3 py-1.5 text-xs text-yellow-foreground">
@@ -482,24 +495,17 @@ export function ReviewView({
                       <span className="block truncate text-xs font-semibold text-foreground">{item.name}</span>
                       <span className="mt-0.5 block truncate text-[11px] text-muted">{item.definition}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => void confirmPending(item.termId)}
-                      className="doodle-action shrink-0 rounded-[2px] border-2 border-dashed border-foreground bg-card px-2 py-1 text-[11px] font-semibold text-foreground"
-                    >
+                    <Button size="sm" className="shrink-0 px-2 py-1 text-[11px]" onClick={() => void confirmPending(item.termId)}>
                       确认入队
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
-          <Link
-            href="/"
-            className="doodle-action mt-6 inline-flex h-9 items-center justify-center rounded-[2px] border-2 border-dashed border-foreground bg-card px-4 text-sm font-semibold text-foreground hover:-translate-x-px hover:-translate-y-px active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-          >
+          <LinkButton href="/" className="mt-6">
             继续学习
-          </Link>
+          </LinkButton>
         </section>
       ) : (
         <section className="paper-panel grid min-h-[320px] overflow-hidden rounded-[2px] border-2 border-dashed min-[960px]:grid-cols-[minmax(0,1fr)_15rem] min-[1180px]:min-h-[440px]">
@@ -636,23 +642,4 @@ function isOverdue(dueAt: string) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   return new Date(dueAt).getTime() < startOfToday.getTime();
-}
-
-function Metric({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tone?: 'warning';
-}) {
-  return (
-    <div className={`flex items-center gap-2 ${tone === 'warning' ? 'text-yellow-foreground' : ''}`}>
-      <span className="text-muted [&>svg]:size-4">{icon}</span>
-      <span><span className="block text-[11px] text-muted">{label}</span><strong className="font-medium">{value}</strong></span>
-    </div>
-  );
 }
