@@ -7,13 +7,16 @@ import {
   ClipboardCheck,
   Clock3,
   Flag,
+  ListTodo,
   MessageCircle,
   NotebookPen,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useMemo, useSyncExternalStore } from 'react';
 import { PageShell } from '@/components/shell/PageShell';
+import { EmptyState } from '@/components/ui/StatePanel';
 import { IconButton } from '@/components/ui/IconButton';
+import { LinkButton } from '@/components/ui/LinkButton';
+import { MetaChip } from '@/components/ui/MetaChip';
 import type { TodayLearningAction } from '@/lib/db';
 
 const LATER_KEY = 'mentor-today-later';
@@ -74,26 +77,26 @@ export function TodayView({
   }
 
   return (
-    <PageShell pageKey="today" width="lg">
-      {goal ? (
-        <p className="paper-subtle mb-2 inline-flex rotate-[-0.3deg] items-center gap-1.5 rounded-[2px] border border-dashed px-2 py-1 text-[11px] text-muted">
-          <Flag aria-hidden="true" className="size-3 text-accent" />
-          成长目标 · {goal}
-        </p>
-      ) : null}
+    <PageShell
+      pageKey="today"
+      width="lg"
+      meta={(
+        <>
+          <MetaChip icon={<ListTodo aria-hidden="true" />}>{visible.length} 项行动</MetaChip>
+          {goal ? (
+            <MetaChip icon={<Flag aria-hidden="true" />} tone="accent">成长目标 · {goal}</MetaChip>
+          ) : null}
+        </>
+      )}
+    >
       {visible.length === 0 ? (
-        <div className="paper-panel rotate-[-0.15deg] rounded-[2px] border-2 border-dashed py-16 text-center">
-          <BookOpenCheck aria-hidden="true" className="mx-auto size-7 text-accent" />
-          <h2 className="mt-3 text-base font-semibold text-foreground">今天的行动已处理</h2>
-          <p className="mt-1 text-sm text-muted">稍后项目仍保留在本机，可以随时恢复。</p>
-          <button
-            type="button"
-            onClick={restore}
-            className="doodle-link mt-5 text-sm font-semibold text-foreground"
-          >
-            恢复稍后项目
-          </button>
-        </div>
+        <EmptyState
+          title="今天的行动已处理"
+          description="稍后项目仍保留在本机，可以随时恢复。"
+          icon={<BookOpenCheck aria-hidden="true" />}
+          actionLabel="恢复稍后项目"
+          onAction={restore}
+        />
       ) : (
         <div className="grid gap-2">
           {visible.map((action, index) => {
@@ -122,13 +125,10 @@ export function TodayView({
                   <IconButton label={`今天稍后处理：${action.title}`} onClick={() => defer(action.id)}>
                     <Clock3 aria-hidden="true" />
                   </IconButton>
-                  <Link
-                    href={action.href}
-                    className="doodle-action inline-flex h-8 items-center gap-2 rounded-[2px] border-2 border-dashed border-foreground bg-card px-3 text-xs font-semibold text-foreground transition-[transform,box-shadow,background-color] hover:-translate-x-px hover:-translate-y-px hover:bg-highlight/15 active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-                  >
+                  <LinkButton href={action.href}>
                     {action.actionLabel}
                     <ArrowRight aria-hidden="true" className="size-3.5" />
-                  </Link>
+                  </LinkButton>
                 </div>
               </article>
             );
