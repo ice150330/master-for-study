@@ -11,6 +11,8 @@ import {
   Link2Off,
   ListTree,
   MessageSquareText,
+  MessagesSquare,
+  NotebookText,
   Pencil,
   Save,
   Search,
@@ -24,6 +26,8 @@ import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog';
 import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
+import { MetaChip } from '@/components/ui/MetaChip';
+import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { getErrorMessage, requestJson } from '@/lib/http/client';
 import { createIdempotencyKey } from '@/lib/http/idempotency';
@@ -210,22 +214,29 @@ export function NotesView({
   }
 
   return (
-    <PageShell pageKey="notes" width="xl">
+    <PageShell
+      pageKey="notes"
+      width="xl"
+      meta={
+        <>
+          <MetaChip icon={<NotebookText aria-hidden="true" />}>{notes.length} 篇笔记</MetaChip>
+          <MetaChip icon={<MessagesSquare aria-hidden="true" />}>{initialSessions.length} 场会话可生成</MetaChip>
+        </>
+      }
+    >
       <div className="paper-panel grid min-h-[680px] grid-cols-1 overflow-hidden rounded-[2px] border-2 border-dashed min-[760px]:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="flex min-h-0 flex-col border-r border-dashed border-border">
           <div className="space-y-2 border-b border-dashed border-border p-3">
             <div className="flex gap-2">
-              <select
+              <Select
                 value={sessionId}
-                onChange={(event) => setSessionId(event.target.value)}
-                aria-label="生成笔记的会话"
-                className="paper-subtle min-w-0 flex-1 rounded-[2px] border border-dashed px-2 text-xs"
-              >
-                {initialSessions.length === 0 ? <option value="">暂无会话</option> : null}
-                {initialSessions.map((session) => (
-                  <option key={session.id} value={session.id}>{session.title}</option>
-                ))}
-              </select>
+                onValueChange={setSessionId}
+                ariaLabel="生成笔记的会话"
+                size="sm"
+                placeholder="暂无会话"
+                className="min-w-0 flex-1"
+                items={initialSessions.map((session) => ({ value: session.id, label: session.title }))}
+              />
               <Button size="sm" onClick={() => generate()} loading={generating} disabled={!sessionId}>
                 生成
               </Button>
@@ -240,20 +251,14 @@ export function NotesView({
                 className="min-w-0 flex-1 bg-transparent text-xs outline-none"
               />
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <select aria-label="工作区" className="paper-subtle h-8 rounded-[2px] border border-dashed px-2 text-xs">
-                <option>默认工作区</option>
-              </select>
-              <select
-                value={tagFilter}
-                onChange={(event) => setTagFilter(event.target.value)}
-                aria-label="标签筛选"
-                className="paper-subtle h-8 rounded-[2px] border border-dashed px-2 text-xs"
-              >
-                <option>全部标签</option>
-                {allTags.map((tag) => <option key={tag}>{tag}</option>)}
-              </select>
-            </div>
+            <Select
+              value={tagFilter}
+              onValueChange={setTagFilter}
+              ariaLabel="标签筛选"
+              size="sm"
+              className="w-full"
+              items={[{ value: '全部标签', label: '全部标签' }, ...allTags.map((tag) => ({ value: tag, label: tag }))]}
+            />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {visibleNotes.length === 0 ? (
