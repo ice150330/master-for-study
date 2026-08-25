@@ -1,15 +1,12 @@
 'use client';
 
 import { ArchiveRestore, FolderTree, ListTree, Pin, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { IconButton } from '@/components/ui/IconButton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { buildSessionTree, type SessionTreeNode } from '@/lib/session-tree';
+import { useHoverSwitch } from '@/lib/use-hover-switch';
 import type { ChatSession } from './chat-types';
-
-/** 悬停开关延迟：进入 180ms 防误触，离开 240ms 留出移进面板的宽限 */
-const HOVER_OPEN_MS = 180;
-const HOVER_CLOSE_MS = 240;
 
 /**
  * 会话树气泡（原右侧抽屉改为向下弹出）：从卡片头部的树形按钮向下弹出的
@@ -37,32 +34,8 @@ export function SessionTreeMenu({
   onRestore: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
-  const openTimer = useRef(0);
-  const closeTimer = useRef(0);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(openTimer.current);
-      window.clearTimeout(closeTimer.current);
-    },
-    [],
-  );
-
-  function hoverOpen(event: React.PointerEvent) {
-    if (event.pointerType !== 'mouse') return;
-    window.clearTimeout(closeTimer.current);
-    openTimer.current = window.setTimeout(() => onOpenChange(true), HOVER_OPEN_MS);
-  }
-
-  function hoverClose(event?: React.PointerEvent) {
-    if (event && event.pointerType !== 'mouse') return;
-    window.clearTimeout(openTimer.current);
-    closeTimer.current = window.setTimeout(() => onOpenChange(false), HOVER_CLOSE_MS);
-  }
-
-  function hoverStay() {
-    window.clearTimeout(closeTimer.current);
-  }
+  // 受控悬停开关：open 与「+N」胶带共用，移进面板停留不关
+  const { setOpen, hoverOpen, hoverClose, hoverStay } = useHoverSwitch({ open, onOpenChange });
   const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN');
   const visibleSessions = useMemo(
     () =>
@@ -99,7 +72,7 @@ export function SessionTreeMenu({
         onPointerLeave={(event) => hoverClose(event)}
         onKeyDown={(event) => {
           // 显式兜底：受控 open 下确保 Escape 一定关闭（与 Radix 内部处理幂等）
-          if (event.key === 'Escape') onOpenChange(false);
+          if (event.key === 'Escape') setOpen(false);
         }}
       >
         <header className="flex shrink-0 items-center gap-2 border-b border-dashed border-border px-3.5 py-2.5">

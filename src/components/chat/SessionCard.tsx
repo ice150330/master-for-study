@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useHoverSwitch } from '@/lib/use-hover-switch';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -472,32 +473,11 @@ function SessionOpsMenu({
   onArchive: () => void;
   onDelete: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [renameTitle, setRenameTitle] = useState(title);
-  const openTimer = useRef(0);
-  const closeTimer = useRef(0);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(openTimer.current);
-      window.clearTimeout(closeTimer.current);
-    },
-    [],
-  );
-
-  function hoverOpen(event: React.PointerEvent) {
-    if (event.pointerType !== 'mouse') return;
-    window.clearTimeout(closeTimer.current);
-    openTimer.current = window.setTimeout(() => setOpen(true), 180);
-  }
-
-  function hoverClose(event?: React.PointerEvent) {
-    if (event && event.pointerType !== 'mouse') return;
-    window.clearTimeout(openTimer.current);
-    closeTimer.current = window.setTimeout(() => setOpen(false), 240);
-  }
+  // 自持状态的悬停开关（180ms 开 / 240ms 关 / 移进菜单停留）
+  const { open, setOpen, hoverOpen, hoverClose, hoverStay } = useHoverSwitch();
 
   return (
     // modal={false}：modal 下拉会给 body 挂 pointer-events:none，触发钮瞬间失 hover →
@@ -515,7 +495,7 @@ function SessionOpsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        onPointerEnter={() => window.clearTimeout(closeTimer.current)}
+        onPointerEnter={hoverStay}
         onPointerLeave={(event) => hoverClose(event)}
       >
         <DropdownMenuItem

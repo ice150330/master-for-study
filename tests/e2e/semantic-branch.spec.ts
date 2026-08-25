@@ -102,23 +102,24 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
 
   await page.goto('/', { waitUntil: 'networkidle' });
   await expect(page.getByRole('heading', { name: 'HTTP 缓存策略' })).toBeVisible();
-  const branchStack = page.getByRole('complementary', { name: '后续分支' });
+  const branchStack = page.getByRole('group', { name: /分支会话/ });
   await expect(branchStack).toBeVisible();
-  await expect(branchStack.getByTitle('切到分支：协商缓存')).toBeVisible();
-  await expect(branchStack.getByTitle('切到分支：Service Worker 缓存')).toBeVisible();
+  await expect(branchStack.getByTitle('回到：协商缓存')).toBeVisible();
+  await expect(branchStack.getByTitle('回到：Service Worker 缓存')).toBeVisible();
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-before-${testInfo.project.name}.png`),
     animations: 'disabled',
   });
 
-  const firstBranch = branchStack.getByTitle('切到分支：协商缓存');
-  const stackLayer = firstBranch.locator('..');
-  const restingTransform = await stackLayer.evaluate((element) => getComputedStyle(element).transform);
+  // 悬停展开：胶带松开叠压（margin 释放）并淡入标题（max-width 过渡）
+  const firstBranch = branchStack.getByTitle('回到：协商缓存');
+  const secondBranch = branchStack.getByTitle('回到：Service Worker 缓存');
+  const restingMargin = await secondBranch.evaluate((element) => getComputedStyle(element).marginRight);
   await firstBranch.hover();
   await page.waitForTimeout(380);
-  await expect(firstBranch.getByText('打开此层')).toBeVisible();
-  const expandedTransform = await stackLayer.evaluate((element) => getComputedStyle(element).transform);
-  expect(expandedTransform).not.toBe(restingTransform);
+  await expect(firstBranch.getByText('协商缓存')).toBeVisible();
+  const expandedMargin = await secondBranch.evaluate((element) => getComputedStyle(element).marginRight);
+  expect(expandedMargin).not.toBe(restingMargin);
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-hover-stack-${testInfo.project.name}.png`),
     animations: 'disabled',
@@ -129,9 +130,9 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
   });
   const anchorMessage = page.locator(`[data-message-id="${anchorId}"]`);
   await anchorMessage.hover();
-  await anchorMessage.getByRole('button', { name: '从这里分支' }).click();
+  await anchorMessage.getByRole('button', { name: '从这条回答派生新分支继续提问' }).click();
   await expect(page.getByRole('heading', { name: '从消息继续' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: '会话分支路径' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '会话树路径' })).toBeVisible();
   await page.waitForTimeout(90);
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-motion-mid-${testInfo.project.name}.png`),
@@ -149,14 +150,19 @@ test('术语和消息锚点创建可回溯的语义分支', async ({ page }, tes
   const parentCard = page.getByTitle('回到：HTTP 缓存策略');
   await parentCard.hover();
   await page.waitForTimeout(380);
-  await expect(parentCard.getByText('回到此层')).toBeVisible();
+  // 父级胶带沿上缘一行排布，标题常显（收起展开只发生在分支堆）
+  await expect(parentCard.getByText('HTTP 缓存策略')).toBeVisible();
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-hover-ancestor-${testInfo.project.name}.png`),
     animations: 'disabled',
   });
 
   await parentCard.click();
-  await page.getByTitle('切到分支：协商缓存').click();
+  // 切到根后分支堆含 4 个分支、收起时相互叠压：先悬停展开整叠再点目标分支
+  const branchSwitch = page.getByTitle('回到：协商缓存');
+  await branchStack.hover();
+  await page.waitForTimeout(380);
+  await branchSwitch.click();
   await expect(page.getByRole('heading', { name: '协商缓存' })).toBeVisible();
   await expect(page.getByText('协商缓存会使用 ETag 或 Last-Modified。')).toBeVisible();
   await page.screenshot({
@@ -194,7 +200,7 @@ test('1024 宽度保留直接卡片堆且不遮挡输入区', async ({ page }, t
   );
 
   await page.goto('/', { waitUntil: 'networkidle' });
-  const pathNavigation = page.getByRole('navigation', { name: '会话分支路径' });
+  const pathNavigation = page.getByRole('navigation', { name: '会话树路径' });
   await expect(pathNavigation).toBeVisible();
   await expect(pathNavigation.getByRole('button', { name: /HTTP 缓存策略/ })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /输入问题/ })).toBeVisible();

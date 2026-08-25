@@ -136,9 +136,6 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
   });
 
   await expect(page.getByRole('heading', { name: 'HTTP Cache-Control' })).toBeVisible();
-  const branchStack = page.getByRole('complementary', { name: '后续分支' });
-  await expect(branchStack).toBeVisible();
-  await expect(branchStack.getByTitle('切到分支：协商缓存')).toBeVisible();
   await expect(page.getByText('置信度 96%')).toBeVisible();
   await expect(page.getByRole('link', { name: '缓存策略笔记' })).toBeVisible();
   await expect(page.getByText('MDN Cache-Control', { exact: true }).first()).toBeVisible();
@@ -150,7 +147,8 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
     'href',
     new RegExp(`/interview\\?concept=${conceptId}.*source=message%3A`),
   );
-  await expect(page.getByRole('link', { name: '加入复习' })).toHaveAttribute(
+  // A2 队列治理后：入队态的动作链接是「去复习」（未入队才是「确认入队」按钮）
+  await expect(page.getByRole('link', { name: '去复习' })).toHaveAttribute(
     'href',
     new RegExp(`/review\\?concept=${conceptId}.*source=message%3A`),
   );
@@ -161,6 +159,11 @@ test('Concept 触发器支持键盘并打开多来源上下文轨道', async ({ 
 
   await page.getByRole('button', { name: /HTTP 缓存策略/ }).last().click();
   await expect(page.locator(`[data-message-id="${messageId}"]`)).toBeVisible();
-  await page.getByRole('button', { name: '关闭概念详情' }).click();
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'HTTP Cache-Control' })).toHaveCount(0);
+
+  // 分支胶带堆在便利贴弹层关闭后（modal 会 aria-hidden 背景）才可断言
+  const branchStack = page.getByRole('group', { name: /分支会话/ });
+  await expect(branchStack).toBeVisible();
+  await expect(branchStack.getByTitle('回到：协商缓存')).toBeVisible();
 });

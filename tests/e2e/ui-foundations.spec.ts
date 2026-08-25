@@ -54,6 +54,20 @@ test('基础组件具备完整视觉状态和键盘行为', async ({ page }, tes
   await expect(page.getByRole('menuitem', { name: '归档' })).toBeVisible();
   await page.keyboard.press('Escape');
 
+  // 统一下拉选择器：键盘全流程（Enter 展开 → 方向键移动 → Enter 选中 → 触发钮回显）
+  const selectTrigger = page.getByRole('button', { name: '所属工作区' });
+  await selectTrigger.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menuitem', { name: '数据库进阶' })).toBeVisible();
+  await page.screenshot({
+    path: path.join(captureRoot, `${phase}-components-select-open-desktop-after.png`),
+    animations: 'disabled',
+  });
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(selectTrigger).toHaveText(/数据库进阶/);
+  await page.keyboard.press('Escape');
+
   await page.getByRole('button', { name: '显示通知' }).click();
   await expect(page.getByRole('status').filter({ hasText: '已加入复习队列' })).toBeVisible();
 

@@ -30,7 +30,9 @@ import {
 } from './DropdownMenu';
 import { Field, Input, Textarea } from './Field';
 import { IconButton } from './IconButton';
+import { LinkButton } from './LinkButton';
 import { Popover, PopoverContent, PopoverTrigger } from './Popover';
+import { Select, type SelectItem } from './Select';
 import { SegmentedControl } from './SegmentedControl';
 import { Skeleton } from './Skeleton';
 import { EmptyState, ErrorState } from './StatePanel';
@@ -41,8 +43,15 @@ const modes = [
   { value: 'explore', label: '探索', icon: <Sparkles /> },
 ];
 
+const workspaceItems: SelectItem[] = [
+  { value: 'default', label: '默认工作区' },
+  { value: 'db', label: '数据库进阶' },
+  { value: 'frontend', label: '前端工程化' },
+];
+
 export function UIShowcase() {
   const [mode, setMode] = useState('focus');
+  const [workspace, setWorkspace] = useState('default');
   const toast = useToast();
 
   return (
@@ -60,6 +69,7 @@ export function UIShowcase() {
             <Button variant="danger">删除记录</Button>
             <Button loading>正在保存</Button>
             <Button disabled>不可用</Button>
+            <LinkButton href="/today">回今日</LinkButton>
           </div>
         </ShowcaseSection>
 
@@ -93,6 +103,18 @@ export function UIShowcase() {
             </Field>
             <Field label="补充说明" htmlFor="context" className="md:col-span-2">
               <Textarea id="context" placeholder="记录当前理解、疑问或需要关联的上下文" />
+            </Field>
+            <Field label="所属工作区" htmlFor="workspace-select" hint="统一下拉选择器，键盘方向键可选。" className="md:col-span-2">
+              <div className="max-w-64">
+                <Select
+                  id="workspace-select"
+                  value={workspace}
+                  onValueChange={setWorkspace}
+                  items={workspaceItems}
+                  ariaLabel="所属工作区"
+                  className="w-full"
+                />
+              </div>
             </Field>
           </div>
         </ShowcaseSection>

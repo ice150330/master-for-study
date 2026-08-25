@@ -150,18 +150,24 @@ test('会话工作区支持历史术语、搜索和完整管理流程', async ({
     path: path.join(captureRoot, `${phase}-history-term-${testInfo.project.name}.png`),
     animations: 'disabled',
   });
+  // 概念便利贴是 modal 弹层，打开时背景被 aria-hidden——先关掉再操作页头
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
 
-  await page.getByRole('button', { name: /会话列表/ }).click();
+  // 树气泡触发钮（悬停/点击皆开；锚定正则避开分支堆「还有 N 个…打开会话树」溢出钮）
+  await page.getByRole('button', { name: /^打开会话树/ }).click();
   const search = page.getByRole('textbox', { name: '搜索会话' });
+  const treePanel = page.locator('.tree-bubble');
   await search.fill('SQL');
-  await expect(page.getByRole('button', { name: 'SQL 聚合查询' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'HTTP 缓存策略' })).toHaveCount(0);
+  // 限定在树气泡内断言：底部路径条的当前会话钮不受搜索影响
+  await expect(treePanel.getByRole('button', { name: 'SQL 聚合查询' })).toBeVisible();
+  await expect(treePanel.getByRole('button', { name: 'HTTP 缓存策略' })).toHaveCount(0);
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-session-search-${testInfo.project.name}.png`),
     animations: 'disabled',
   });
   await search.fill('');
-  await page.getByRole('button', { name: '关闭会话列表' }).click();
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: '会话操作' }).click();
   await page.getByRole('menuitem', { name: '重命名' }).click();
@@ -172,9 +178,9 @@ test('会话工作区支持历史术语、搜索和完整管理流程', async ({
 
   await page.getByRole('button', { name: '会话操作' }).click();
   await page.getByRole('menuitem', { name: '置顶会话' }).click();
-  await page.getByRole('button', { name: /会话列表/ }).click();
+  await page.getByRole('button', { name: /^打开会话树/ }).click();
   await expect(page.getByLabel('已置顶')).toBeVisible();
-  await page.getByRole('button', { name: '关闭会话列表' }).click();
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: '会话操作' }).click();
   await page.getByRole('menuitem', { name: '删除' }).click();
@@ -188,7 +194,7 @@ test('会话工作区支持历史术语、搜索和完整管理流程', async ({
   await page.getByRole('button', { name: '会话操作' }).click();
   await page.getByRole('menuitem', { name: '归档' }).click();
   await expect(page.getByRole('heading', { name: 'SQL 聚合查询' })).toBeVisible();
-  await page.getByRole('button', { name: /会话列表/ }).click();
+  await page.getByRole('button', { name: /^打开会话树/ }).click();
   await expect(page.getByText('HTTP 缓存与协商')).toBeVisible();
   await page.screenshot({
     path: path.join(captureRoot, `${phase}-archived-session-${testInfo.project.name}.png`),
